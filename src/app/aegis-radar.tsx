@@ -1,5 +1,16 @@
 "use client";
-import { useState, useMemo, useCallback, createContext, useContext } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, createContext, useContext } from "react";
+
+// ── Supabase client (optional — works without it) ──
+let sb = null;
+try {
+  const url = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_URL;
+  const key = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (url && key) {
+    const { createClient } = require('@supabase/supabase-js');
+    sb = createClient(url, key);
+  }
+} catch(e) { /* Supabase not available — runs in demo mode */ }
 
 // ═══════════════════════════════════════════════════════════════
 // AEGIS RADAR v8 — Fully Bilingual (FR/EN)
@@ -377,6 +388,7 @@ const css=`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wg
 @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes pd{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .fi{animation:fi .35s cubic-bezier(.22,1,.36,1) forwards}.fi1{animation-delay:.04s;opacity:0}.fi2{animation-delay:.08s;opacity:0}.fi3{animation-delay:.12s;opacity:0}.fi4{animation-delay:.16s;opacity:0}.fi5{animation-delay:.2s;opacity:0}
 .pd{width:6px;height:6px;border-radius:50%;background:#34D399;animation:pd 2.5s ease-in-out infinite}
 .card{background:var(--bg2);border:1px solid var(--b);border-radius:var(--r);transition:border-color .2s,transform .15s}.card:active{transform:scale(.988)}.card:hover{border-color:var(--b2)}
@@ -431,6 +443,7 @@ const I={
   star:p=><svg {...p} style={{width:16,height:16,...(p?.style||{})}} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   starO:p=><svg {...p} style={{width:16,height:16,...(p?.style||{})}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   clock:ic("M12 12V6M16 14l-4-2M22 12a10 10 0 11-20 0 10 10 0 0120 0z",12),ext:ic("M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3",10),settings:ic("M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"),logout:ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"),
+  refresh:ic("M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"),
 };
 
 function SR({s,sz=44,sw=3}){const r=(sz-sw*2)/2,c=2*Math.PI*r,o=c-(s/100)*c,col=sC(s);return(<div className="sr" style={{width:sz,height:sz}}><svg width={sz} height={sz}><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="var(--b)" strokeWidth={sw}/><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)"}}/></svg><span className="sr-v" style={{color:col,fontSize:sz*.29}}>{s}</span></div>)}
@@ -442,10 +455,120 @@ function App(){
   const[loginEm,setLoginEm]=useState("");
   const[loginPw,setLoginPw]=useState("");
   const[loginErr,setLoginErr]=useState(false);
-  const tryLogin=()=>{if(loginEm.toLowerCase()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){setLoginErr(false);setStep("select")}else{setLoginErr(true)}};
+  const tryLogin=()=>{if(loginEm.toLowerCase()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){setLoginErr(false);loadDB();setStep("select")}else{setLoginErr(true)}};
   const[tab,setTab]=useState("dashboard");
   const[cos,setCos]=useState(COMPANIES);
   const[notes,setNotes]=useState(NOTES);
+  const[dbLoaded,setDbLoaded]=useState(false);
+
+  // ── Supabase persistence ──
+  const USER_EMAIL="asprevel@gmail.com";
+
+  const loadDB=useCallback(async()=>{
+    if(!sb){setDbLoaded(true);return}
+    try{
+      // Load prefs
+      const{data:prefs}=await sb.from("user_prefs").select("*").eq("user_email",USER_EMAIL).single();
+      if(prefs){
+        setLang(prefs.lang||"fr");
+        if(prefs.selected_lines)setSelLines(prefs.selected_lines);
+        if(prefs.auto_refresh!==undefined)setAutoRefresh(prefs.auto_refresh);
+      }
+      // Load watchlist
+      const{data:wl}=await sb.from("watchlist").select("*").eq("user_email",USER_EMAIL);
+      if(wl&&wl.length>0){
+        setCos(prev=>{
+          const updated=prev.map(c=>{
+            const entry=wl.find(w=>w.company_id===c.id);
+            return entry?{...c,prio:entry.priority||"watch"}:{...c,prio:null};
+          });
+          // Add external companies from DB that aren't in static list
+          const staticIds=new Set(prev.map(c=>c.id));
+          const extras=wl.filter(w=>!staticIds.has(w.company_id)).map(w=>({
+            id:w.company_id,name:w.company_name,sector:w.company_sector||"—",
+            hq:w.company_hq||"—",ticker:w.company_ticker,cap:w.company_cap||"—",
+            emp:w.company_emp||"—",logo:w.company_logo||(w.company_name?w.company_name[0]:"?"),
+            risk:w.company_risk||50,trend:w.company_trend||"stable",prio:w.priority||"watch"
+          }));
+          return[...updated,...extras];
+        });
+      }
+      // Load notes
+      const{data:dbNotes}=await sb.from("notes").select("*").eq("user_email",USER_EMAIL).order("created_at",{ascending:false});
+      if(dbNotes&&dbNotes.length>0){
+        const mapped=dbNotes.map(n=>({id:n.id,cid:n.company_id,text:n.content,tag:n.tag,at:n.created_at}));
+        setNotes(prev=>[...mapped,...prev.filter(p=>!mapped.find(m=>m.id===p.id))]);
+      }
+      // Load live signals
+      const{data:liveDb}=await sb.from("live_signals").select("*").eq("user_email",USER_EMAIL).order("fetched_at",{ascending:false}).limit(50);
+      if(liveDb&&liveDb.length>0){
+        const mapped=liveDb.map(s=>({
+          id:s.id,cid:s.company_id,
+          title:{en:s.title_en||"",fr:s.title_fr||""},
+          sum:{en:s.summary_en||"",fr:s.summary_fr||""},
+          src:s.source_name||"Web",at:s.fetched_at,
+          cat:s.category||"governance",fact:s.factuality||"needs_review",
+          imp:s.importance||50,conf:s.confidence||50,
+          live:true,_impacts:s.impacts||[]
+        }));
+        setLiveSigs(mapped);
+      }
+      setDbLoaded(true);
+    }catch(e){console.error("DB load error:",e);setDbLoaded(true)}
+  },[]);
+
+  const saveWatchlistDB=useCallback(async(company,prio)=>{
+    if(!sb)return;
+    try{
+      if(prio){
+        await sb.from("watchlist").upsert({
+          user_email:USER_EMAIL,company_id:company.id,company_name:company.name,
+          company_sector:typeof company.sector==="object"?company.sector.en:company.sector,
+          company_hq:company.hq,company_ticker:company.ticker,company_cap:company.cap,
+          company_emp:company.emp,company_logo:company.logo,company_risk:company.risk,
+          company_trend:company.trend,priority:prio
+        },{onConflict:"user_email,company_id"});
+      }else{
+        await sb.from("watchlist").delete().eq("user_email",USER_EMAIL).eq("company_id",company.id);
+      }
+    }catch(e){console.error("Save watchlist error:",e)}
+  },[]);
+
+  const saveNoteDB=useCallback(async(note)=>{
+    if(!sb)return;
+    try{
+      await sb.from("notes").insert({
+        id:note.id,user_email:USER_EMAIL,company_id:note.cid,
+        content:typeof note.text==="string"?note.text:note.text?.en||"",
+        tag:note.tag
+      });
+    }catch(e){console.error("Save note error:",e)}
+  },[]);
+
+  const savePrefsDB=useCallback(async(updates)=>{
+    if(!sb)return;
+    try{
+      await sb.from("user_prefs").upsert({
+        user_email:USER_EMAIL,...updates,updated_at:new Date().toISOString()
+      },{onConflict:"user_email"});
+    }catch(e){console.error("Save prefs error:",e)}
+  },[]);
+
+  const saveLiveSignalsDB=useCallback(async(signals)=>{
+    if(!sb||!signals.length)return;
+    try{
+      const rows=signals.map(s=>({
+        id:s.id,user_email:USER_EMAIL,company_id:s.cid,company_name:s.company||"",
+        title_en:s.title?.en||"",title_fr:s.title?.fr||"",
+        summary_en:s.sum?.en||s.summary?.en||"",summary_fr:s.sum?.fr||s.summary?.fr||"",
+        source_name:s.src||s.source||"Web",category:s.cat||s.category||"governance",
+        importance:s.imp||s.importance||50,confidence:s.conf||s.confidence||50,
+        factuality:s.fact||s.factuality||"needs_review",
+        impacts:s._impacts||s.impacts||[],fetched_at:s.at||new Date().toISOString()
+      }));
+      await sb.from("live_signals").upsert(rows,{onConflict:"id"});
+    }catch(e){console.error("Save live signals error:",e)}
+  },[]);
   const[selComp,setSC]=useState(null);
   const[selSig,setSS]=useState(null);
   const[showBrief,setSB]=useState(false);
@@ -462,22 +585,75 @@ function App(){
   const[noteFilter,setNF]=useState(null);
   const[addSrch,setAS]=useState("");
   const[selLines,setSelLines]=useState(["do","crime","cyber"]);
-  const togLine=k=>setSelLines(p=>p.includes(k)?p.filter(x=>x!==k):[...p,k]);
+  const togLine=k=>{setSelLines(p=>{const n=p.includes(k)?p.filter(x=>x!==k):[...p,k];savePrefsDB({selected_lines:n});return n})};
+  const[liveSigs,setLiveSigs]=useState([]);
+  const[refreshing,setRefreshing]=useState(false);
+  const[lastRefresh,setLastRefresh]=useState(null);
+  const[newCount,setNewCount]=useState(0);
+  const[autoRefresh,setAutoRefresh]=useState(true);
 
-  const showT=m=>{setToast(m);setTimeout(()=>setToast(null),2200)};
+  const showT=m=>{setToast(m);setTimeout(()=>setToast(null),2800)};
   const watched=useMemo(()=>cos.filter(c=>c.prio).sort((a,b)=>b.risk-a.risk),[cos]);
   const togW=useCallback((id,forcePrio)=>{
-    setCos(p=>p.map(c=>{
-      if(c.id!==id)return c;
-      if(forcePrio!==undefined)return{...c,prio:c.prio?null:forcePrio};
-      return{...c,prio:c.prio?null:"watch"};
-    }));
-  },[]);
-  const addN=()=>{if(!nText.trim())return;setNotes(p=>[{id:`n${Date.now()}`,cid:nComp||null,text:nText,tag:nTag,at:new Date().toISOString()},...p]);setNT("");setSNN(false);showT(t("note_saved"))};
+    setCos(p=>{
+      const updated=p.map(c=>{
+        if(c.id!==id)return c;
+        const newPrio=forcePrio!==undefined?(c.prio?null:forcePrio):(c.prio?null:"watch");
+        const newC={...c,prio:newPrio};
+        saveWatchlistDB(newC,newPrio);
+        return newC;
+      });
+      return updated;
+    });
+  },[saveWatchlistDB]);
+  const addN=()=>{if(!nText.trim())return;const note={id:`n${Date.now()}`,cid:nComp||null,text:nText,tag:nTag,at:new Date().toISOString()};setNotes(p=>[note,...p]);saveNoteDB(note);setNT("");setSNN(false);showT(t("note_saved"))};
+
+  // ── Live refresh ──
+  const refreshSignals=useCallback(async()=>{
+    const wCos=cos.filter(c=>c.prio);
+    if(wCos.length===0||refreshing)return;
+    setRefreshing(true);
+    try{
+      const res=await fetch("/api/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({companies:wCos.map(c=>({name:c.name,sector:tx(c.sector,lang)})),lang})});
+      if(!res.ok)throw new Error(await res.text());
+      const data=await res.json();
+      if(data.signals&&data.signals.length>0){
+        const mapped=data.signals.map(s=>{const co=cos.find(c=>c.name.toLowerCase()===s.company.toLowerCase())||cos.find(c=>s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));return{id:s.id,cid:co?.id||null,title:s.title||{en:s.company,fr:s.company},sum:s.summary||{en:"",fr:""},src:s.source||"Web",at:s.fetchedAt||new Date().toISOString(),cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}}).filter(s=>s.cid);
+        setLiveSigs(p=>{const existIds=new Set(p.map(s=>s.id));const fresh=mapped.filter(s=>!existIds.has(s.id));return[...fresh,...p]});
+        saveLiveSignalsDB(mapped);
+        setNewCount(p=>p+mapped.length);
+        setLastRefresh(new Date().toISOString());
+        showT(lang==="fr"?`${mapped.length} nouveau(x) signal(aux) détecté(s)`:`${mapped.length} new signal(s) detected`);
+      }else{
+        setLastRefresh(new Date().toISOString());
+        showT(lang==="fr"?"Aucun nouveau signal":"No new signals");
+      }
+    }catch(e){console.error("Refresh error:",e);showT(lang==="fr"?"Erreur de rafraîchissement":"Refresh error")}
+    setRefreshing(false);
+  },[cos,lang,refreshing]);
+
+  // Auto-refresh every hour
+  const refreshRef=useRef(null);
+  useEffect(()=>{
+    if(autoRefresh&&step==="app"){
+      refreshRef.current=setInterval(()=>refreshSignals(),3600000);
+      return()=>clearInterval(refreshRef.current);
+    }
+  },[autoRefresh,step,refreshSignals]);
+
+  // Merge static + live signals
+  const allSignals=useMemo(()=>{
+    const live=liveSigs.map(s=>({...s,impacts:undefined}));
+    return[...SIGNALS,...live];
+  },[liveSigs]);
+  const liveImpacts=useMemo(()=>liveSigs.flatMap(s=>(s._impacts||[]).map(i=>({sid:s.id,line:i.line,lvl:i.level,why:i.why,angle:i.angle,vig:[],hyp:[]}))),[liveSigs]);
+  const getImpsAll=useCallback(sid=>{const stat=IMPACTS.filter(i=>i.sid===sid);const live=liveImpacts.filter(i=>i.sid===sid);return[...stat,...live]},[liveImpacts]);
+  const getLinesAll=useCallback(sigs=>[...new Set(sigs.flatMap(s=>getImpsAll(s.id).map(i=>i.line)))],[getImpsAll]);
+
   const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}return s.sort((a,b)=>b.imp-a.imp)},[activeCat,search,lang]);
-  const wlSigs=useMemo(()=>filterSigs(SIGNALS.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs]);
-  const allSigs=useMemo(()=>filterSigs(SIGNALS),[filterSigs]);
-  const digest=useMemo(()=>{const ws=SIGNALS.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return{total:ws.length,crit:ws.filter(s=>s.imp>=80).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos]);
+  const wlSigs=useMemo(()=>filterSigs(allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs,allSignals]);
+  const allSigs=useMemo(()=>filterSigs(allSignals),[filterSigs,allSignals]);
+  const digest=useMemo(()=>{const ws=allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return{total:ws.length,crit:ws.filter(s=>s.imp>=80).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos,allSignals]);
   const goTab=tb=>{setTab(tb);setSC(null);setSSh(false);setSrch("");setACat(null);setAS("");setExtRes([])};
   const fFull=()=>new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"long",day:"numeric",month:"long"});
   const greeting=()=>{const h=new Date().getHours();return h<12?t("greeting_morning"):h<18?t("greeting_afternoon"):t("greeting_evening")};
@@ -505,7 +681,9 @@ function App(){
   const addExtCompany=(name,desc)=>{
     const id=`ext${Date.now()}`;
     const sector=desc.length>60?desc.substring(0,60)+"…":desc||"—";
-    setCos(p=>[...p,{id,name,sector,hq:"—",ticker:null,cap:"—",emp:"—",logo:name[0],risk:50,trend:"stable",prio:"watch"}]);
+    const newCo={id,name,sector,hq:"—",ticker:null,cap:"—",emp:"—",logo:name[0],risk:50,trend:"stable",prio:"watch"};
+    setCos(p=>[...p,newCo]);
+    saveWatchlistDB(newCo,"watch");
     setExtRes([]);setAS("");
     showT(`${name} ${t("added_wl")}`);
   };
@@ -539,7 +717,7 @@ function App(){
     </div>);}
 
   // ── SIGNAL CARD ──
-  const SigCard=({s,d=0})=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid);const imps=getImps(s.id);return(
+  const SigCard=({s,d=0})=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid);const imps=getImpsAll(s.id);return(
     <div className={`card fi ${d>0?`fi${Math.min(d,5)}`:""}`} style={{padding:"16px 18px",cursor:"pointer"}} onClick={()=>setSS(s)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>{cat?.icon}</span><span className="lbl" style={{color:cat?.c,fontSize:10}}>{cat?.label}</span></div><span className="badge" style={{background:sBg(s.imp),color:sT(s.imp)}}>{s.imp}</span></div>
       <h3 style={{fontSize:14,fontWeight:600,color:"var(--t1)",lineHeight:1.4,marginBottom:8}}>{tx(s.title,lang)}</h3>
@@ -549,7 +727,7 @@ function App(){
     </div>)};
 
   // ── SIGNAL DETAIL ──
-  const SigDet=({s,onClose})=>{if(!s)return null;const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid);const f=factLbl(s.fact,t);const imps=getImps(s.id);return(
+  const SigDet=({s,onClose})=>{if(!s)return null;const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid);const f=factLbl(s.fact,t);const imps=getImpsAll(s.id);return(
     <div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingTop:8}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{cat?.icon}</span><span className="lbl" style={{color:cat?.c,fontSize:11}}>{cat?.label}</span></div><button className="bi" style={{width:32,height:32}} onClick={onClose}><I.x/></button></div>
@@ -574,7 +752,7 @@ function App(){
     </div></div>)};
 
   // ── BRIEF ──
-  const BriefSheet=({cid,onClose})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getAllLines(sigs);const imps=IMPACTS.filter(i=>sigs.some(s=>s.id===i.sid));const angles=imps.filter(i=>i.angle).slice(0,4).map(i=>tx(i.angle,lang));const questions=imps.flatMap(i=>i.hyp).slice(0,5).map(h=>tx(h,lang));const actions=cn.filter(n=>n.tag==="action").map(n=>tx(n.text,lang));
+  const BriefSheet=({cid,onClose})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);const imps=[...IMPACTS,...liveImpacts].filter(i=>sigs.some(s=>s.id===i.sid));const angles=imps.filter(i=>i.angle).slice(0,4).map(i=>tx(i.angle,lang));const questions=imps.flatMap(i=>i.hyp).slice(0,5).map(h=>tx(h,lang));const actions=cn.filter(n=>n.tag==="action").map(n=>tx(n.text,lang));
     const txt=`${t("brief_title").toUpperCase()} — ${co?.name}\n${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}\n\n${t("exec_summary").toUpperCase()}\n${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk,t)}\n\n${t("key_signals").toUpperCase()}\n${sigs.slice(0,5).map((s,i)=>`${i+1}. [${s.imp}] ${tx(s.title,lang)}`).join("\n")}\n\n${t("fl_implications").toUpperCase()}\n${lines.map(l=>lineLbl(l,lang)).join(", ")}\n\n${t("discussion_angles").toUpperCase()}\n${angles.map(a=>`• ${a}`).join("\n")}\n\n${t("questions_to_ask").toUpperCase()}\n${questions.map(q=>`• ${q}`).join("\n")}\n\n${t("next_steps").toUpperCase()}\n${actions.length>0?actions.map(a=>`• ${a}`).join("\n"):`• ${t("to_be_defined")}`}\n\n— SIGNALIS`;
     return(<div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
@@ -595,7 +773,7 @@ function App(){
     </div></div>)};
 
   // ── COMPANY PAGE ──
-  const CompPage=({cid})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getAllLines(sigs);if(!co)return null;return(
+  const CompPage=({cid})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);if(!co)return null;return(
     <div style={{paddingBottom:100}}>
       <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:14,height:14}}/>{t("generate_brief")}</button></div></div></div>
       <div style={{padding:"24px 20px"}}>
@@ -621,7 +799,7 @@ function App(){
   const render=()=>{
     if(selComp)return<CompPage cid={selComp}/>;
     if(tab==="dashboard")return(<div style={{paddingBottom:100}}>
-      <div className="hdr"><div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:10}}><I.radar/><span className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("dashboard_title")}</span></div><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.search/>}</button><button className="bi" style={{width:34,height:34,position:"relative"}}><I.bell/><div style={{position:"absolute",top:5,right:5,width:6,height:6,borderRadius:"50%",background:"#EF4444",border:"2px solid var(--bg2)"}}/></button></div></div>{showSearch&&<input className="inp" style={{marginTop:12}} placeholder={t("search_placeholder")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}</div>
+      <div className="hdr"><div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:10}}><I.radar/><span className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("dashboard_title")}</span>{autoRefresh&&<div className="pd" style={{marginLeft:4}}/>}</div><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.search/>}</button><button className="bi" style={{width:34,height:34}} onClick={()=>refreshSignals()} disabled={refreshing}><I.refresh style={{animation:refreshing?"spin 1s linear infinite":"none"}}/></button><button className="bi" style={{width:34,height:34,position:"relative"}} onClick={()=>setNewCount(0)}><I.bell/>{newCount>0&&<div style={{position:"absolute",top:3,right:3,minWidth:16,height:16,borderRadius:8,background:"#EF4444",border:"2px solid var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:700,color:"white"}}>{newCount>9?"9+":newCount}</span></div>}</div></div></div>{showSearch&&<input className="inp" style={{marginTop:12}} placeholder={t("search_placeholder")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:8,textAlign:"right"}}>{lang==="fr"?"Dernière mise à jour :":"Last update:"} {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div>
       <div style={{padding:"18px 20px"}}><p className="fd" style={{fontSize:16,fontWeight:500,color:"var(--t1)",marginBottom:4}}>{greeting()}</p><p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{t("dashboard_sub")}</p>
         <div className="card-el fi" style={{padding:"16px 18px",marginBottom:22,borderLeft:"3px solid var(--gold)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><p className="lbl" style={{color:"var(--gold)",marginBottom:5}}>{t("daily_digest")} — {fFull()}</p><p style={{fontSize:14,color:"var(--t2)",lineHeight:1.45}}><strong style={{color:"var(--t1)"}}>{digest.crit}</strong> {digest.crit>1?t("critical_signals"):t("critical_signal")} {t("across")} <strong style={{color:"var(--t1)"}}>{digest.comps}</strong> {t("companies_lc")}</p></div><div className="pd" style={{marginTop:4}}/></div></div>
         <div className="fi fi1" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:22}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("active"),v:digest.total,c:"#60A5FA"},{l:t("critical_lbl"),v:digest.crit,c:"#F87171"}].map(x=>(<div key={x.l} className="card" style={{padding:"14px 12px",textAlign:"center"}}><p style={{fontSize:22,fontWeight:700,color:x.c,lineHeight:1}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:5,fontSize:9}}>{x.l}</p></div>))}</div>
@@ -666,17 +844,22 @@ function App(){
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("profile")}</h3>
         <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"linear-gradient(135deg,var(--gold),rgba(201,168,76,.6))",color:"var(--bg)"}}>AS</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>Anne-Sophie</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines</p></div></div></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("language")}</h3>
-        <div className="lang-sw" style={{marginBottom:28}}><button className={lang==="en"?"on":""} onClick={()=>setLang("en")}>English</button><button className={lang==="fr"?"on":""} onClick={()=>setLang("fr")}>Français</button></div>
+        <div className="lang-sw" style={{marginBottom:28}}><button className={lang==="en"?"on":""} onClick={()=>{setLang("en");savePrefsDB({lang:"en"})}}>English</button><button className={lang==="fr"?"on":""} onClick={()=>{setLang("fr");savePrefsDB({lang:"fr"})}}>Français</button></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("preferred_lines")}</h3>
         <div className="card" style={{padding:"16px 18px",marginBottom:28}}><p style={{fontSize:12,color:"var(--t4)",marginBottom:12}}>{t("preferred_lines_sub")}</p><div style={{display:"flex",flexDirection:"column",gap:8}}>{Object.entries(LINES).map(([k])=>{const checked=selLines.includes(k);return(<label key={k} style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>togLine(k)}><div style={{width:18,height:18,borderRadius:4,border:`2px solid ${checked?"var(--gold)":"var(--b2)"}`,background:checked?"var(--gbg)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>{checked&&<span style={{color:"var(--gold)",fontSize:12,fontWeight:700}}>✓</span>}</div><span style={{fontSize:13,color:checked?"var(--t1)":"var(--t3)",transition:"color .2s"}}>{lineLbl(k,lang)}</span></label>)})}</div></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("notifications")}</h3>
         <div className="card" style={{padding:"16px 18px",marginBottom:28}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{fontSize:13,color:"var(--t2)"}}>{t("daily_digest_toggle")}</span><div style={{width:36,height:20,borderRadius:10,background:"var(--gold)",padding:2}}><div style={{width:16,height:16,borderRadius:8,background:"white",marginLeft:16}}/></div></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}} onClick={()=>{setAutoRefresh(!autoRefresh);savePrefsDB({auto_refresh:!autoRefresh})}}><span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Rafraîchissement auto (1h)":"Auto-refresh (1h)"}</span><div style={{width:36,height:20,borderRadius:10,background:autoRefresh?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}}><div style={{width:16,height:16,borderRadius:8,background:autoRefresh?"white":"var(--t4)",marginLeft:autoRefresh?16:0,transition:"margin-left .2s"}}/></div></div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:"var(--t2)"}}>{t("critical_alerts")}</span><div style={{width:36,height:20,borderRadius:10,background:"var(--b2)",padding:2}}><div style={{width:16,height:16,borderRadius:8,background:"var(--t4)"}}/></div></div>
           <p style={{fontSize:11,color:"var(--t5)",marginTop:12}}>{t("notif_coming")}</p>
         </div>
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:14}}>{t("about")}</h3>
-        <div className="card" style={{padding:"16px 18px",marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{t("version")}</span><span style={{fontSize:13,color:"var(--t4)"}}>1.0.0</span></div></div>
+        <div className="card" style={{padding:"16px 18px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{t("version")}</span><span style={{fontSize:13,color:"var(--t4)"}}>1.0.0</span></div>
+          <div className="dv" style={{margin:"8px 0"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Base de données":"Database"}</span><span style={{fontSize:13,color:sb?"#6EE7B7":"var(--t5)"}}>{sb?(lang==="fr"?"Connectée":"Connected"):(lang==="fr"?"Hors-ligne":"Offline")}</span></div>
+          {lastRefresh&&<><div className="dv" style={{margin:"8px 0"}}/><div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Dernière mise à jour":"Last refresh"}</span><span style={{fontSize:13,color:"var(--t4)"}}>{new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</span></div></>}
+        </div>
         <div style={{textAlign:"center",padding:"20px 16px",marginBottom:28}}>
           <div className="aline" style={{width:32,margin:"0 auto 16px"}}/>
           <p style={{fontSize:13,fontWeight:500,color:"var(--t2)",marginBottom:6}}>{t("dedication")}</p>
