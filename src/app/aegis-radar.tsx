@@ -135,6 +135,7 @@ const scoreLbl=(s,t)=>s>=80?t("lbl_critical"):s>=60?t("lbl_high"):s>=40?t("lbl_m
 
 // ── COMPANIES (12) ──
 const COMPANIES=[
+  // ── Demo companies (with signals) ──
   {id:"c01",name:"Valterra Energy Group",sector:{en:"Energy & Oil & Gas",fr:"Énergie & Pétrole"},hq:"Paris, France",ticker:"VLT.PA",cap:"€42.6B",emp:"38 000",logo:"V",risk:78,trend:"rising",prio:"primary"},
   {id:"c02",name:"Krüger Industrial",sector:{en:"Industrials & Manufacturing",fr:"Industrie & Production"},hq:"Essen, Germany",ticker:"KRG.DE",cap:"€28.1B",emp:"95 000",logo:"K",risk:82,trend:"rising",prio:"primary"},
   {id:"c03",name:"Maison Céleste",sector:{en:"Luxury Goods & Fashion",fr:"Luxe & Mode"},hq:"Paris, France",ticker:"MCL.PA",cap:"€54.3B",emp:"42 000",logo:"M",risk:71,trend:"stable",prio:"secondary"},
@@ -147,6 +148,59 @@ const COMPANIES=[
   {id:"c10",name:"Meridian Infrastructure",sector:{en:"Infrastructure & Construction",fr:"Infrastructure & BTP"},hq:"Lyon, France",ticker:"MRD.PA",cap:"€15.3B",emp:"52 000",logo:"R",risk:80,trend:"rising",prio:"secondary"},
   {id:"c11",name:"Orbis Energy",sector:{en:"Renewables & Utilities",fr:"Énergies Renouvelables"},hq:"Hamburg, Germany",ticker:"OBS.DE",cap:"€7.1B",emp:"3 800",logo:"B",risk:68,trend:"stable",prio:null},
   {id:"c12",name:"Atlas Horizon Group",sector:{en:"Diversified Conglomerate",fr:"Conglomérat Diversifié"},hq:"London, UK",ticker:"AHG.L",cap:"€31.4B",emp:"67 000",logo:"Z",risk:84,trend:"rising",prio:null},
+  // ── CAC 40 ──
+  {id:"r01",name:"LVMH",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"MC.PA",cap:"€328B",emp:"213 000",logo:"L",risk:38,trend:"stable",prio:null},
+  {id:"r02",name:"TotalEnergies",sector:{en:"Energy",fr:"Énergie"},hq:"Courbevoie, France",ticker:"TTE.PA",cap:"€148B",emp:"101 000",logo:"T",risk:52,trend:"rising",prio:null},
+  {id:"r03",name:"Sanofi",sector:{en:"Pharmaceuticals",fr:"Pharmaceutique"},hq:"Paris, France",ticker:"SAN.PA",cap:"€132B",emp:"91 000",logo:"S",risk:41,trend:"stable",prio:null},
+  {id:"r04",name:"L'Oréal",sector:{en:"Consumer Goods",fr:"Biens de consommation"},hq:"Clichy, France",ticker:"OR.PA",cap:"€218B",emp:"87 000",logo:"L",risk:28,trend:"stable",prio:null},
+  {id:"r05",name:"Schneider Electric",sector:{en:"Electrical Equipment",fr:"Équipements électriques"},hq:"Rueil-Malmaison, France",ticker:"SU.PA",cap:"€120B",emp:"150 000",logo:"S",risk:35,trend:"stable",prio:null},
+  {id:"r06",name:"Air Liquide",sector:{en:"Industrial Gases",fr:"Gaz industriels"},hq:"Paris, France",ticker:"AI.PA",cap:"€92B",emp:"67 000",logo:"A",risk:25,trend:"stable",prio:null},
+  {id:"r07",name:"BNP Paribas",sector:{en:"Banking",fr:"Banque"},hq:"Paris, France",ticker:"BNP.PA",cap:"€73B",emp:"183 000",logo:"B",risk:55,trend:"stable",prio:null},
+  {id:"r08",name:"AXA",sector:{en:"Insurance",fr:"Assurance"},hq:"Paris, France",ticker:"CS.PA",cap:"€72B",emp:"145 000",logo:"A",risk:42,trend:"stable",prio:null},
+  {id:"r09",name:"Hermès",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"RMS.PA",cap:"€220B",emp:"22 000",logo:"H",risk:22,trend:"stable",prio:null},
+  {id:"r10",name:"Safran",sector:{en:"Aerospace & Defence",fr:"Aéronautique & Défense"},hq:"Paris, France",ticker:"SAF.PA",cap:"€82B",emp:"83 000",logo:"S",risk:37,trend:"stable",prio:null},
+  {id:"r11",name:"EssilorLuxottica",sector:{en:"Medical Devices",fr:"Dispositifs médicaux"},hq:"Paris, France",ticker:"EL.PA",cap:"€95B",emp:"190 000",logo:"E",risk:30,trend:"stable",prio:null},
+  {id:"r12",name:"Dassault Systèmes",sector:{en:"Software",fr:"Logiciel"},hq:"Vélizy, France",ticker:"DSY.PA",cap:"€62B",emp:"24 000",logo:"D",risk:32,trend:"stable",prio:null},
+  {id:"r13",name:"Vinci",sector:{en:"Construction & Concessions",fr:"BTP & Concessions"},hq:"Nanterre, France",ticker:"DG.PA",cap:"€68B",emp:"272 000",logo:"V",risk:40,trend:"stable",prio:null},
+  {id:"r14",name:"Kering",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"KER.PA",cap:"€34B",emp:"49 000",logo:"K",risk:56,trend:"rising",prio:null},
+  {id:"r15",name:"Saint-Gobain",sector:{en:"Building Materials",fr:"Matériaux de construction"},hq:"Courbevoie, France",ticker:"SGO.PA",cap:"€46B",emp:"160 000",logo:"S",risk:36,trend:"stable",prio:null},
+  {id:"r16",name:"Société Générale",sector:{en:"Banking",fr:"Banque"},hq:"Paris, France",ticker:"GLE.PA",cap:"€22B",emp:"117 000",logo:"S",risk:58,trend:"rising",prio:null},
+  {id:"r17",name:"Danone",sector:{en:"Food & Beverages",fr:"Agroalimentaire"},hq:"Paris, France",ticker:"BN.PA",cap:"€42B",emp:"88 000",logo:"D",risk:43,trend:"stable",prio:null},
+  {id:"r18",name:"Engie",sector:{en:"Utilities",fr:"Services publics"},hq:"Courbevoie, France",ticker:"ENGI.PA",cap:"€38B",emp:"97 000",logo:"E",risk:45,trend:"stable",prio:null},
+  {id:"r19",name:"Capgemini",sector:{en:"IT Services",fr:"Services informatiques"},hq:"Paris, France",ticker:"CAP.PA",cap:"€32B",emp:"340 000",logo:"C",risk:39,trend:"stable",prio:null},
+  {id:"r20",name:"Pernod Ricard",sector:{en:"Spirits & Wine",fr:"Vins & Spiritueux"},hq:"Paris, France",ticker:"RI.PA",cap:"€38B",emp:"19 000",logo:"P",risk:34,trend:"stable",prio:null},
+  {id:"r21",name:"Michelin",sector:{en:"Tyres & Mobility",fr:"Pneumatiques & Mobilité"},hq:"Clermont-Ferrand, France",ticker:"ML.PA",cap:"€24B",emp:"132 000",logo:"M",risk:33,trend:"stable",prio:null},
+  {id:"r22",name:"Publicis Groupe",sector:{en:"Advertising & Media",fr:"Publicité & Médias"},hq:"Paris, France",ticker:"PUB.PA",cap:"€28B",emp:"98 000",logo:"P",risk:36,trend:"stable",prio:null},
+  {id:"r23",name:"Renault",sector:{en:"Automotive",fr:"Automobile"},hq:"Boulogne-Billancourt, France",ticker:"RNO.PA",cap:"€14B",emp:"105 000",logo:"R",risk:55,trend:"rising",prio:null},
+  {id:"r24",name:"Orange",sector:{en:"Telecommunications",fr:"Télécommunications"},hq:"Paris, France",ticker:"ORA.PA",cap:"€28B",emp:"127 000",logo:"O",risk:42,trend:"stable",prio:null},
+  {id:"r25",name:"Bouygues",sector:{en:"Construction & Telecom",fr:"BTP & Télécoms"},hq:"Paris, France",ticker:"EN.PA",cap:"€15B",emp:"200 000",logo:"B",risk:40,trend:"stable",prio:null},
+  {id:"r26",name:"Thales",sector:{en:"Defence & Technology",fr:"Défense & Technologie"},hq:"Paris, France",ticker:"HO.PA",cap:"€38B",emp:"81 000",logo:"T",risk:38,trend:"stable",prio:null},
+  {id:"r27",name:"Stellantis",sector:{en:"Automotive",fr:"Automobile"},hq:"Amsterdam, Netherlands",ticker:"STLAP.PA",cap:"€42B",emp:"281 000",logo:"S",risk:53,trend:"rising",prio:null},
+  {id:"r28",name:"Veolia",sector:{en:"Environmental Services",fr:"Services environnementaux"},hq:"Paris, France",ticker:"VIE.PA",cap:"€22B",emp:"220 000",logo:"V",risk:37,trend:"stable",prio:null},
+  {id:"r29",name:"Airbus",sector:{en:"Aerospace",fr:"Aéronautique"},hq:"Leiden, Netherlands",ticker:"AIR.PA",cap:"€109B",emp:"134 000",logo:"A",risk:42,trend:"stable",prio:null},
+  {id:"r30",name:"Legrand",sector:{en:"Electrical Products",fr:"Produits électriques"},hq:"Limoges, France",ticker:"LR.PA",cap:"€27B",emp:"40 000",logo:"L",risk:27,trend:"stable",prio:null},
+  {id:"r31",name:"Crédit Agricole",sector:{en:"Banking",fr:"Banque"},hq:"Montrouge, France",ticker:"ACA.PA",cap:"€38B",emp:"148 000",logo:"C",risk:48,trend:"stable",prio:null},
+  {id:"r32",name:"Alstom",sector:{en:"Rail Transport",fr:"Transport ferroviaire"},hq:"Saint-Ouen, France",ticker:"ALO.PA",cap:"€10B",emp:"80 000",logo:"A",risk:58,trend:"rising",prio:null},
+  {id:"r33",name:"Worldline",sector:{en:"Payment Services",fr:"Services de paiement"},hq:"Bezons, France",ticker:"WLN.PA",cap:"€3.2B",emp:"18 000",logo:"W",risk:65,trend:"rising",prio:null},
+  {id:"r34",name:"Edenred",sector:{en:"Payment Solutions",fr:"Solutions de paiement"},hq:"Issy-les-Moulineaux, France",ticker:"EDEN.PA",cap:"€12B",emp:"12 000",logo:"E",risk:32,trend:"stable",prio:null},
+  {id:"r35",name:"Vivendi",sector:{en:"Media & Entertainment",fr:"Médias & Divertissement"},hq:"Paris, France",ticker:"VIV.PA",cap:"€10B",emp:"37 000",logo:"V",risk:50,trend:"rising",prio:null},
+  // ── European Majors ──
+  {id:"r40",name:"Allianz",sector:{en:"Insurance",fr:"Assurance"},hq:"Munich, Germany",ticker:"ALV.DE",cap:"€98B",emp:"159 000",logo:"A",risk:40,trend:"stable",prio:null},
+  {id:"r41",name:"Siemens",sector:{en:"Industrials & Technology",fr:"Industrie & Technologie"},hq:"Munich, Germany",ticker:"SIE.DE",cap:"€142B",emp:"320 000",logo:"S",risk:35,trend:"stable",prio:null},
+  {id:"r42",name:"SAP",sector:{en:"Enterprise Software",fr:"Logiciel d'entreprise"},hq:"Walldorf, Germany",ticker:"SAP.DE",cap:"€250B",emp:"108 000",logo:"S",risk:30,trend:"stable",prio:null},
+  {id:"r43",name:"Deutsche Bank",sector:{en:"Banking",fr:"Banque"},hq:"Frankfurt, Germany",ticker:"DBK.DE",cap:"€30B",emp:"87 000",logo:"D",risk:58,trend:"rising",prio:null},
+  {id:"r44",name:"BASF",sector:{en:"Chemicals",fr:"Chimie"},hq:"Ludwigshafen, Germany",ticker:"BAS.DE",cap:"€42B",emp:"112 000",logo:"B",risk:48,trend:"stable",prio:null},
+  {id:"r45",name:"BMW",sector:{en:"Automotive",fr:"Automobile"},hq:"Munich, Germany",ticker:"BMW.DE",cap:"€68B",emp:"149 000",logo:"B",risk:40,trend:"stable",prio:null},
+  {id:"r46",name:"Volkswagen",sector:{en:"Automotive",fr:"Automobile"},hq:"Wolfsburg, Germany",ticker:"VOW3.DE",cap:"€63B",emp:"673 000",logo:"V",risk:52,trend:"rising",prio:null},
+  {id:"r50",name:"Unilever",sector:{en:"Consumer Goods",fr:"Biens de consommation"},hq:"London, UK",ticker:"ULVR.L",cap:"£112B",emp:"127 000",logo:"U",risk:33,trend:"stable",prio:null},
+  {id:"r51",name:"Shell",sector:{en:"Energy",fr:"Énergie"},hq:"London, UK",ticker:"SHEL.L",cap:"£168B",emp:"86 000",logo:"S",risk:48,trend:"stable",prio:null},
+  {id:"r52",name:"HSBC",sector:{en:"Banking",fr:"Banque"},hq:"London, UK",ticker:"HSBA.L",cap:"£134B",emp:"221 000",logo:"H",risk:50,trend:"stable",prio:null},
+  {id:"r53",name:"AstraZeneca",sector:{en:"Pharmaceuticals",fr:"Pharmaceutique"},hq:"Cambridge, UK",ticker:"AZN.L",cap:"£180B",emp:"89 000",logo:"A",risk:38,trend:"stable",prio:null},
+  {id:"r54",name:"BP",sector:{en:"Energy",fr:"Énergie"},hq:"London, UK",ticker:"BP.L",cap:"£72B",emp:"67 000",logo:"B",risk:52,trend:"rising",prio:null},
+  {id:"r60",name:"Nestlé",sector:{en:"Food & Beverages",fr:"Agroalimentaire"},hq:"Vevey, Switzerland",ticker:"NESN.SW",cap:"CHF 240B",emp:"270 000",logo:"N",risk:30,trend:"stable",prio:null},
+  {id:"r61",name:"Novartis",sector:{en:"Pharmaceuticals",fr:"Pharmaceutique"},hq:"Basel, Switzerland",ticker:"NOVN.SW",cap:"CHF 195B",emp:"78 000",logo:"N",risk:35,trend:"stable",prio:null},
+  {id:"r62",name:"Roche",sector:{en:"Pharmaceuticals",fr:"Pharmaceutique"},hq:"Basel, Switzerland",ticker:"ROG.SW",cap:"CHF 205B",emp:"101 000",logo:"R",risk:33,trend:"stable",prio:null},
+  {id:"r63",name:"Zurich Insurance",sector:{en:"Insurance",fr:"Assurance"},hq:"Zurich, Switzerland",ticker:"ZURN.SW",cap:"CHF 75B",emp:"56 000",logo:"Z",risk:32,trend:"stable",prio:null},
 ];
 
 // ── SIGNALS (48 — fully bilingual) ──
@@ -291,6 +345,10 @@ const NOTES=[
   {id:"n12",cid:"c12",text:{en:"SFO investigation + £3.2B restructuring + derivative action = real insolvency risk. Assess whether D&O survives administration. Check run-off urgently.",fr:"Enquête SFO + restructuration 3,2 Md£ + action dérivée = risque réel d'insolvabilité. Évaluer si la D&O survit à une administration. Vérifier le run-off en urgence."},tag:"action",at:"2026-04-06T08:00:00Z"},
 ];
 
+// ── SOURCE URLS ──
+const SRC_URL={"Reuters":"https://reuters.com","The Guardian":"https://theguardian.com","Le Monde":"https://lemonde.fr","Bloomberg":"https://bloomberg.com","Handelsblatt":"https://handelsblatt.com","Der Spiegel":"https://spiegel.de","Financial Times":"https://ft.com","Süddeutsche Zeitung":"https://sueddeutsche.de","New York Times":"https://nytimes.com","Les Echos":"https://lesechos.fr","Vogue Business":"https://voguebusiness.com","La Repubblica":"https://repubblica.it","Il Sole 24 Ore":"https://ilsole24ore.com","Corriere della Sera":"https://corriere.it","STAT News":"https://statnews.com","BMJ":"https://bmj.com","TechCrunch":"https://techcrunch.com","Wall Street Journal":"https://wsj.com","The Information":"https://theinformation.com","Berlingske":"https://berlingske.dk","Shipping Watch":"https://shippingwatch.com","BBC News":"https://bbc.co.uk","The Times":"https://thetimes.co.uk","El País":"https://elpais.com","El Confidencial":"https://elconfidencial.com","Cinco Días":"https://cincodias.elpais.com","Mediapart":"https://mediapart.fr","Le Figaro":"https://lefigaro.fr","Wired":"https://wired.com","Energate":"https://energate-messenger.de"};
+const srcUrl=name=>{const n=typeof name==="object"?name.en:name;return SRC_URL[n]||null};
+
 // ── SELECTORS ──
 const getSigs=cid=>SIGNALS.filter(s=>s.cid===cid).sort((a,b)=>b.imp-a.imp);
 const getImps=sid=>IMPACTS.filter(i=>i.sid===sid);
@@ -418,7 +476,7 @@ function App(){
   if(step==="select"){const selCount=cos.filter(c=>c.prio).length;return(
     <div className="fi" style={{minHeight:"100vh",padding:"40px 20px 100px",background:"var(--bg)"}}>
       <div style={{textAlign:"center",marginBottom:32}}><I.radar style={{margin:"0 auto 12px",display:"block",color:"var(--gold)"}}/><h2 className="fd" style={{fontSize:22,fontWeight:600,color:"var(--t1)",marginBottom:8}}>{t("select_companies")}</h2><p style={{fontSize:13,color:"var(--t3)",lineHeight:1.55}}>{t("select_companies_sub")}</p></div>
-      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>{cos.map(c=>{const on=!!c.prio;return(<button key={c.id} className="card" style={{padding:"14px 18px",width:"100%",textAlign:"left",cursor:"pointer",borderColor:on?"rgba(201,168,76,.3)":"var(--b)",background:on?"var(--gbg)":"var(--bg2)"}} onClick={()=>togW(c.id,"watch")}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:22,height:22,borderRadius:6,border:`2px solid ${on?"var(--gold)":"var(--b2)"}`,background:on?"var(--gold)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"var(--bg)",fontSize:14,fontWeight:700}}>✓</span>}</div><span className="mono" style={{width:28,height:28,fontSize:11}}>{c.logo}</span><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:600,color:on?"var(--t1)":"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:1}}>{tx(c.sector,lang)}</p></div><SR s={c.risk} sz={34} sw={2}/></div></button>)})}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>{cos.map(c=>{const on=!!c.prio;return(<button key={c.id} className="card" style={{padding:"14px 18px",width:"100%",textAlign:"left",cursor:"pointer",borderColor:on?"rgba(201,168,76,.3)":"var(--b)",background:on?"var(--gbg)":"var(--bg2)"}} onClick={()=>togW(c.id,on?undefined:"watch")}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:22,height:22,borderRadius:6,border:`2px solid ${on?"var(--gold)":"var(--b2)"}`,background:on?"var(--gold)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"var(--bg)",fontSize:14,fontWeight:700}}>✓</span>}</div><span className="mono" style={{width:28,height:28,fontSize:11}}>{c.logo}</span><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:600,color:on?"var(--t1)":"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:1}}>{tx(c.sector,lang)}</p></div><SR s={c.risk} sz={34} sw={2}/></div></button>)})}</div>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"16px 20px",background:"rgba(7,12,24,.95)",backdropFilter:"blur(20px)",borderTop:"1px solid var(--b)"}}><button className="btn bp" style={{width:"100%",height:46}} onClick={()=>setStep("app")} disabled={selCount===0}>{t("continue_btn")} {selCount>0&&`(${selCount} ${t("selected")})`}</button><button className="btn" style={{width:"100%",marginTop:8,color:"var(--t4)",fontSize:12,background:"none"}} onClick={()=>setStep("app")}>{t("skip")}</button></div>
     </div>);}
 
@@ -442,7 +500,7 @@ function App(){
       {co&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:18,border:"1px solid var(--b)"}}><span className="mono" style={{width:28,height:28,fontSize:12}}>{co.logo}</span><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{co.name}</span><span style={{fontSize:11,color:"var(--t4)",marginLeft:10}}>{tx(co.sector,lang)}</span></div>}
       <div className="dv"/>
       <div style={{marginBottom:22}}><h4 className="lbl" style={{color:"var(--t3)",marginBottom:10}}>{t("what_happened")}</h4><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.65}}>{tx(s.sum,lang)}</p></div>
-      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)"}}>{t("source_label")}</span><span style={{fontSize:11,color:"var(--gold)",fontWeight:500}}>{tx(s.src,lang)}</span><I.ext/></div>
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)"}}>{t("source_label")}</span>{srcUrl(s.src)?<a href={srcUrl(s.src)} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--gold)",fontWeight:500,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>{tx(s.src,lang)}<I.ext/></a>:<span style={{fontSize:11,color:"var(--gold)",fontWeight:500}}>{tx(s.src,lang)}</span>}</div>
       <div className="dv"/>
       <h4 className="lbl" style={{color:"var(--t3)",marginBottom:12}}>{t("lines_impacted")}</h4>
       {imps.map((im,idx)=><div key={im.line} style={{marginBottom:idx<imps.length-1?12:22}}>
