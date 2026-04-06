@@ -1,16 +1,21 @@
 "use client";
 import { useState, useMemo, useCallback, useEffect, useRef, createContext, useContext } from "react";
 
-// ── Supabase client (optional — works without it) ──
-let sb = null;
-try {
-  const url = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_URL;
-  const key = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && key) {
-    const { createClient } = require('@supabase/supabase-js');
-    sb = createClient(url, key);
-  }
-} catch(e) { /* Supabase not available — runs in demo mode */ }
+// ── Supabase REST helper (no library needed) ──
+const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const sbOk = !!(SB_URL && SB_KEY);
+const sbFetch = async (table, method = "GET", body = null, query = "") => {
+  if (!sbOk) return null;
+  const url = `${SB_URL}/rest/v1/${table}${query}`;
+  const headers = { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Prefer": method === "POST" ? "return=representation" : method === "PATCH" ? "return=representation" : "" };
+  try {
+    const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text ? JSON.parse(text) : [];
+  } catch (e) { return null; }
+};
 
 // ═══════════════════════════════════════════════════════════════
 // AEGIS RADAR v8 — Fully Bilingual (FR/EN)
@@ -465,52 +470,31 @@ function App(){
   const USER_EMAIL="asprevel@gmail.com";
 
   const loadDB=useCallback(async()=>{
-    if(!sb){setDbLoaded(true);return}
+    if(!sbOk){setDbLoaded(true);return}
     try{
-      // Load prefs
-      const{data:prefs}=await sb.from("user_prefs").select("*").eq("user_email",USER_EMAIL).single();
-      if(prefs){
-        setLang(prefs.lang||"fr");
-        if(prefs.selected_lines)setSelLines(prefs.selected_lines);
-        if(prefs.auto_refresh!==undefined)setAutoRefresh(prefs.auto_refresh);
+      const prefs=await sbFetch("user_prefs","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&limit=1`);
+      if(prefs&&prefs[0]){
+        setLang(prefs[0].lang||"fr");
+        if(prefs[0].selected_lines)setSelLines(prefs[0].selected_lines);
+        if(prefs[0].auto_refresh!==undefined)setAutoRefresh(prefs[0].auto_refresh);
       }
-      // Load watchlist
-      const{data:wl}=await sb.from("watchlist").select("*").eq("user_email",USER_EMAIL);
+      const wl=await sbFetch("watchlist","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}`);
       if(wl&&wl.length>0){
         setCos(prev=>{
-          const updated=prev.map(c=>{
-            const entry=wl.find(w=>w.company_id===c.id);
-            return entry?{...c,prio:entry.priority||"watch"}:{...c,prio:null};
-          });
-          // Add external companies from DB that aren't in static list
+          const updated=prev.map(c=>{const entry=wl.find(w=>w.company_id===c.id);return entry?{...c,prio:entry.priority||"watch"}:{...c,prio:null}});
           const staticIds=new Set(prev.map(c=>c.id));
-          const extras=wl.filter(w=>!staticIds.has(w.company_id)).map(w=>({
-            id:w.company_id,name:w.company_name,sector:w.company_sector||"—",
-            hq:w.company_hq||"—",ticker:w.company_ticker,cap:w.company_cap||"—",
-            emp:w.company_emp||"—",logo:w.company_logo||(w.company_name?w.company_name[0]:"?"),
-            risk:w.company_risk||50,trend:w.company_trend||"stable",prio:w.priority||"watch"
-          }));
+          const extras=wl.filter(w=>!staticIds.has(w.company_id)).map(w=>({id:w.company_id,name:w.company_name,sector:w.company_sector||"—",hq:w.company_hq||"—",ticker:w.company_ticker,cap:w.company_cap||"—",emp:w.company_emp||"—",logo:w.company_logo||(w.company_name?w.company_name[0]:"?"),risk:w.company_risk||50,trend:w.company_trend||"stable",prio:w.priority||"watch"}));
           return[...updated,...extras];
         });
       }
-      // Load notes
-      const{data:dbNotes}=await sb.from("notes").select("*").eq("user_email",USER_EMAIL).order("created_at",{ascending:false});
+      const dbNotes=await sbFetch("notes","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=created_at.desc`);
       if(dbNotes&&dbNotes.length>0){
         const mapped=dbNotes.map(n=>({id:n.id,cid:n.company_id,text:n.content,tag:n.tag,at:n.created_at}));
         setNotes(prev=>[...mapped,...prev.filter(p=>!mapped.find(m=>m.id===p.id))]);
       }
-      // Load live signals
-      const{data:liveDb}=await sb.from("live_signals").select("*").eq("user_email",USER_EMAIL).order("fetched_at",{ascending:false}).limit(50);
+      const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=50`);
       if(liveDb&&liveDb.length>0){
-        const mapped=liveDb.map(s=>({
-          id:s.id,cid:s.company_id,
-          title:{en:s.title_en||"",fr:s.title_fr||""},
-          sum:{en:s.summary_en||"",fr:s.summary_fr||""},
-          src:s.source_name||"Web",at:s.fetched_at,
-          cat:s.category||"governance",fact:s.factuality||"needs_review",
-          imp:s.importance||50,conf:s.confidence||50,
-          live:true,_impacts:s.impacts||[]
-        }));
+        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
         setLiveSigs(mapped);
       }
       setDbLoaded(true);
@@ -518,55 +502,36 @@ function App(){
   },[]);
 
   const saveWatchlistDB=useCallback(async(company,prio)=>{
-    if(!sb)return;
+    if(!sbOk)return;
     try{
       if(prio){
-        await sb.from("watchlist").upsert({
-          user_email:USER_EMAIL,company_id:company.id,company_name:company.name,
-          company_sector:typeof company.sector==="object"?company.sector.en:company.sector,
-          company_hq:company.hq,company_ticker:company.ticker,company_cap:company.cap,
-          company_emp:company.emp,company_logo:company.logo,company_risk:company.risk,
-          company_trend:company.trend,priority:prio
-        },{onConflict:"user_email,company_id"});
+        await sbFetch("watchlist","POST",{user_email:USER_EMAIL,company_id:company.id,company_name:company.name,company_sector:typeof company.sector==="object"?company.sector.en:company.sector,company_hq:company.hq,company_ticker:company.ticker,company_cap:company.cap,company_emp:company.emp,company_logo:company.logo,company_risk:company.risk,company_trend:company.trend,priority:prio},`?on_conflict=user_email,company_id`);
       }else{
-        await sb.from("watchlist").delete().eq("user_email",USER_EMAIL).eq("company_id",company.id);
+        await sbFetch("watchlist","DELETE",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&company_id=eq.${encodeURIComponent(company.id)}`);
       }
     }catch(e){console.error("Save watchlist error:",e)}
   },[]);
 
   const saveNoteDB=useCallback(async(note)=>{
-    if(!sb)return;
+    if(!sbOk)return;
     try{
-      await sb.from("notes").insert({
-        id:note.id,user_email:USER_EMAIL,company_id:note.cid,
-        content:typeof note.text==="string"?note.text:note.text?.en||"",
-        tag:note.tag
-      });
+      await sbFetch("notes","POST",{user_email:USER_EMAIL,company_id:note.cid,content:typeof note.text==="string"?note.text:note.text?.en||"",tag:note.tag});
     }catch(e){console.error("Save note error:",e)}
   },[]);
 
   const savePrefsDB=useCallback(async(updates)=>{
-    if(!sb)return;
+    if(!sbOk)return;
     try{
-      await sb.from("user_prefs").upsert({
-        user_email:USER_EMAIL,...updates,updated_at:new Date().toISOString()
-      },{onConflict:"user_email"});
+      await sbFetch("user_prefs","PATCH",{...updates,updated_at:new Date().toISOString()},`?user_email=eq.${encodeURIComponent(USER_EMAIL)}`);
     }catch(e){console.error("Save prefs error:",e)}
   },[]);
 
   const saveLiveSignalsDB=useCallback(async(signals)=>{
-    if(!sb||!signals.length)return;
+    if(!sbOk||!signals.length)return;
     try{
-      const rows=signals.map(s=>({
-        id:s.id,user_email:USER_EMAIL,company_id:s.cid,company_name:s.company||"",
-        title_en:s.title?.en||"",title_fr:s.title?.fr||"",
-        summary_en:s.sum?.en||s.summary?.en||"",summary_fr:s.sum?.fr||s.summary?.fr||"",
-        source_name:s.src||s.source||"Web",category:s.cat||s.category||"governance",
-        importance:s.imp||s.importance||50,confidence:s.conf||s.confidence||50,
-        factuality:s.fact||s.factuality||"needs_review",
-        impacts:s._impacts||s.impacts||[],fetched_at:s.at||new Date().toISOString()
-      }));
-      await sb.from("live_signals").upsert(rows,{onConflict:"id"});
+      for(const s of signals){
+        await sbFetch("live_signals","POST",{id:s.id,user_email:USER_EMAIL,company_id:s.cid,company_name:s.company||"",title_en:s.title?.en||"",title_fr:s.title?.fr||"",summary_en:s.sum?.en||s.summary?.en||"",summary_fr:s.sum?.fr||s.summary?.fr||"",source_name:s.src||s.source||"Web",category:s.cat||s.category||"governance",importance:s.imp||s.importance||50,confidence:s.conf||s.confidence||50,factuality:s.fact||s.factuality||"needs_review",impacts:s._impacts||s.impacts||[],fetched_at:s.at||new Date().toISOString()});
+      }
     }catch(e){console.error("Save live signals error:",e)}
   },[]);
   const[selComp,setSC]=useState(null);
@@ -857,7 +822,7 @@ function App(){
         <div className="card" style={{padding:"16px 18px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{t("version")}</span><span style={{fontSize:13,color:"var(--t4)"}}>1.0.0</span></div>
           <div className="dv" style={{margin:"8px 0"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Base de données":"Database"}</span><span style={{fontSize:13,color:sb?"#6EE7B7":"var(--t5)"}}>{sb?(lang==="fr"?"Connectée":"Connected"):(lang==="fr"?"Hors-ligne":"Offline")}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Base de données":"Database"}</span><span style={{fontSize:13,color:sbOk?"#6EE7B7":"var(--t5)"}}>{sbOk?(lang==="fr"?"Connectée":"Connected"):(lang==="fr"?"Hors-ligne":"Offline")}</span></div>
           {lastRefresh&&<><div className="dv" style={{margin:"8px 0"}}/><div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Dernière mise à jour":"Last refresh"}</span><span style={{fontSize:13,color:"var(--t4)"}}>{new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</span></div></>}
         </div>
         <div style={{textAlign:"center",padding:"20px 16px",marginBottom:28}}>
