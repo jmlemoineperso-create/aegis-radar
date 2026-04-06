@@ -411,6 +411,9 @@ function SR({s,sz=44,sw=3}){const r=(sz-sw*2)/2,c=2*Math.PI*r,o=c-(s/100)*c,col=
 function App(){
   const{lang,t,setLang}=useLang();
   const[step,setStep]=useState("login"); // login | select | app
+  const[loginPw,setLoginPw]=useState("");
+  const[loginErr,setLoginErr]=useState(false);
+  const tryLogin=()=>{if(loginPw==="3Oct2005"){setLoginErr(false);setStep("select")}else{setLoginErr(true)}};
   const[tab,setTab]=useState("dashboard");
   const[cos,setCos]=useState(COMPANIES);
   const[notes,setNotes]=useState(NOTES);
@@ -457,9 +460,8 @@ function App(){
         <h2 className="fd" style={{fontSize:20,fontWeight:600,color:"var(--t1)",textAlign:"center",marginBottom:6}}>{t("onboarding_title")}</h2>
         <p style={{fontSize:13,color:"var(--t3)",textAlign:"center",lineHeight:1.55,marginBottom:32}}>{t("onboarding_sub")}</p>
         <div style={{marginBottom:18}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("email")}</label><input className="inp" type="email" placeholder="anne-sophie@company.com"/></div>
-        <div style={{marginBottom:28}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("password")}</label><input className="inp" type="password" placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&setStep("select")}/></div>
-        <button className="btn bp" style={{width:"100%",height:46}} onClick={()=>setStep("select")}><I.lock/>{t("onboarding_cta")}</button>
-        <p style={{textAlign:"center",marginTop:18,fontSize:12,color:"var(--t5)"}}>{t("demo_note")}</p>
+        <div style={{marginBottom:28}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("password")}</label><input className="inp" type="password" placeholder="••••••••" value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr(false)}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={loginErr?{borderColor:"#EF4444"}:{}}/>{loginErr&&<p style={{fontSize:12,color:"#FCA5A5",marginTop:8}}>{lang==="fr"?"Mot de passe incorrect":"Incorrect password"}</p>}</div>
+        <button className="btn bp" style={{width:"100%",height:46}} onClick={tryLogin}><I.lock/>{t("onboarding_cta")}</button>
         <p style={{textAlign:"center",marginTop:24,fontSize:11,color:"var(--t5)",fontStyle:"italic"}}>{lang==="fr"?"Pour Anne-Sophie, avec admiration.":"For Anne-Sophie, with admiration."}</p>
       </div>
     </div>
