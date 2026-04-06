@@ -68,7 +68,7 @@ const T={
   no_notes_sub:{en:"Save your thoughts, hypotheses, or follow-up points here.",fr:"Enregistrez vos observations, hypothèses ou points de suivi ici."},
   add_first_note:{en:"Add first note",fr:"Ajouter une première note"},
   brief_title:{en:"Meeting Brief",fr:"Brief de réunion"},
-  brief_sub:{en:"A focused summary for your next client discussion.",fr:"Un résumé ciblé pour votre prochaine discussion client."},
+  brief_sub:{en:"Prepare for your next broker or Risk Manager meeting.",fr:"Préparez votre prochaine réunion courtier ou Risk Manager."},
   generate:{en:"Generate",fr:"Générer"},generate_brief:{en:"Generate meeting brief",fr:"Générer le brief"},
   copy_brief:{en:"Copy brief",fr:"Copier le brief"},copied:{en:"Copied",fr:"Copié"},
   copied_clipboard:{en:"Copied to clipboard",fr:"Copié dans le presse-papier"},
@@ -79,6 +79,23 @@ const T={
   questions_to_ask:{en:"Questions to ask",fr:"Questions à poser"},
   next_steps:{en:"Next steps",fr:"Prochaines étapes"},
   to_be_defined:{en:"To be defined after meeting.",fr:"À définir après la réunion."},
+  interlocutors:{en:"Key contacts",fr:"Interlocuteurs clés"},
+  broker:{en:"Broker",fr:"Courtier"},
+  risk_manager:{en:"Risk Manager",fr:"Risk Manager"},
+  meeting_context:{en:"Meeting context",fr:"Contexte de réunion"},
+  broker_angles:{en:"Points for broker discussion",fr:"Points pour la discussion courtier"},
+  rm_angles:{en:"Points for Risk Manager",fr:"Points pour le Risk Manager"},
+  prep_broker:{en:"Prepare for your broker or Risk Manager meeting with key FL signals and discussion points.",fr:"Préparez votre réunion courtier ou Risk Manager avec les signaux FL clés et points de discussion."},
+  rec_title:{en:"Meeting Recording",fr:"Enregistrement de réunion"},
+  rec_sub:{en:"Record your conversation. A Financial Lines summary will be generated automatically.",fr:"Enregistrez votre conversation. Un résumé Financial Lines sera généré automatiquement."},
+  rec_start:{en:"Start recording",fr:"Démarrer l'enregistrement"},
+  rec_stop:{en:"Stop & summarize",fr:"Arrêter et résumer"},
+  rec_recording:{en:"Recording…",fr:"Enregistrement en cours…"},
+  rec_processing:{en:"Generating FL summary…",fr:"Génération du résumé FL…"},
+  rec_saved:{en:"Meeting summary saved as note",fr:"Résumé de réunion enregistré en note"},
+  rec_error:{en:"Recording not available on this browser",fr:"Enregistrement non disponible sur ce navigateur"},
+  rec_empty:{en:"No transcript captured. Try speaking louder or check microphone access.",fr:"Aucune transcription captée. Essayez de parler plus fort ou vérifiez l'accès au micro."},
+  rec_btn:{en:"Record a meeting",fr:"Enregistrer une réunion"},
   company_overview:{en:"Company overview",fr:"Vue d'ensemble"},
   latest_signals:{en:"Latest signals",fr:"Derniers signaux"},
   fl_relevance:{en:"Financial Lines relevance",fr:"Pertinence Financial Lines"},
@@ -168,41 +185,41 @@ const COMPANIES=[
   {id:"c11",name:"Orbis Energy",sector:{en:"Renewables & Utilities",fr:"Énergies Renouvelables"},hq:"Hamburg, Germany",ticker:"OBS.DE",cap:"€7.1B",emp:"3 800",logo:"B",risk:68,trend:"stable",prio:null},
   {id:"c12",name:"Atlas Horizon Group",sector:{en:"Diversified Conglomerate",fr:"Conglomérat Diversifié"},hq:"London, UK",ticker:"AHG.L",cap:"€31.4B",emp:"67 000",logo:"Z",risk:84,trend:"rising",prio:null},
   // ── CAC 40 ──
-  {id:"r01",name:"LVMH",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"MC.PA",cap:"€328B",emp:"213 000",logo:"L",risk:38,trend:"stable",prio:null},
-  {id:"r02",name:"TotalEnergies",sector:{en:"Energy",fr:"Énergie"},hq:"Courbevoie, France",ticker:"TTE.PA",cap:"€148B",emp:"101 000",logo:"T",risk:52,trend:"rising",prio:null},
-  {id:"r03",name:"Sanofi",sector:{en:"Pharmaceuticals",fr:"Pharmaceutique"},hq:"Paris, France",ticker:"SAN.PA",cap:"€132B",emp:"91 000",logo:"S",risk:41,trend:"stable",prio:null},
-  {id:"r04",name:"L'Oréal",sector:{en:"Consumer Goods",fr:"Biens de consommation"},hq:"Clichy, France",ticker:"OR.PA",cap:"€218B",emp:"87 000",logo:"L",risk:28,trend:"stable",prio:null},
-  {id:"r05",name:"Schneider Electric",sector:{en:"Electrical Equipment",fr:"Équipements électriques"},hq:"Rueil-Malmaison, France",ticker:"SU.PA",cap:"€120B",emp:"150 000",logo:"S",risk:35,trend:"stable",prio:null},
-  {id:"r06",name:"Air Liquide",sector:{en:"Industrial Gases",fr:"Gaz industriels"},hq:"Paris, France",ticker:"AI.PA",cap:"€92B",emp:"67 000",logo:"A",risk:25,trend:"stable",prio:null},
-  {id:"r07",name:"BNP Paribas",sector:{en:"Banking",fr:"Banque"},hq:"Paris, France",ticker:"BNP.PA",cap:"€73B",emp:"183 000",logo:"B",risk:55,trend:"stable",prio:null},
-  {id:"r08",name:"AXA",sector:{en:"Insurance",fr:"Assurance"},hq:"Paris, France",ticker:"CS.PA",cap:"€72B",emp:"145 000",logo:"A",risk:42,trend:"stable",prio:null},
-  {id:"r09",name:"Hermès",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"RMS.PA",cap:"€220B",emp:"22 000",logo:"H",risk:22,trend:"stable",prio:null},
-  {id:"r10",name:"Safran",sector:{en:"Aerospace & Defence",fr:"Aéronautique & Défense"},hq:"Paris, France",ticker:"SAF.PA",cap:"€82B",emp:"83 000",logo:"S",risk:37,trend:"stable",prio:null},
-  {id:"r11",name:"EssilorLuxottica",sector:{en:"Medical Devices",fr:"Dispositifs médicaux"},hq:"Paris, France",ticker:"EL.PA",cap:"€95B",emp:"190 000",logo:"E",risk:30,trend:"stable",prio:null},
-  {id:"r12",name:"Dassault Systèmes",sector:{en:"Software",fr:"Logiciel"},hq:"Vélizy, France",ticker:"DSY.PA",cap:"€62B",emp:"24 000",logo:"D",risk:32,trend:"stable",prio:null},
-  {id:"r13",name:"Vinci",sector:{en:"Construction & Concessions",fr:"BTP & Concessions"},hq:"Nanterre, France",ticker:"DG.PA",cap:"€68B",emp:"272 000",logo:"V",risk:40,trend:"stable",prio:null},
-  {id:"r14",name:"Kering",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"KER.PA",cap:"€34B",emp:"49 000",logo:"K",risk:56,trend:"rising",prio:null},
-  {id:"r15",name:"Saint-Gobain",sector:{en:"Building Materials",fr:"Matériaux de construction"},hq:"Courbevoie, France",ticker:"SGO.PA",cap:"€46B",emp:"160 000",logo:"S",risk:36,trend:"stable",prio:null},
-  {id:"r16",name:"Société Générale",sector:{en:"Banking",fr:"Banque"},hq:"Paris, France",ticker:"GLE.PA",cap:"€22B",emp:"117 000",logo:"S",risk:58,trend:"rising",prio:null},
-  {id:"r17",name:"Danone",sector:{en:"Food & Beverages",fr:"Agroalimentaire"},hq:"Paris, France",ticker:"BN.PA",cap:"€42B",emp:"88 000",logo:"D",risk:43,trend:"stable",prio:null},
-  {id:"r18",name:"Engie",sector:{en:"Utilities",fr:"Services publics"},hq:"Courbevoie, France",ticker:"ENGI.PA",cap:"€38B",emp:"97 000",logo:"E",risk:45,trend:"stable",prio:null},
-  {id:"r19",name:"Capgemini",sector:{en:"IT Services",fr:"Services informatiques"},hq:"Paris, France",ticker:"CAP.PA",cap:"€32B",emp:"340 000",logo:"C",risk:39,trend:"stable",prio:null},
-  {id:"r20",name:"Pernod Ricard",sector:{en:"Spirits & Wine",fr:"Vins & Spiritueux"},hq:"Paris, France",ticker:"RI.PA",cap:"€38B",emp:"19 000",logo:"P",risk:34,trend:"stable",prio:null},
-  {id:"r21",name:"Michelin",sector:{en:"Tyres & Mobility",fr:"Pneumatiques & Mobilité"},hq:"Clermont-Ferrand, France",ticker:"ML.PA",cap:"€24B",emp:"132 000",logo:"M",risk:33,trend:"stable",prio:null},
-  {id:"r22",name:"Publicis Groupe",sector:{en:"Advertising & Media",fr:"Publicité & Médias"},hq:"Paris, France",ticker:"PUB.PA",cap:"€28B",emp:"98 000",logo:"P",risk:36,trend:"stable",prio:null},
-  {id:"r23",name:"Renault",sector:{en:"Automotive",fr:"Automobile"},hq:"Boulogne-Billancourt, France",ticker:"RNO.PA",cap:"€14B",emp:"105 000",logo:"R",risk:55,trend:"rising",prio:null},
-  {id:"r24",name:"Orange",sector:{en:"Telecommunications",fr:"Télécommunications"},hq:"Paris, France",ticker:"ORA.PA",cap:"€28B",emp:"127 000",logo:"O",risk:42,trend:"stable",prio:null},
-  {id:"r25",name:"Bouygues",sector:{en:"Construction & Telecom",fr:"BTP & Télécoms"},hq:"Paris, France",ticker:"EN.PA",cap:"€15B",emp:"200 000",logo:"B",risk:40,trend:"stable",prio:null},
-  {id:"r26",name:"Thales",sector:{en:"Defence & Technology",fr:"Défense & Technologie"},hq:"Paris, France",ticker:"HO.PA",cap:"€38B",emp:"81 000",logo:"T",risk:38,trend:"stable",prio:null},
-  {id:"r27",name:"Stellantis",sector:{en:"Automotive",fr:"Automobile"},hq:"Amsterdam, Netherlands",ticker:"STLAP.PA",cap:"€42B",emp:"281 000",logo:"S",risk:53,trend:"rising",prio:null},
-  {id:"r28",name:"Veolia",sector:{en:"Environmental Services",fr:"Services environnementaux"},hq:"Paris, France",ticker:"VIE.PA",cap:"€22B",emp:"220 000",logo:"V",risk:37,trend:"stable",prio:null},
-  {id:"r29",name:"Airbus",sector:{en:"Aerospace",fr:"Aéronautique"},hq:"Leiden, Netherlands",ticker:"AIR.PA",cap:"€109B",emp:"134 000",logo:"A",risk:42,trend:"stable",prio:null},
-  {id:"r30",name:"Legrand",sector:{en:"Electrical Products",fr:"Produits électriques"},hq:"Limoges, France",ticker:"LR.PA",cap:"€27B",emp:"40 000",logo:"L",risk:27,trend:"stable",prio:null},
-  {id:"r31",name:"Crédit Agricole",sector:{en:"Banking",fr:"Banque"},hq:"Montrouge, France",ticker:"ACA.PA",cap:"€38B",emp:"148 000",logo:"C",risk:48,trend:"stable",prio:null},
-  {id:"r32",name:"Alstom",sector:{en:"Rail Transport",fr:"Transport ferroviaire"},hq:"Saint-Ouen, France",ticker:"ALO.PA",cap:"€10B",emp:"80 000",logo:"A",risk:58,trend:"rising",prio:null},
-  {id:"r33",name:"Worldline",sector:{en:"Payment Services",fr:"Services de paiement"},hq:"Bezons, France",ticker:"WLN.PA",cap:"€3.2B",emp:"18 000",logo:"W",risk:65,trend:"rising",prio:null},
-  {id:"r34",name:"Edenred",sector:{en:"Payment Solutions",fr:"Solutions de paiement"},hq:"Issy-les-Moulineaux, France",ticker:"EDEN.PA",cap:"€12B",emp:"12 000",logo:"E",risk:32,trend:"stable",prio:null},
-  {id:"r35",name:"Vivendi",sector:{en:"Media & Entertainment",fr:"Médias & Divertissement"},hq:"Paris, France",ticker:"VIV.PA",cap:"€10B",emp:"37 000",logo:"V",risk:50,trend:"rising",prio:null},
+  {id:"r01",name:"LVMH",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"MC.PA",cap:"€328B",emp:"213 000",logo:"L",risk:38,trend:"stable",prio:"watch"},
+  {id:"r02",name:"TotalEnergies",sector:{en:"Energy",fr:"Énergie"},hq:"Courbevoie, France",ticker:"TTE.PA",cap:"€148B",emp:"101 000",logo:"T",risk:52,trend:"rising",prio:"watch"},
+  {id:"r03",name:"Sanofi",sector:{en:"Pharmaceuticals",fr:"Pharmaceutique"},hq:"Paris, France",ticker:"SAN.PA",cap:"€132B",emp:"91 000",logo:"S",risk:41,trend:"stable",prio:"watch"},
+  {id:"r04",name:"L'Oréal",sector:{en:"Consumer Goods",fr:"Biens de consommation"},hq:"Clichy, France",ticker:"OR.PA",cap:"€218B",emp:"87 000",logo:"L",risk:28,trend:"stable",prio:"watch"},
+  {id:"r05",name:"Schneider Electric",sector:{en:"Electrical Equipment",fr:"Équipements électriques"},hq:"Rueil-Malmaison, France",ticker:"SU.PA",cap:"€120B",emp:"150 000",logo:"S",risk:35,trend:"stable",prio:"watch"},
+  {id:"r06",name:"Air Liquide",sector:{en:"Industrial Gases",fr:"Gaz industriels"},hq:"Paris, France",ticker:"AI.PA",cap:"€92B",emp:"67 000",logo:"A",risk:25,trend:"stable",prio:"watch"},
+  {id:"r07",name:"BNP Paribas",sector:{en:"Banking",fr:"Banque"},hq:"Paris, France",ticker:"BNP.PA",cap:"€73B",emp:"183 000",logo:"B",risk:55,trend:"stable",prio:"watch"},
+  {id:"r08",name:"AXA",sector:{en:"Insurance",fr:"Assurance"},hq:"Paris, France",ticker:"CS.PA",cap:"€72B",emp:"145 000",logo:"A",risk:42,trend:"stable",prio:"watch"},
+  {id:"r09",name:"Hermès",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"RMS.PA",cap:"€220B",emp:"22 000",logo:"H",risk:22,trend:"stable",prio:"watch"},
+  {id:"r10",name:"Safran",sector:{en:"Aerospace & Defence",fr:"Aéronautique & Défense"},hq:"Paris, France",ticker:"SAF.PA",cap:"€82B",emp:"83 000",logo:"S",risk:37,trend:"stable",prio:"watch"},
+  {id:"r11",name:"EssilorLuxottica",sector:{en:"Medical Devices",fr:"Dispositifs médicaux"},hq:"Paris, France",ticker:"EL.PA",cap:"€95B",emp:"190 000",logo:"E",risk:30,trend:"stable",prio:"watch"},
+  {id:"r12",name:"Dassault Systèmes",sector:{en:"Software",fr:"Logiciel"},hq:"Vélizy, France",ticker:"DSY.PA",cap:"€62B",emp:"24 000",logo:"D",risk:32,trend:"stable",prio:"watch"},
+  {id:"r13",name:"Vinci",sector:{en:"Construction & Concessions",fr:"BTP & Concessions"},hq:"Nanterre, France",ticker:"DG.PA",cap:"€68B",emp:"272 000",logo:"V",risk:40,trend:"stable",prio:"watch"},
+  {id:"r14",name:"Kering",sector:{en:"Luxury Goods",fr:"Luxe"},hq:"Paris, France",ticker:"KER.PA",cap:"€34B",emp:"49 000",logo:"K",risk:56,trend:"rising",prio:"watch"},
+  {id:"r15",name:"Saint-Gobain",sector:{en:"Building Materials",fr:"Matériaux de construction"},hq:"Courbevoie, France",ticker:"SGO.PA",cap:"€46B",emp:"160 000",logo:"S",risk:36,trend:"stable",prio:"watch"},
+  {id:"r16",name:"Société Générale",sector:{en:"Banking",fr:"Banque"},hq:"Paris, France",ticker:"GLE.PA",cap:"€22B",emp:"117 000",logo:"S",risk:58,trend:"rising",prio:"watch"},
+  {id:"r17",name:"Danone",sector:{en:"Food & Beverages",fr:"Agroalimentaire"},hq:"Paris, France",ticker:"BN.PA",cap:"€42B",emp:"88 000",logo:"D",risk:43,trend:"stable",prio:"watch"},
+  {id:"r18",name:"Engie",sector:{en:"Utilities",fr:"Services publics"},hq:"Courbevoie, France",ticker:"ENGI.PA",cap:"€38B",emp:"97 000",logo:"E",risk:45,trend:"stable",prio:"watch"},
+  {id:"r19",name:"Capgemini",sector:{en:"IT Services",fr:"Services informatiques"},hq:"Paris, France",ticker:"CAP.PA",cap:"€32B",emp:"340 000",logo:"C",risk:39,trend:"stable",prio:"watch"},
+  {id:"r20",name:"Pernod Ricard",sector:{en:"Spirits & Wine",fr:"Vins & Spiritueux"},hq:"Paris, France",ticker:"RI.PA",cap:"€38B",emp:"19 000",logo:"P",risk:34,trend:"stable",prio:"watch"},
+  {id:"r21",name:"Michelin",sector:{en:"Tyres & Mobility",fr:"Pneumatiques & Mobilité"},hq:"Clermont-Ferrand, France",ticker:"ML.PA",cap:"€24B",emp:"132 000",logo:"M",risk:33,trend:"stable",prio:"watch"},
+  {id:"r22",name:"Publicis Groupe",sector:{en:"Advertising & Media",fr:"Publicité & Médias"},hq:"Paris, France",ticker:"PUB.PA",cap:"€28B",emp:"98 000",logo:"P",risk:36,trend:"stable",prio:"watch"},
+  {id:"r23",name:"Renault",sector:{en:"Automotive",fr:"Automobile"},hq:"Boulogne-Billancourt, France",ticker:"RNO.PA",cap:"€14B",emp:"105 000",logo:"R",risk:55,trend:"rising",prio:"watch"},
+  {id:"r24",name:"Orange",sector:{en:"Telecommunications",fr:"Télécommunications"},hq:"Paris, France",ticker:"ORA.PA",cap:"€28B",emp:"127 000",logo:"O",risk:42,trend:"stable",prio:"watch"},
+  {id:"r25",name:"Bouygues",sector:{en:"Construction & Telecom",fr:"BTP & Télécoms"},hq:"Paris, France",ticker:"EN.PA",cap:"€15B",emp:"200 000",logo:"B",risk:40,trend:"stable",prio:"watch"},
+  {id:"r26",name:"Thales",sector:{en:"Defence & Technology",fr:"Défense & Technologie"},hq:"Paris, France",ticker:"HO.PA",cap:"€38B",emp:"81 000",logo:"T",risk:38,trend:"stable",prio:"watch"},
+  {id:"r27",name:"Stellantis",sector:{en:"Automotive",fr:"Automobile"},hq:"Amsterdam, Netherlands",ticker:"STLAP.PA",cap:"€42B",emp:"281 000",logo:"S",risk:53,trend:"rising",prio:"watch"},
+  {id:"r28",name:"Veolia",sector:{en:"Environmental Services",fr:"Services environnementaux"},hq:"Paris, France",ticker:"VIE.PA",cap:"€22B",emp:"220 000",logo:"V",risk:37,trend:"stable",prio:"watch"},
+  {id:"r29",name:"Airbus",sector:{en:"Aerospace",fr:"Aéronautique"},hq:"Leiden, Netherlands",ticker:"AIR.PA",cap:"€109B",emp:"134 000",logo:"A",risk:42,trend:"stable",prio:"watch"},
+  {id:"r30",name:"Legrand",sector:{en:"Electrical Products",fr:"Produits électriques"},hq:"Limoges, France",ticker:"LR.PA",cap:"€27B",emp:"40 000",logo:"L",risk:27,trend:"stable",prio:"watch"},
+  {id:"r31",name:"Crédit Agricole",sector:{en:"Banking",fr:"Banque"},hq:"Montrouge, France",ticker:"ACA.PA",cap:"€38B",emp:"148 000",logo:"C",risk:48,trend:"stable",prio:"watch"},
+  {id:"r32",name:"Alstom",sector:{en:"Rail Transport",fr:"Transport ferroviaire"},hq:"Saint-Ouen, France",ticker:"ALO.PA",cap:"€10B",emp:"80 000",logo:"A",risk:58,trend:"rising",prio:"watch"},
+  {id:"r33",name:"Worldline",sector:{en:"Payment Services",fr:"Services de paiement"},hq:"Bezons, France",ticker:"WLN.PA",cap:"€3.2B",emp:"18 000",logo:"W",risk:65,trend:"rising",prio:"watch"},
+  {id:"r34",name:"Edenred",sector:{en:"Payment Solutions",fr:"Solutions de paiement"},hq:"Issy-les-Moulineaux, France",ticker:"EDEN.PA",cap:"€12B",emp:"12 000",logo:"E",risk:32,trend:"stable",prio:"watch"},
+  {id:"r35",name:"Vivendi",sector:{en:"Media & Entertainment",fr:"Médias & Divertissement"},hq:"Paris, France",ticker:"VIV.PA",cap:"€10B",emp:"37 000",logo:"V",risk:50,trend:"rising",prio:"watch"},
   // ── European Majors ──
   {id:"r40",name:"Allianz",sector:{en:"Insurance",fr:"Assurance"},hq:"Munich, Germany",ticker:"ALV.DE",cap:"€98B",emp:"159 000",logo:"A",risk:40,trend:"stable",prio:null},
   {id:"r41",name:"Siemens",sector:{en:"Industrials & Technology",fr:"Industrie & Technologie"},hq:"Munich, Germany",ticker:"SIE.DE",cap:"€142B",emp:"320 000",logo:"S",risk:35,trend:"stable",prio:null},
@@ -350,14 +367,14 @@ const IMPACTS=[
 
 // ── NOTES (12 — bilingual) ──
 const NOTES=[
-  {id:"n01",cid:"c01",text:{en:"Valterra has multiple concurrent governance issues — board departure, whistleblower, ESG controversy. Need to build a comprehensive narrative for D&O renewal.",fr:"Valterra présente de multiples problèmes de gouvernance simultanés — départ au conseil, lanceur d'alerte, controverse ESG. Nécessité de construire un récit complet pour le renouvellement D&O."},tag:"action",at:"2026-04-06T09:00:00Z"},
+  {id:"n01",cid:"c01",text:{en:"Valterra has multiple concurrent governance issues — board departure, whistleblower, ESG controversy. Build a comprehensive narrative for the broker ahead of D&O renewal committee.",fr:"Valterra présente de multiples problèmes de gouvernance simultanés — départ au conseil, lanceur d'alerte, controverse ESG. Construire un récit complet pour le courtier avant le comité de renouvellement D&O."},tag:"action",at:"2026-04-06T09:00:00Z"},
   {id:"n02",cid:"c02",text:{en:"Krüger is showing classic risk accumulation: fraud, safety incident, accounting issues, export controls. Consider portfolio-level discussion.",fr:"Krüger présente une accumulation de risques classique : fraude, accident de sécurité, problèmes comptables, contrôle export. À discuter au niveau du portefeuille."},tag:"observation",at:"2026-04-06T07:00:00Z"},
   {id:"n03",cid:"c03",text:{en:"Key question: how is the board responding to harassment allegations? Speed and transparency of response will determine EPL trajectory.",fr:"Question clé : comment le conseil répond-il aux allégations de harcèlement ? La rapidité et la transparence détermineront la trajectoire EPL."},tag:"question",at:"2026-04-06T06:00:00Z"},
-  {id:"n04",cid:"c04",text:{en:"Adriatica Bank has the most complex risk profile — 4 critical signals across D&O, Crime, Cyber. Consider extraordinary steering committee review.",fr:"Adriatica Bank a le profil de risque le plus complexe — 4 signaux critiques en D&O, Crime, Cyber. Envisager une revue extraordinaire du comité de pilotage."},tag:"observation",at:"2026-04-05T22:00:00Z"},
+  {id:"n04",cid:"c04",text:{en:"Adriatica Bank has the most complex risk profile — 4 critical signals across D&O, Crime, Cyber. Discuss with the Risk Manager and request extraordinary steering committee review.",fr:"Adriatica Bank a le profil de risque le plus complexe — 4 signaux critiques en D&O, Crime, Cyber. Échanger avec le Risk Manager et demander une revue extraordinaire du comité de pilotage."},tag:"observation",at:"2026-04-05T22:00:00Z"},
   {id:"n05",cid:"c05",text:{en:"FDA warning + whistleblower + board resignation over clinical ethics creates existential risk. D&O exposure is maximum.",fr:"Lettre FDA + lanceur d'alerte + démission pour éthique clinique crée un risque existentiel. L'exposition D&O est maximale."},tag:"hypothesis",at:"2026-04-06T07:00:00Z"},
   {id:"n06",cid:"c06",text:{en:"Client data breach traced to platform is a textbook vendor liability case. Need to understand contractual liability landscape.",fr:"La fuite client liée à la plateforme est un cas d'école de responsabilité éditeur. Nécessité de comprendre le paysage contractuel."},tag:"action",at:"2026-04-06T05:00:00Z"},
   {id:"n07",cid:"c07",text:{en:"Dawn raids are the starting gun for a multi-year antitrust process. Ensure D&O is structured for 3-5 year investigation.",fr:"Les perquisitions marquent le début d'un processus antitrust de plusieurs années. S'assurer que la D&O est structurée pour 3-5 ans d'enquête."},tag:"observation",at:"2026-04-04T10:00:00Z"},
-  {id:"n08",cid:"c08",text:{en:"£45M inventory fraud requires immediate Crime policy notification. Also review D&O insolvency exclusions proactively.",fr:"La fraude sur stocks de 45 M£ nécessite une notification Crime immédiate. Vérifier aussi proactivement les exclusions D&O liées à l'insolvabilité."},tag:"action",at:"2026-04-04T12:00:00Z"},
+  {id:"n08",cid:"c08",text:{en:"£45M inventory fraud requires immediate Crime policy notification. Coordinate with broker on notification timeline. Review D&O insolvency exclusions proactively.",fr:"La fraude sur stocks de 45 M£ nécessite une notification Crime immédiate. Coordonner avec le courtier sur le calendrier de notification. Vérifier proactivement les exclusions D&O insolvabilité."},tag:"action",at:"2026-04-04T12:00:00Z"},
   {id:"n09",cid:"c09",text:{en:"Bribery whistleblower allegation at hypothesis stage but requires immediate attention. Severe exposure under Spanish anti-corruption law.",fr:"L'allégation de corruption du lanceur d'alerte est au stade d'hypothèse mais exige une attention immédiate. Exposition sévère en droit anti-corruption espagnol."},tag:"hypothesis",at:"2026-04-04T13:00:00Z"},
   {id:"n10",cid:"c10",text:{en:"Migrant worker conditions activate devoir de vigilance. Meridian exposed to EPL and personal D&O liability. PNF investigation compounds renewal profile.",fr:"Les conditions des travailleurs migrants activent le devoir de vigilance. Meridian exposé en EPL et en responsabilité personnelle D&O. L'enquête PNF complique le renouvellement."},tag:"observation",at:"2026-04-05T08:00:00Z"},
   {id:"n11",cid:"c11",text:{en:"Three governance signals in quick succession — CFO replacement, board departure, subsidy compliance. Deterioration pattern that underwriters will flag.",fr:"Trois signaux de gouvernance en succession rapide — remplacement du DAF, départ au conseil, conformité subventions. Schéma de détérioration que les assureurs signaleront."},tag:"observation",at:"2026-04-06T11:00:00Z"},
@@ -449,6 +466,8 @@ const I={
   starO:p=><svg {...p} style={{width:16,height:16,...(p?.style||{})}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   clock:ic("M12 12V6M16 14l-4-2M22 12a10 10 0 11-20 0 10 10 0 0120 0z",12),ext:ic("M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3",10),settings:ic("M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"),logout:ic("M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"),
   refresh:ic("M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"),
+  mic:ic("M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"),
+  stop:ic("M6 4h4v16H6zM14 4h4v16h-4z"),
 };
 
 function SR({s,sz=44,sw=3}){const r=(sz-sw*2)/2,c=2*Math.PI*r,o=c-(s/100)*c,col=sC(s);return(<div className="sr" style={{width:sz,height:sz}}><svg width={sz} height={sz}><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="var(--b)" strokeWidth={sw}/><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)"}}/></svg><span className="sr-v" style={{color:col,fontSize:sz*.29}}>{s}</span></div>)}
@@ -551,6 +570,43 @@ function App(){
   const[addSrch,setAS]=useState("");
   const[selLines,setSelLines]=useState(["do","crime","cyber"]);
   const togLine=k=>{setSelLines(p=>{const n=p.includes(k)?p.filter(x=>x!==k):[...p,k];savePrefsDB({selected_lines:n});return n})};
+
+  // ── Voice recording ──
+  const[showRec,setShowRec]=useState(false);
+  const[recCid,setRecCid]=useState(null);
+  const[isRec,setIsRec]=useState(false);
+  const[transcript,setTranscript]=useState("");
+  const[recProcessing,setRecProcessing]=useState(false);
+  const recognitionRef=useRef(null);
+  const startRec=useCallback(()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){showT(t("rec_error"));return}
+    const r=new SR();
+    r.continuous=true;r.interimResults=true;r.lang=lang==="fr"?"fr-FR":"en-US";
+    let finalT="";
+    r.onresult=e=>{let interim="";for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)finalT+=e.results[i][0].transcript+" ";else interim=e.results[i][0].transcript}setTranscript(finalT+interim)};
+    r.onerror=e=>{console.error("Speech error:",e.error)};
+    r.onend=()=>{if(isRec)try{r.start()}catch(e){}};
+    recognitionRef.current=r;
+    r.start();setIsRec(true);setTranscript("");
+  },[lang,isRec,t]);
+  const stopRec=useCallback(async()=>{
+    if(recognitionRef.current){recognitionRef.current.onend=null;recognitionRef.current.stop();recognitionRef.current=null}
+    setIsRec(false);
+    if(!transcript.trim()){showT(t("rec_empty"));return}
+    setRecProcessing(true);
+    let summary=transcript;
+    // Try to summarize with Claude API
+    try{
+      const res=await fetch("/api/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({transcript,lang,company:cos.find(c=>c.id===recCid)?.name||""})});
+      if(res.ok){const data=await res.json();if(data.summary)summary=data.summary}
+    }catch(e){}
+    // Save as note
+    const note={id:`rec${Date.now()}`,cid:recCid,text:summary,tag:"observation",at:new Date().toISOString()};
+    setNotes(p=>[note,...p]);saveNoteDB(note);
+    setRecProcessing(false);setShowRec(false);setTranscript("");
+    showT(t("rec_saved"));
+  },[transcript,recCid,cos,lang,t,saveNoteDB]);
   const[liveSigs,setLiveSigs]=useState([]);
   const[refreshing,setRefreshing]=useState(false);
   const[lastRefresh,setLastRefresh]=useState(null);
@@ -718,7 +774,8 @@ function App(){
 
   // ── BRIEF ──
   const BriefSheet=({cid,onClose})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);const imps=[...IMPACTS,...liveImpacts].filter(i=>sigs.some(s=>s.id===i.sid));const angles=imps.filter(i=>i.angle).slice(0,4).map(i=>tx(i.angle,lang));const questions=imps.flatMap(i=>i.hyp).slice(0,5).map(h=>tx(h,lang));const actions=cn.filter(n=>n.tag==="action").map(n=>tx(n.text,lang));
-    const txt=`${t("brief_title").toUpperCase()} — ${co?.name}\n${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}\n\n${t("exec_summary").toUpperCase()}\n${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk,t)}\n\n${t("key_signals").toUpperCase()}\n${sigs.slice(0,5).map((s,i)=>`${i+1}. [${s.imp}] ${tx(s.title,lang)}`).join("\n")}\n\n${t("fl_implications").toUpperCase()}\n${lines.map(l=>lineLbl(l,lang)).join(", ")}\n\n${t("discussion_angles").toUpperCase()}\n${angles.map(a=>`• ${a}`).join("\n")}\n\n${t("questions_to_ask").toUpperCase()}\n${questions.map(q=>`• ${q}`).join("\n")}\n\n${t("next_steps").toUpperCase()}\n${actions.length>0?actions.map(a=>`• ${a}`).join("\n"):`• ${t("to_be_defined")}`}\n\n— SIGNALIS`;
+    const brokerCtx=lang==="fr"?"INTERLOCUTEURS\nCourtier : Partager les signaux clés et discuter du positionnement du programme FL.\nRisk Manager : Valider la perception du risque et confirmer les mesures de prévention.":"KEY CONTACTS\nBroker: Share key signals and discuss FL programme positioning.\nRisk Manager: Validate risk perception and confirm prevention measures.";
+    const txt=`${t("brief_title").toUpperCase()} — ${co?.name}\n${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}\n\n${t("exec_summary").toUpperCase()}\n${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk,t)}\n\n${t("key_signals").toUpperCase()}\n${sigs.slice(0,5).map((s,i)=>`${i+1}. [${s.imp}] ${tx(s.title,lang)}`).join("\n")}\n\n${t("fl_implications").toUpperCase()}\n${lines.map(l=>lineLbl(l,lang)).join(", ")}\n\n${t("discussion_angles").toUpperCase()}\n${angles.map(a=>`• ${a}`).join("\n")}\n\n${brokerCtx}\n\n${t("questions_to_ask").toUpperCase()}\n${questions.map(q=>`• ${q}`).join("\n")}\n\n${t("next_steps").toUpperCase()}\n${actions.length>0?actions.map(a=>`• ${a}`).join("\n"):`• ${t("to_be_defined")}`}\n\n— SIGNALIS`;
     return(<div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("brief_title")}</h3><button className="bi" style={{width:32,height:32}} onClick={onClose}><I.x/></button></div>
@@ -731,6 +788,12 @@ function App(){
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("fl_implications")}</h4>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>{lines.map(l=><span key={l} className="chip on">{lineLbl(l,lang)}</span>)}</div>
       {angles.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("discussion_angles")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{angles.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"var(--gold)",marginTop:1,flexShrink:0}}>▸</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>)}</div></>}
+      {/* Broker / RM meeting context */}
+      <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("interlocutors")}</h4>
+      <div style={{display:"flex",gap:8,marginBottom:20}}>
+        <div className="cs" style={{flex:1,padding:"12px 14px"}}><p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{t("broker")}</p><p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{lang==="fr"?"Partager les signaux clés et discuter du positionnement du programme FL lors du prochain comité de renouvellement.":"Share key signals and discuss FL programme positioning at next renewal committee."}</p></div>
+        <div className="cs" style={{flex:1,padding:"12px 14px"}}><p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{t("risk_manager")}</p><p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{lang==="fr"?"Valider la perception du risque et confirmer les mesures de prévention mises en place par l'entreprise.":"Validate risk perception and confirm prevention measures implemented by the company."}</p></div>
+      </div>
       {questions.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("questions_to_ask")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{questions.map((q,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"#A78BFA",marginTop:1,flexShrink:0}}>?</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{q}</span></div>)}</div></>}
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("next_steps")}</h4>
       <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{actions.length>0?actions.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"#34D399",marginTop:1,flexShrink:0}}>→</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>):<p style={{fontSize:12,color:"var(--t4)"}}>{t("to_be_defined")}</p>}</div>
@@ -755,7 +818,7 @@ function App(){
         <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("fl_relevance")}</h3>
         {lines.length>0?<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:28}}>{lines.map(l=><span key={l} className="chip on">{lineLbl(l,lang)}</span>)}</div>:<p style={{fontSize:12,color:"var(--t4)",marginBottom:28}}>{t("no_line_data")}</p>}
         <div className="dv"/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><h3 className="lbl" style={{color:"var(--gold)"}}>{t("notes_title")}</h3><button className="bi" style={{width:30,height:30}} onClick={()=>{setNC(co.id);setSNN(true)}}><I.plus/></button></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><h3 className="lbl" style={{color:"var(--gold)"}}>{t("notes_title")}</h3><div style={{display:"flex",gap:6}}><button className="bi" style={{width:30,height:30,background:"rgba(239,68,68,.1)",borderColor:"rgba(239,68,68,.2)",color:"#FCA5A5"}} onClick={()=>{setRecCid(co.id);setShowRec(true);setTranscript("")}}><I.mic/></button><button className="bi" style={{width:30,height:30}} onClick={()=>{setNC(co.id);setSNN(true)}}><I.plus/></button></div></div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>{cn.map(n=>{const cfg=NOTE_C[n.tag]||NOTE_C.observation;return(<div key={n.id} className="card" style={{padding:"14px 16px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><span className="ftag" style={{background:cfg.bg,color:cfg.c}}>{noteTagLbl(n.tag,t)}</span><span style={{fontSize:10,color:"var(--t5)"}}>{fD(n.at)}</span></div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.55}}>{tx(n.text,lang)}</p></div>)})}{cn.length===0&&<p style={{fontSize:12,color:"var(--t4)"}}>{t("no_notes_sub")}</p>}</div>
       </div>
     </div>)};
@@ -807,7 +870,7 @@ function App(){
       <div className="hdr"><h2 className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("settings_title")}</h2></div>
       <div style={{padding:"24px 20px"}}>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("profile")}</h3>
-        <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"linear-gradient(135deg,var(--gold),rgba(201,168,76,.6))",color:"var(--bg)"}}>AS</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>Anne-Sophie</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines</p></div></div></div>
+        <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"linear-gradient(135deg,var(--gold),rgba(201,168,76,.6))",color:"var(--bg)"}}>AS</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>Anne-Sophie</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines France</p></div></div></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("language")}</h3>
         <div className="lang-sw" style={{marginBottom:28}}><button className={lang==="en"?"on":""} onClick={()=>{setLang("en");savePrefsDB({lang:"en"})}}>English</button><button className={lang==="fr"?"on":""} onClick={()=>{setLang("fr");savePrefsDB({lang:"fr"})}}>Français</button></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("preferred_lines")}</h3>
@@ -849,6 +912,25 @@ function App(){
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("tag_label")}</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{["observation","hypothesis","action","question","decision"].map(tg=><button key={tg} className={`chip ${nTag===tg?"on":""}`} onClick={()=>setNTg(tg)}>{noteTagLbl(tg,t)}</button>)}</div></div>
       <div style={{marginBottom:20}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("note_label")}</label><textarea className="inp" placeholder={t("note_placeholder")} value={nText} onChange={e=>setNT(e.target.value)} rows={4}/></div>
       <button className="btn bp" style={{width:"100%",height:46}} onClick={addN} disabled={!nText.trim()}>{t("save_note")}</button>
+    </div></div>}
+    {/* Recording overlay */}
+    {showRec&&<div className="bsbg" onClick={()=>{if(!isRec&&!recProcessing){setShowRec(false);setTranscript("")}}}><div className="bsm" onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("rec_title")}</h3>{!isRec&&!recProcessing&&<button className="bi" style={{width:32,height:32}} onClick={()=>{setShowRec(false);setTranscript("")}}><I.x/></button>}</div>
+      <p style={{fontSize:12,color:"var(--t4)",marginBottom:20}}>{t("rec_sub")}</p>
+      {cos.find(c=>c.id===recCid)&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:20,border:"1px solid var(--b)"}}><span className="mono" style={{width:28,height:28,fontSize:12}}>{cos.find(c=>c.id===recCid)?.logo}</span><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{cos.find(c=>c.id===recCid)?.name}</span></div>}
+      {/* Transcript area */}
+      <div style={{background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:"var(--rs)",padding:"16px",minHeight:120,maxHeight:280,overflowY:"auto",marginBottom:20}}>
+        {recProcessing?<div style={{textAlign:"center",padding:"32px 0"}}><div className="pd" style={{margin:"0 auto 12px"}}/><p style={{fontSize:13,color:"var(--gold)"}}>{t("rec_processing")}</p></div>
+        :isRec?<>{transcript?<p style={{fontSize:13,color:"var(--t2)",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{transcript}</p>:<p style={{fontSize:13,color:"var(--t5)",fontStyle:"italic"}}>{lang==="fr"?"En écoute…":"Listening…"}</p>}<div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}><div style={{width:8,height:8,borderRadius:"50%",background:"#EF4444",animation:"pd 1s ease-in-out infinite"}}/><span style={{fontSize:11,color:"#FCA5A5"}}>{t("rec_recording")}</span></div></>
+        :transcript?<p style={{fontSize:13,color:"var(--t2)",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{transcript}</p>
+        :<p style={{fontSize:13,color:"var(--t5)",textAlign:"center",padding:"24px 0"}}>{lang==="fr"?"Appuyez sur le bouton pour démarrer":"Press the button to start"}</p>}
+      </div>
+      {/* Controls */}
+      {recProcessing?null
+      :isRec?<button className="btn" style={{width:"100%",height:50,background:"rgba(239,68,68,.12)",color:"#FCA5A5",border:"1px solid rgba(239,68,68,.2)",borderRadius:"var(--rs)",fontSize:14,fontWeight:600}} onClick={stopRec}><I.stop/>{t("rec_stop")}</button>
+      :transcript?<div style={{display:"flex",gap:10}}><button className="btn" style={{flex:1,height:46,background:"var(--bg3)",color:"var(--t3)",border:"1px solid var(--b2)",borderRadius:"var(--rs)"}} onClick={()=>{setTranscript("");startRec()}}><I.mic/>{lang==="fr"?"Recommencer":"Restart"}</button><button className="btn bp" style={{flex:1,height:46}} onClick={stopRec}><I.check/>{lang==="fr"?"Enregistrer le résumé":"Save summary"}</button></div>
+      :<button className="btn bp" style={{width:"100%",height:50,fontSize:14}} onClick={startRec}><I.mic/>{t("rec_start")}</button>}
     </div></div>}
     {toast&&<div className="toast">{toast}</div>}
   </>);
