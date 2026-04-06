@@ -95,6 +95,9 @@ const T={
   select_companies_sub:{en:"Choose the companies you want to monitor.",fr:"Choisissez les entreprises à surveiller."},
   continue_btn:{en:"Continue",fr:"Continuer"},selected:{en:"selected",fr:"sélectionnée(s)"},
   skip:{en:"Skip for now",fr:"Passer pour le moment"},
+  searching:{en:"Searching…",fr:"Recherche en cours…"},
+  ext_results:{en:"Results from the web",fr:"Résultats depuis le web"},
+  no_ext_results:{en:"No company found. Try a different name.",fr:"Aucune entreprise trouvée. Essayez un autre nom."},
   observation:{en:"Observation",fr:"Observation"},hypothesis_tag:{en:"Hypothesis",fr:"Hypothèse"},
   action:{en:"Action",fr:"Action"},question:{en:"Question",fr:"Question"},decision:{en:"Decision",fr:"Décision"},
   lbl_critical:{en:"Critical",fr:"Critique"},lbl_high:{en:"High",fr:"Élevé"},lbl_medium:{en:"Medium",fr:"Moyen"},lbl_low:{en:"Low",fr:"Faible"},
@@ -442,15 +445,49 @@ function App(){
 
   const showT=m=>{setToast(m);setTimeout(()=>setToast(null),2200)};
   const watched=useMemo(()=>cos.filter(c=>c.prio).sort((a,b)=>b.risk-a.risk),[cos]);
-  const togW=useCallback((id,prio)=>{setCos(p=>p.map(c=>c.id===id?{...c,prio:c.prio?(prio===undefined?null:prio):(prio||"watch")}:c));const c=cos.find(x=>x.id===id);if(!prio)showT(`${c?.name} ${c?.prio?t("removed"):t("added_wl")}`);},[cos,t]);
+  const togW=useCallback((id,forcePrio)=>{
+    setCos(p=>p.map(c=>{
+      if(c.id!==id)return c;
+      if(forcePrio!==undefined)return{...c,prio:c.prio?null:forcePrio};
+      return{...c,prio:c.prio?null:"watch"};
+    }));
+  },[]);
   const addN=()=>{if(!nText.trim())return;setNotes(p=>[{id:`n${Date.now()}`,cid:nComp||null,text:nText,tag:nTag,at:new Date().toISOString()},...p]);setNT("");setSNN(false);showT(t("note_saved"))};
   const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}return s.sort((a,b)=>b.imp-a.imp)},[activeCat,search,lang]);
   const wlSigs=useMemo(()=>filterSigs(SIGNALS.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs]);
   const allSigs=useMemo(()=>filterSigs(SIGNALS),[filterSigs]);
   const digest=useMemo(()=>{const ws=SIGNALS.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return{total:ws.length,crit:ws.filter(s=>s.imp>=80).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos]);
-  const goTab=tb=>{setTab(tb);setSC(null);setSSh(false);setSrch("");setACat(null);setAS("")};
+  const goTab=tb=>{setTab(tb);setSC(null);setSSh(false);setSrch("");setACat(null);setAS("");setExtRes([])};
   const fFull=()=>new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"long",day:"numeric",month:"long"});
   const greeting=()=>{const h=new Date().getHours();return h<12?t("greeting_morning"):h<18?t("greeting_afternoon"):t("greeting_evening")};
+
+  // ── External company search (Wikipedia) ──
+  const[extRes,setExtRes]=useState([]);
+  const[extLoading,setExtLoading]=useState(false);
+  const extTimerRef=useState({current:null})[0];
+  const searchExternal=useCallback((q)=>{
+    if(extTimerRef.current)clearTimeout(extTimerRef.current);
+    if(!q||q.length<3){setExtRes([]);return}
+    extTimerRef.current=setTimeout(async()=>{
+      setExtLoading(true);
+      try{
+        const r=await fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(q)}&limit=8&format=json&origin=*`);
+        const d=await r.json();
+        const names=d[1]||[];const descs=d[2]||[];
+        const local=cos.map(c=>c.name.toLowerCase());
+        const results=names.map((name,i)=>({name,desc:descs[i]||""})).filter(r=>!local.includes(r.name.toLowerCase())&&r.desc&&(r.desc.toLowerCase().includes("company")||r.desc.toLowerCase().includes("corporation")||r.desc.toLowerCase().includes("group")||r.desc.toLowerCase().includes("entreprise")||r.desc.toLowerCase().includes("bank")||r.desc.toLowerCase().includes("insur")||r.desc.toLowerCase().includes("pharma")||r.desc.toLowerCase().includes("energy")||r.desc.toLowerCase().includes("automotive")||r.desc.toLowerCase().includes("airline")||r.desc.toLowerCase().includes("telecom")||r.desc.toLowerCase().includes("manufacturer")||r.desc.toLowerCase().includes("conglomerat")||r.desc.toLowerCase().includes("multinational")||r.desc.toLowerCase().includes("plc")||r.desc.toLowerCase().includes("s.a.")||r.desc.toLowerCase().includes("ag ")||r.desc.toLowerCase().includes("ltd")||r.desc.includes("SE")));
+        setExtRes(results.slice(0,5));
+      }catch(e){setExtRes([])}
+      setExtLoading(false);
+    },500);
+  },[cos]);
+  const addExtCompany=(name,desc)=>{
+    const id=`ext${Date.now()}`;
+    const sector=desc.length>60?desc.substring(0,60)+"…":desc||"—";
+    setCos(p=>[...p,{id,name,sector,hq:"—",ticker:null,cap:"—",emp:"—",logo:name[0],risk:50,trend:"stable",prio:"watch"}]);
+    setExtRes([]);setAS("");
+    showT(`${name} ${t("added_wl")}`);
+  };
 
   // ── LOGIN ──
   if(step==="login")return(
@@ -476,7 +513,7 @@ function App(){
   if(step==="select"){const selCount=cos.filter(c=>c.prio).length;return(
     <div className="fi" style={{minHeight:"100vh",padding:"40px 20px 100px",background:"var(--bg)"}}>
       <div style={{textAlign:"center",marginBottom:32}}><I.radar style={{margin:"0 auto 12px",display:"block",color:"var(--gold)"}}/><h2 className="fd" style={{fontSize:22,fontWeight:600,color:"var(--t1)",marginBottom:8}}>{t("select_companies")}</h2><p style={{fontSize:13,color:"var(--t3)",lineHeight:1.55}}>{t("select_companies_sub")}</p></div>
-      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>{cos.map(c=>{const on=!!c.prio;return(<button key={c.id} className="card" style={{padding:"14px 18px",width:"100%",textAlign:"left",cursor:"pointer",borderColor:on?"rgba(201,168,76,.3)":"var(--b)",background:on?"var(--gbg)":"var(--bg2)"}} onClick={()=>togW(c.id,on?undefined:"watch")}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:22,height:22,borderRadius:6,border:`2px solid ${on?"var(--gold)":"var(--b2)"}`,background:on?"var(--gold)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"var(--bg)",fontSize:14,fontWeight:700}}>✓</span>}</div><span className="mono" style={{width:28,height:28,fontSize:11}}>{c.logo}</span><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:600,color:on?"var(--t1)":"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:1}}>{tx(c.sector,lang)}</p></div><SR s={c.risk} sz={34} sw={2}/></div></button>)})}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>{cos.map(c=>{const on=!!c.prio;return(<button key={c.id} className="card" style={{padding:"14px 18px",width:"100%",textAlign:"left",cursor:"pointer",borderColor:on?"rgba(201,168,76,.3)":"var(--b)",background:on?"var(--gbg)":"var(--bg2)"}} onClick={()=>togW(c.id,"watch")}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:22,height:22,borderRadius:6,border:`2px solid ${on?"var(--gold)":"var(--b2)"}`,background:on?"var(--gold)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{on&&<span style={{color:"var(--bg)",fontSize:14,fontWeight:700}}>✓</span>}</div><span className="mono" style={{width:28,height:28,fontSize:11}}>{c.logo}</span><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:600,color:on?"var(--t1)":"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:1}}>{tx(c.sector,lang)}</p></div><SR s={c.risk} sz={34} sw={2}/></div></button>)})}</div>
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"16px 20px",background:"rgba(7,12,24,.95)",backdropFilter:"blur(20px)",borderTop:"1px solid var(--b)"}}><button className="btn bp" style={{width:"100%",height:46}} onClick={()=>setStep("app")} disabled={selCount===0}>{t("continue_btn")} {selCount>0&&`(${selCount} ${t("selected")})`}</button><button className="btn" style={{width:"100%",marginTop:8,color:"var(--t4)",fontSize:12,background:"none"}} onClick={()=>setStep("app")}>{t("skip")}</button></div>
     </div>);}
 
@@ -581,7 +618,7 @@ function App(){
           <button key={c.id} className={`card fi fi${Math.min(i+1,5)} prio-${c.prio}`} style={{padding:"16px 18px",cursor:"pointer",textAlign:"left",width:"100%"}} onClick={()=>setSC(c.id)}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}><span className="mono">{c.logo}</span><div style={{minWidth:0}}><h4 style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>{tx(c.sector,lang)}</p><div style={{display:"flex",gap:8,marginTop:6}}><span style={{fontSize:10,color:"var(--t5)"}}>{sc} {sc>1?t("signals_lc"):t("signal")}</span><span className="lbl" style={{fontSize:8,color:c.prio==="primary"?"var(--gold)":c.prio==="secondary"?"#60A5FA":"var(--t5)"}}>{t(c.prio)}</span></div></div></div><div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><SR s={c.risk} sz={40} sw={2.5}/><I.chR/></div></div>
           </button>)})}{watched.length===0&&<div style={{textAlign:"center",padding:"48px 20px"}}><p style={{fontSize:14,color:"var(--t3)",fontWeight:500,marginBottom:4}}>{t("no_companies_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{t("no_companies_sub")}</p></div>}</div>
-        {cos.filter(c=>!c.prio).length>0&&<><h3 className="lbl" style={{color:"var(--t4)",marginBottom:10}}>{t("add_company")}</h3><input className="inp" style={{marginBottom:14}} placeholder={t("search_company")} value={addSrch} onChange={e=>setAS(e.target.value)}/><div style={{display:"flex",flexDirection:"column",gap:10}}>{cos.filter(c=>!c.prio).filter(c=>!addSrch||c.name.toLowerCase().includes(addSrch.toLowerCase())||(c.ticker||"").toLowerCase().includes(addSrch.toLowerCase())||tx(c.sector,lang).toLowerCase().includes(addSrch.toLowerCase())).map(c=>(<div key={c.id} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><button style={{flex:1,textAlign:"left",background:"none",border:"none",cursor:"pointer",minWidth:0,fontFamily:"inherit",color:"inherit"}} onClick={()=>setSC(c.id)}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)"}}>{tx(c.sector,lang)}</p></button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>togW(c.id)}><I.plus/>{t("add_to_watchlist")}</button></div>))}</div></>}
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:10}}>{t("add_company")}</h3><input className="inp" style={{marginBottom:14}} placeholder={t("search_company")} value={addSrch} onChange={e=>{setAS(e.target.value);searchExternal(e.target.value)}}/>{(()=>{const localFiltered=cos.filter(c=>!c.prio).filter(c=>!addSrch||c.name.toLowerCase().includes(addSrch.toLowerCase())||(c.ticker||"").toLowerCase().includes(addSrch.toLowerCase())||tx(c.sector,lang).toLowerCase().includes(addSrch.toLowerCase()));return(<><div style={{display:"flex",flexDirection:"column",gap:10}}>{localFiltered.slice(0,10).map(c=>(<div key={c.id} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><button style={{flex:1,textAlign:"left",background:"none",border:"none",cursor:"pointer",minWidth:0,fontFamily:"inherit",color:"inherit"}} onClick={()=>setSC(c.id)}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)"}}>{tx(c.sector,lang)}</p></button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>togW(c.id)}><I.plus/>{t("add_to_watchlist")}</button></div>))}</div>{addSrch.length>=3&&<>{extLoading&&<p style={{fontSize:12,color:"var(--t4)",marginTop:14,textAlign:"center"}}>{t("searching")}</p>}{!extLoading&&extRes.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginTop:18,marginBottom:10}}>{t("ext_results")}</h4><div style={{display:"flex",flexDirection:"column",gap:10}}>{extRes.map((r,i)=>(<div key={i} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderColor:"rgba(201,168,76,.15)"}}><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{r.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.desc}</p></div><button className="btn bp" style={{padding:"6px 14px",fontSize:12,flexShrink:0,marginLeft:10}} onClick={()=>addExtCompany(r.name,r.desc)}><I.plus/>{lang==="fr"?"Ajouter":"Add"}</button></div>))}</div></>}{!extLoading&&extRes.length===0&&localFiltered.length===0&&addSrch.length>=3&&<p style={{fontSize:12,color:"var(--t4)",marginTop:14,textAlign:"center"}}>{t("no_ext_results")}</p>}</>}</>)})()}
       </div>
     </div>);
 
