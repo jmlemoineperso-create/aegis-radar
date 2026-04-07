@@ -18,6 +18,25 @@ const TICKER_MAP = {
   "Unilever": "ULVR.L", "Shell": "SHEL.L", "HSBC": "HSBA.L",
   "AstraZeneca": "AZN.L", "BP": "BP.L", "Nestlé": "NESN.SW",
   "Novartis": "NOVN.SW", "Roche": "ROG.SW", "Zurich Insurance": "ZURN.SW",
+  "STMicroelectronics": "STMPA.PA", "ArcelorMittal": "MT.PA", "Carrefour": "CA.PA",
+  "Bureau Veritas": "BVI.PA", "Accor": "AC.PA", "Teleperformance": "TEP.PA",
+  "Amundi": "AMUN.PA", "Arkema": "AKE.PA", "Dassault Aviation": "AM.PA",
+  "Eiffage": "FGR.PA", "Eurazeo": "RF.PA", "Forvia (Faurecia)": "FRVIA.PA",
+  "Gecina": "GFC.PA", "Getlink": "GET.PA", "GTT": "GTT.PA",
+  "Ipsen": "IPN.PA", "JCDecaux": "DEC.PA", "Klépierre": "LI.PA",
+  "Sartorius Stedim Biotech": "DIM.PA", "SEB": "SK.PA", "Sodexo": "SW.PA",
+  "Sopra Steria": "SOP.PA", "Unibail-Rodamco-Westfield": "URW.PA",
+  "Valeo": "FR.PA", "Wendel": "MF.PA", "Nexans": "NEX.PA",
+  "Atos": "ATO.PA", "Biomérieux": "BIM.PA", "Bolloré": "BOL.PA",
+  "Coface": "COFA.PA", "Covivio": "COV.PA", "Fnac Darty": "FNAC.PA",
+  "Imerys": "NK.PA", "Clariane (ex-Korian)": "CLARI.PA",
+  "Lagardère": "MMB.PA", "OVHcloud": "OVH.PA", "Plastic Omnium": "POM.PA",
+  "Rémy Cointreau": "RCO.PA", "Rexel": "RXL.PA", "Rubis": "RUI.PA",
+  "Soitec": "SOI.PA", "Spie": "SPIE.PA", "Technip Energies": "TE.PA",
+  "TF1": "TFI.PA", "Trigano": "TRI.PA", "Ubisoft": "UBI.PA",
+  "Vallourec": "VK.PA", "Vicat": "VCT.PA", "Eutelsat": "ETL.PA",
+  "Scor": "SCR.PA", "CNP Assurances": "CNP.PA", "Nexity": "NXI.PA",
+  "Elior": "ELIOR.PA", "CGG": "CGG.PA",
 };
 
 const FL_KW = {
@@ -54,7 +73,7 @@ function detectImp(text) {
   return 40 + Math.floor(Math.random() * 22);
 }
 
-const LINE_MAP = { governance:"do", regulatory_compliance:"do", litigation_investigation:"do", financial_stress_reporting:"do", mna_transactions:"transactional_risks", cyber_data_breach:"cyber", fraud_crime:"crime", esg_reputation:"do", hr_culture:"epl" };
+const LINE_MAP = { governance:"do", regulatory_compliance:"do", litigation_investigation:"do", financial_stress_reporting:"do", mna_transactions:"mna", cyber_data_breach:"cyber", fraud_crime:"fraud", esg_reputation:"do", hr_culture:"epl" };
 
 async function fetchYahoo(ticker) {
   try {
