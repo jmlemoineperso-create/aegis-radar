@@ -129,7 +129,7 @@ const T={
   notifications:{en:"Notifications",fr:"Notifications"},
   daily_digest_toggle:{en:"Daily digest",fr:"Synthèse quotidienne"},
   critical_alerts:{en:"Critical alerts",fr:"Alertes critiques"},
-  notif_coming:{en:"Push notifications — coming in V1.",fr:"Notifications push — disponibles en V1."},
+  notif_coming:{en:"Browser notifications for critical signals. Tap to enable.",fr:"Notifications navigateur pour les signaux critiques. Appuyez pour activer."},
   about:{en:"About",fr:"À propos"},version:{en:"Version",fr:"Version"},
   sign_out:{en:"Sign out",fr:"Se déconnecter"},
   back:{en:"Back",fr:"Retour"},all:{en:"All",fr:"Tous"},
@@ -601,7 +601,14 @@ function App(){
         const mapped=data.signals.map(s=>{const co=cos.find(c=>c.name.toLowerCase()===s.company.toLowerCase())||cos.find(c=>s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));return{id:s.id,cid:co?.id||null,title:s.title||{en:s.company,fr:s.company},sum:s.summary||{en:"",fr:""},src:s.source||"Web",at:s.fetchedAt||new Date().toISOString(),cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}}).filter(s=>s.cid);
         setLiveSigs(p=>{const existIds=new Set(p.map(s=>s.id));const fresh=mapped.filter(s=>!existIds.has(s.id));return[...fresh,...p]});
         saveLiveSignalsDB(mapped);
-        setNewCount(p=>p+mapped.length);
+        setNewCount(p=>{const n=p+mapped.length;try{navigator.setAppBadge&&navigator.setAppBadge(n)}catch(e){}return n});
+        // Push notification for critical signals
+        const crits=mapped.filter(s=>s.imp>=80);
+        if(crits.length>0&&typeof Notification!=="undefined"&&Notification.permission==="granted"){
+          const co=cos.find(c=>c.id===crits[0].cid);
+          new Notification("SIGNALIS",{body:`${lang==="fr"?"Signal critique":"Critical signal"}: ${co?.name||""} — ${tx(crits[0].title,lang)}`,icon:"/icon-192.png",badge:"/icon-192.png",tag:"signalis-"+crits[0].id});
+          if(crits.length>1)new Notification("SIGNALIS",{body:`${lang==="fr"?`+ ${crits.length-1} autre(s) signal(aux) critique(s)`:`+ ${crits.length-1} more critical signal(s)`}`,icon:"/icon-192.png",tag:"signalis-batch"});
+        }
         setLastRefresh(new Date().toISOString());
         showT(lang==="fr"?`${mapped.length} nouveau(x) signal(aux) détecté(s)`:`${mapped.length} new signal(s) detected`);
       }else{
@@ -625,6 +632,13 @@ function App(){
   useEffect(()=>{
     if(step==="app"&&!dbLoaded)loadDB();
   },[step,dbLoaded,loadDB]);
+
+  // Request notification permission
+  useEffect(()=>{
+    if(step==="app"&&typeof Notification!=="undefined"&&Notification.permission==="default"){
+      setTimeout(()=>Notification.requestPermission(),3000);
+    }
+  },[step]);
 
   // Persist watchlist to localStorage
   useEffect(()=>{
@@ -812,13 +826,13 @@ function App(){
 
   // ── PAGES ──
   const render=()=>{
-    if(selComp)return<CompPage cid={selComp}/>;
+    if(selComp)return <CompPage cid={selComp}/>;
     if(tab==="dashboard")return(<div style={{paddingBottom:100}}>
-      <div className="hdr"><div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:10}}><I.radar/><span className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("dashboard_title")}</span>{autoRefresh&&<div className="pd" style={{marginLeft:4}}/>}</div><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.search/>}</button><button className="bi" style={{width:34,height:34}} onClick={()=>refreshSignals()} disabled={refreshing}><I.refresh style={{animation:refreshing?"spin 1s linear infinite":"none"}}/></button><button className="bi" style={{width:34,height:34,position:"relative"}} onClick={()=>setNewCount(0)}><I.bell/>{newCount>0&&<div style={{position:"absolute",top:3,right:3,minWidth:16,height:16,borderRadius:8,background:"#EF4444",border:"2px solid var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:700,color:"white"}}>{newCount>9?"9+":newCount}</span></div>}</div></div></div>{showSearch&&<input className="inp" style={{marginTop:12}} placeholder={t("search_placeholder")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:8,textAlign:"right"}}>{lang==="fr"?"Dernière mise à jour :":"Last update:"} {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div>
+      <div className="hdr"><div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:10}}><I.radar/><span className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("dashboard_title")}</span>{autoRefresh&&<div className="pd" style={{marginLeft:4}}/>}</div><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.search/>}</button><button className="bi" style={{width:34,height:34}} onClick={()=>refreshSignals()} disabled={refreshing}><I.refresh style={{animation:refreshing?"spin 1s linear infinite":"none"}}/></button><button className="bi" style={{width:34,height:34,position:"relative"}} onClick={()=>{setNewCount(0);try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}}}><I.bell/>{newCount>0&&<div style={{position:"absolute",top:3,right:3,minWidth:16,height:16,borderRadius:8,background:"#EF4444",border:"2px solid var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:700,color:"white"}}>{newCount>9?"9+":newCount}</span></div>}</div></div></div>{showSearch&&<input className="inp" style={{marginTop:12}} placeholder={t("search_placeholder")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:8,textAlign:"right"}}>{lang==="fr"?"Dernière mise à jour :":"Last update:"} {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div>
       <div style={{padding:"18px 20px"}}><p className="fd" style={{fontSize:16,fontWeight:500,color:"var(--t1)",marginBottom:4}}>{greeting()}</p><p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{t("dashboard_sub")}</p>
         <div className="card-el fi" style={{padding:"16px 18px",marginBottom:22,borderLeft:"3px solid var(--gold)",cursor:"pointer"}} onClick={()=>setSD(true)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><p className="lbl" style={{color:"var(--gold)"}}>{t("daily_digest")} — {fFull()}</p>{autoRefresh&&<div className="pd"/>}</div>{liveSigs.length>0?<p style={{fontSize:14,color:"var(--t2)",lineHeight:1.45}}><strong style={{color:"var(--t1)"}}>{liveSigs.length}</strong> {t("signal_count")} · <strong style={{color:"var(--t1)"}}>{watched.length}</strong> {t("companies_monitored")}{digest.crit>0&&<> · <span style={{color:"#FCA5A5"}}>{digest.crit} {digest.crit>1?t("critical_signals"):t("critical_signal")}</span></>}</p>:<p style={{fontSize:13,color:"var(--t4)",lineHeight:1.45}}>{t("no_data_refresh")}</p>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{lang==="fr"?"Dernière mise à jour":"Last update"}: {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>{autoRefresh&&<span style={{fontSize:9,color:"var(--gold)",fontWeight:600}}>LIVE</span>}<I.chR style={{color:"var(--t5)"}}/></div></div></div>
         <div className="fi fi1" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:22}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("active"),v:digest.total,c:"#60A5FA"},{l:t("critical_lbl"),v:digest.crit,c:"#F87171"}].map(x=>(<div key={x.l} className="card" style={{padding:"14px 12px",textAlign:"center"}}><p style={{fontSize:22,fontWeight:700,color:x.c,lineHeight:1}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:5,fontSize:9}}>{x.l}</p></div>))}</div>
-        <div className="fi fi2 hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:22}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return<button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div>
+        <div className="fi fi2 hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:22}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return <button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div>
         <h3 className="lbl fi fi3" style={{color:"var(--t4)",marginBottom:14}}>{t("priority_feed")}</h3>
         <div className="sig-grid">{wlSigs.map((s,i)=><SigCard key={s.id} s={s} d={Math.min(i+1,5)}/>)}{wlSigs.length===0&&<div style={{textAlign:"center",padding:"56px 20px",gridColumn:"1/-1"}}><I.radar style={{width:40,height:40,color:"var(--b2)",margin:"0 auto 16px",display:"block"}}/><p style={{fontSize:15,color:"var(--t3)",marginBottom:4,fontWeight:500}}>{search||activeCat?t("no_signals_match"):t("no_signals_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{search||activeCat?t("adjust_filters"):t("radar_will_update")}</p></div>}</div>
       </div>
@@ -837,7 +851,7 @@ function App(){
     </div>);
 
     if(tab==="signals")return(<div style={{paddingBottom:100}}>
-      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h2 className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("all_signals")}</h2><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.filter/>}</button></div>{showSearch&&<input className="inp" style={{marginBottom:12}} placeholder={t("filter_signals")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}<div className="hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return<button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div></div>
+      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h2 className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("all_signals")}</h2><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.filter/>}</button></div>{showSearch&&<input className="inp" style={{marginBottom:12}} placeholder={t("filter_signals")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}<div className="hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return <button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div></div>
       <div style={{padding:"18px 20px"}}><div className="sig-grid">{allSigs.map((s,i)=><SigCard key={s.id} s={s} d={Math.min(i+1,5)}/>)}</div></div>
     </div>);
 
@@ -865,7 +879,7 @@ function App(){
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("notifications")}</h3>
         <div className="card" style={{padding:"16px 18px",marginBottom:28}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}} onClick={()=>{setAutoRefresh(!autoRefresh);savePrefsDB({auto_refresh:!autoRefresh})}}><span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Rafraîchissement auto (1h)":"Auto-refresh (1h)"}</span><div style={{width:36,height:20,borderRadius:10,background:autoRefresh?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}}><div style={{width:16,height:16,borderRadius:8,background:autoRefresh?"white":"var(--t4)",marginLeft:autoRefresh?16:0,transition:"margin-left .2s"}}/></div></div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:"var(--t2)"}}>{t("critical_alerts")}</span><div style={{width:36,height:20,borderRadius:10,background:"var(--b2)",padding:2}}><div style={{width:16,height:16,borderRadius:8,background:"var(--t4)"}}/></div></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>{if(typeof Notification!=="undefined"){if(Notification.permission==="granted")showT(lang==="fr"?"Notifications déjà activées":"Notifications already enabled");else Notification.requestPermission().then(p=>{if(p==="granted")showT(lang==="fr"?"Notifications activées":"Notifications enabled");else showT(lang==="fr"?"Notifications refusées par le navigateur":"Notifications denied by browser")})}else showT(lang==="fr"?"Non supporté sur ce navigateur":"Not supported on this browser")}}><span style={{fontSize:13,color:"var(--t2)"}}>{t("critical_alerts")}</span><div style={{width:36,height:20,borderRadius:10,background:typeof Notification!=="undefined"&&Notification.permission==="granted"?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}}><div style={{width:16,height:16,borderRadius:8,background:typeof Notification!=="undefined"&&Notification.permission==="granted"?"white":"var(--t4)",marginLeft:typeof Notification!=="undefined"&&Notification.permission==="granted"?16:0,transition:"margin-left .2s"}}/></div></div>
           <p style={{fontSize:11,color:"var(--t5)",marginTop:12}}>{t("notif_coming")}</p>
         </div>
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:14}}>{t("about")}</h3>
