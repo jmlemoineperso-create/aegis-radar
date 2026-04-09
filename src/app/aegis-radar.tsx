@@ -334,9 +334,9 @@ const SRC_URL={"Reuters":"https://reuters.com","The Guardian":"https://theguardi
 const srcUrl=name=>{const n=typeof name==="object"?name.en:name;return SRC_URL[n]||null};
 
 // ── SELECTORS ──
-const getSigs=cid=>SIGNALS.filter(s=>s.cid===cid).sort((a,b)=>b.imp-a.imp);
+const getSigsStatic=cid=>SIGNALS.filter(s=>s.cid===cid).sort((a,b)=>b.imp-a.imp);
 const getImps=sid=>IMPACTS.filter(i=>i.sid===sid);
-const getNotes=cid=>NOTES.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at));
+const getNotesStatic=cid=>NOTES.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at));
 const getAllLines=sigs=>[...new Set(sigs.flatMap(s=>getImps(s.id).map(i=>i.line)))];
 
 // ── UTILS ──
@@ -692,6 +692,17 @@ function App(){
   const liveImpacts=useMemo(()=>liveSigs.flatMap(s=>(s._impacts||[]).map(i=>({sid:s.id,line:i.line,lvl:i.level,why:i.why,angle:i.angle,vig:[],hyp:[]}))),[liveSigs]);
   const getImpsAll=useCallback(sid=>{const stat=IMPACTS.filter(i=>i.sid===sid);const live=liveImpacts.filter(i=>i.sid===sid);return[...stat,...live]},[liveImpacts]);
   const getLinesAll=useCallback(sigs=>[...new Set(sigs.flatMap(s=>getImpsAll(s.id).map(i=>i.line)))],[getImpsAll]);
+
+  // getSigs and getNotes include live data
+  const getSigs=useCallback(cid=>{
+    const co=cos.find(c=>c.id===cid);
+    return allSignals.filter(s=>{
+      if(s.cid===cid)return true;
+      if(co&&s.company){const n=s.company.toLowerCase();return n===co.name.toLowerCase()||n.includes(co.name.toLowerCase().split(" ")[0])}
+      return false;
+    }).sort((a,b)=>b.imp-a.imp);
+  },[allSignals,cos]);
+  const getNotes=useCallback(cid=>notes.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at)),[notes]);
 
   const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}return s.sort((a,b)=>b.imp-a.imp)},[activeCat,search,lang]);
   const wlSigs=useMemo(()=>filterSigs(allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs,allSignals]);
