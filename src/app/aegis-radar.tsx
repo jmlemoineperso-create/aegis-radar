@@ -167,7 +167,7 @@ function LangProvider({children}){const[lang,setLangRaw]=useState(()=>lsGet("lan
 
 // ── Bilingual text helper ──
 // tx(obj, lang) returns the right language string
-const tx=(v,lang)=>{if(!v)return"";if(typeof v==="string")return v;if(typeof v==="object"&&v.en)return v[lang]||v.en;if(typeof v==="number")return String(v);return String(v||"")};
+const tx=(v,lang)=>{if(!v)return"";if(typeof v==="string")return v;if(typeof v==="number")return String(v);if(typeof v==="object"){if(v[lang])return v[lang];if(v.en)return v.en;if(v.fr)return v.fr;return""}return String(v||"")};
 
 // ── ENUMS ──
 const CATS=[
