@@ -56,6 +56,8 @@ const T={
   across:{en:"across",fr:"sur"},companies_lc:{en:"companies",fr:"entreprises"},
   watchlist_label:{en:"Watchlist",fr:"Watchlist"},active:{en:"Active",fr:"Actifs"},critical_lbl:{en:"Critical",fr:"Critiques"},
   priority_feed:{en:"Priority feed",fr:"Flux prioritaire"},
+  view_grid:{en:"Grid",fr:"Grille"},view_list:{en:"List",fr:"Liste"},
+  sort_recent:{en:"Most recent",fr:"Plus récent"},sort_important:{en:"Most important",fr:"Plus important"},
   no_signals_match:{en:"No signals match",fr:"Aucun signal correspondant"},
   adjust_filters:{en:"Try adjusting your filters",fr:"Essayez d'ajuster vos filtres"},
   no_signals_yet:{en:"No relevant signals detected yet.",fr:"Aucun signal pertinent détecté pour le moment."},
@@ -538,6 +540,8 @@ function App(){
   const[nComp,setNC]=useState("");
   const[nTag,setNTg]=useState("observation");
   const[showSearch,setSSh]=useState(false);
+  const[viewMode,setViewMode]=useState(()=>lsGet("viewMode","grid"));
+  const[sortMode,setSortMode]=useState(()=>lsGet("sortMode","recent"));
   const[toast,setToast]=useState(null);
   const[copied,setCopied]=useState(false);
   const[noteFilter,setNF]=useState(null);
@@ -704,7 +708,7 @@ function App(){
   },[allSignals,cos]);
   const getNotes=useCallback(cid=>notes.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at)),[notes]);
 
-  const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}return s.sort((a,b)=>b.imp-a.imp)},[activeCat,search,lang]);
+  const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}if(sortMode==="recent")return s.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));return s.sort((a,b)=>(b.imp||0)-(a.imp||0))},[activeCat,search,lang,sortMode]);
   const wlSigs=useMemo(()=>filterSigs(allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs,allSignals]);
   const allSigs=useMemo(()=>filterSigs(allSignals),[filterSigs,allSignals]);
   const digest=useMemo(()=>{const ws=allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return {total:ws.length,crit:ws.filter(s=>s.imp>=80).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos,allSignals]);
@@ -875,8 +879,34 @@ function App(){
         <div className="card-el fi" style={{padding:"16px 18px",marginBottom:22,borderLeft:"3px solid var(--gold)",cursor:"pointer"}} onClick={()=>setSD(true)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><p className="lbl" style={{color:"var(--gold)"}}>{t("daily_digest")} — {fFull()}</p>{autoRefresh&&<div className="pd"/>}</div>{liveSigs.length>0?<p style={{fontSize:14,color:"var(--t2)",lineHeight:1.45}}><strong style={{color:"var(--t1)"}}>{liveSigs.length}</strong> {t("signal_count")} · <strong style={{color:"var(--t1)"}}>{watched.length}</strong> {t("companies_monitored")}{digest.crit>0&&<> · <span style={{color:"#FCA5A5"}}>{digest.crit} {digest.crit>1?t("critical_signals"):t("critical_signal")}</span></>}</p>:<p style={{fontSize:13,color:"var(--t4)",lineHeight:1.45}}>{t("no_data_refresh")}</p>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{lang==="fr"?"Dernière mise à jour":"Last update"}: {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>{autoRefresh&&<span style={{fontSize:9,color:"var(--gold)",fontWeight:600}}>LIVE</span>}<I.chR style={{color:"var(--t5)"}}/></div></div></div>
         <div className="fi fi1" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:22}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("active"),v:digest.total,c:"#60A5FA"},{l:t("critical_lbl"),v:digest.crit,c:"#F87171"}].map(x=>(<div key={x.l} className="card" style={{padding:"14px 12px",textAlign:"center"}}><p style={{fontSize:22,fontWeight:700,color:x.c,lineHeight:1}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:5,fontSize:9}}>{x.l}</p></div>))}</div>
         <div className="fi fi2 hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:22}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return <button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div>
-        <h3 className="lbl fi fi3" style={{color:"var(--t4)",marginBottom:14}}>{t("priority_feed")}</h3>
-        <div className="sig-grid">{wlSigs.map((s,i)=><SigCard key={s.id} s={s} d={Math.min(i+1,5)}/>)}{wlSigs.length===0&&<div style={{textAlign:"center",padding:"56px 20px",gridColumn:"1/-1"}}><I.radar style={{width:40,height:40,color:"var(--b2)",margin:"0 auto 16px",display:"block"}}/><p style={{fontSize:15,color:"var(--t3)",marginBottom:4,fontWeight:500}}>{search||activeCat?t("no_signals_match"):t("no_signals_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{search||activeCat?t("adjust_filters"):t("radar_will_update")}</p></div>}</div>
+        <div className="fi fi3" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <h3 className="lbl" style={{color:"var(--t4)"}}>{t("priority_feed")}</h3>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}><button className="btn" style={{padding:"4px 10px",fontSize:10,background:sortMode==="recent"?"var(--gbg)":"var(--bg3)",color:sortMode==="recent"?"var(--gold)":"var(--t5)"}} onClick={()=>{setSortMode("recent");lsSet("sortMode","recent")}}>{t("sort_recent")}</button><button className="btn" style={{padding:"4px 10px",fontSize:10,background:sortMode==="important"?"var(--gbg)":"var(--bg3)",color:sortMode==="important"?"var(--gold)":"var(--t5)",borderLeft:"1px solid var(--b)"}} onClick={()=>{setSortMode("important");lsSet("sortMode","important")}}>{t("sort_important")}</button></div>
+            <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}><button className="btn" style={{padding:"4px 8px",background:viewMode==="grid"?"var(--gbg)":"var(--bg3)",color:viewMode==="grid"?"var(--gold)":"var(--t5)"}} onClick={()=>{setViewMode("grid");lsSet("viewMode","grid")}}>▦</button><button className="btn" style={{padding:"4px 8px",background:viewMode==="list"?"var(--gbg)":"var(--bg3)",color:viewMode==="list"?"var(--gold)":"var(--t5)",borderLeft:"1px solid var(--b)"}} onClick={()=>{setViewMode("list");lsSet("viewMode","list")}}>☰</button></div>
+          </div>
+        </div>
+        {viewMode==="grid"?<div className="sig-grid">{wlSigs.map((s,i)=> <SigCard key={s.id||i} s={s} d={Math.min(i+1,5)}/>)}{wlSigs.length===0&&<div style={{textAlign:"center",padding:"56px 20px",gridColumn:"1/-1"}}><I.radar style={{width:40,height:40,color:"var(--b2)",margin:"0 auto 16px",display:"block"}}/><p style={{fontSize:15,color:"var(--t3)",marginBottom:4,fontWeight:500}}>{search||activeCat?t("no_signals_match"):t("no_signals_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{search||activeCat?t("adjust_filters"):t("radar_will_update")}</p></div>}</div>
+        :<div style={{display:"flex",flexDirection:"column",gap:2}}>{wlSigs.map((s,i)=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid)||cos.find(c=>s.company&&(c.name.toLowerCase()===s.company.toLowerCase()||s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])));const imps=getImpsAll(s.id);return (
+          <div key={s.id||i} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"12px 16px",borderBottom:"1px solid var(--b)",cursor:"pointer",background:i%2===0?"transparent":"rgba(13,20,36,.4)"}} onClick={()=>setSS(s)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
+                <span className="badge" style={{background:sBg(s.imp||50),color:sT(s.imp||50),flexShrink:0}}>{s.imp||50}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontSize:12,fontWeight:600,color:"var(--t1)",lineHeight:1.3,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{tx(s.title,lang)||s.company||"—"}</p>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3}}>
+                    <span style={{fontSize:10,color:"var(--gold2)",fontWeight:500}}>{co?.name||s.company||"—"}</span>
+                    <span style={{fontSize:9,color:"var(--t5)"}}>·</span>
+                    <span style={{fontSize:10,color:cat?.c||"var(--t4)"}}>{cat?.icon} {cat?.s||""}</span>
+                    {imps.length>0&&<>{imps.slice(0,2).map((im,idx)=><span key={idx} style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:LVL_BG[im.lvl]||"rgba(59,130,246,.1)",color:LVL_T[im.lvl]||"#93C5FD"}}>{lineLbl(im.line,lang)}</span>)}</>}
+                  </div>
+                </div>
+              </div>
+              <span style={{fontSize:10,color:"var(--t5)",flexShrink:0,marginLeft:8}}>{s.at?fD(s.at):"—"}</span>
+            </div>
+          </div>)})}
+          {wlSigs.length===0&&<div style={{textAlign:"center",padding:"56px 20px"}}><p style={{fontSize:15,color:"var(--t3)",marginBottom:4,fontWeight:500}}>{search||activeCat?t("no_signals_match"):t("no_signals_yet")}</p></div>}
+        </div>}
       </div>
     </div>);
 
