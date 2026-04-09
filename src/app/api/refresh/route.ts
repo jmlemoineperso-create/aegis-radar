@@ -40,20 +40,20 @@ const TICKER_MAP = {
 };
 
 const FL_KW = {
-  governance: ["ceo","cfo","board","director","resign","appoint","governance","chairman","pdg","démission","nomination"],
-  regulatory_compliance: ["regulator","fine","penalty","compliance","investigation","probe","sanction","gdpr","amende","enquête"],
-  litigation_investigation: ["lawsuit","litigation","court","sue","trial","settlement","class action","procès","contentieux"],
-  financial_stress_reporting: ["debt","credit rating","downgrade","loss","restructuring","restatement","earnings","profit warning","dette","perte"],
-  mna_transactions: ["acquisition","merger","takeover","deal","acquire","bid","fusion","rachat","opa"],
-  cyber_data_breach: ["cyber","hack","breach","ransomware","data leak","security incident","cyberattaque","fuite","piratage"],
-  fraud_crime: ["fraud","corruption","bribery","embezzlement","money laundering","whistleblower","fraude","blanchiment"],
-  esg_reputation: ["esg","climate","environmental","sustainability","pollution","emissions","carbon","environnement","climat"],
-  hr_culture: ["layoff","strike","harassment","discrimination","workplace","employee","labor","licenciement","grève","harcèlement"],
+  governance: ["ceo","cfo","coo","cto","board","director","resign","appoint","governance","chairman","pdg","démission","nomination","shareholder","vote","proxy","agm","assemblée","annual meeting","activist","executive","management change","leadership","succession","compensation","remuneration","rémunération","bonus"],
+  regulatory_compliance: ["regulator","fine","penalty","compliance","investigation","probe","sanction","gdpr","amende","enquête","regulatory","antitrust","competition","autorité","aml","anti-money","sec ","fca ","amf ","bafin","eba","ecb","bce","audit","inspecteur","enforcement","violation","infringement","consent order","mise en demeure"],
+  litigation_investigation: ["lawsuit","litigation","court","sue","trial","settlement","class action","procès","contentieux","plaintiff","defendant","arbitration","damages","tribunal","verdict","ruling","appeal","injunction","indictment","criminal charge"],
+  financial_stress_reporting: ["debt","credit rating","downgrade","upgrade","loss","restructuring","restatement","earnings","profit warning","dette","perte","revenue","results","quarterly","annual results","forecast","guidance","outlook","analyst","price target","share price","stock","market cap","valuation","dividend","buyback","rachat","cash flow","margin","ebitda","rating","moody","fitch","s&p","bond","refinanc","capital increase","augmentation de capital","profit","bénéfice","chiffre d'affaires","résultats","prévision","objectif de cours","action","cours","capitalisation","investissement","investment"],
+  mna_transactions: ["acquisition","merger","takeover","deal","acquire","bid","fusion","rachat","opa","ipo","spin-off","divestiture","cession","joint venture","partnership","partenariat","stake","participation","listing","introduction en bourse","consolidation"],
+  cyber_data_breach: ["cyber","hack","breach","ransomware","data leak","security incident","cyberattaque","fuite","piratage","phishing","malware","vulnerability","data protection","encryption","privacy","outage","panne","it failure","système d'information"],
+  fraud_crime: ["fraud","corruption","bribery","embezzlement","money laundering","whistleblower","fraude","blanchiment","misconduct","forgery","false accounting","insider trading","délit d'initié","abus de biens","détournement","escroquerie"],
+  esg_reputation: ["esg","climate","environmental","sustainability","pollution","emissions","carbon","environnement","climat","green","renewable","social responsibility","csr","rse","biodiversity","waste","déchet","net zero","transition énergétique","deforestation","human rights","droits humains","supply chain","fournisseur","reputation","scandale","controversy"],
+  hr_culture: ["layoff","strike","harassment","discrimination","workplace","employee","labor","licenciement","grève","harcèlement","restructuration sociale","plan social","hiring","recrutement","talent","diversity","diversité","inclusion","safety","sécurité au travail","accident","workers","salariés","syndicat","union","prud'hom"],
 };
 
 function detectCat(text) {
   const t = text.toLowerCase();
-  let best = "governance", bestN = 0;
+  let best = "financial_stress_reporting", bestN = 0;
   for (const [cat, kws] of Object.entries(FL_KW)) {
     const n = kws.filter(k => t.includes(k)).length;
     if (n > bestN) { bestN = n; best = cat; }
@@ -63,17 +63,39 @@ function detectCat(text) {
 
 function detectImp(text) {
   const t = text.toLowerCase();
-  const crit = ["fraud","ransomware","investigation","resign","class action","corruption","whistleblower","data breach"];
-  const high = ["lawsuit","layoff","downgrade","acquisition","restructuring","penalty","probe"];
+  const crit = ["fraud","ransomware","investigation","resign","class action","corruption","whistleblower","data breach","restructuring","downgrade","criminal"];
+  const high = ["lawsuit","layoff","downgrade","acquisition","restructuring","penalty","probe","merger","takeover","sanction","fine","hack"];
+  const med = ["earnings","results","analyst","price target","dividend","rating","esg","compliance","partnership"];
   const c = crit.filter(w => t.includes(w)).length;
   const h = high.filter(w => t.includes(w)).length;
-  if (c >= 2) return 90 + Math.floor(Math.random() * 8);
-  if (c >= 1) return 78 + Math.floor(Math.random() * 12);
+  const m = med.filter(w => t.includes(w)).length;
+  if (c >= 2) return 88 + Math.floor(Math.random() * 10);
+  if (c >= 1) return 75 + Math.floor(Math.random() * 13);
   if (h >= 1) return 62 + Math.floor(Math.random() * 16);
-  return 40 + Math.floor(Math.random() * 22);
+  if (m >= 1) return 48 + Math.floor(Math.random() * 14);
+  return 35 + Math.floor(Math.random() * 20);
 }
 
-const LINE_MAP = { governance:"do", regulatory_compliance:"do", litigation_investigation:"do", financial_stress_reporting:"do", mna_transactions:"mna", cyber_data_breach:"cyber", fraud_crime:"fraud", esg_reputation:"do", hr_culture:"epl" };
+function detectLines(cat, text) {
+  const t = text.toLowerCase();
+  const lines = [];
+  const primary = { governance:"do", regulatory_compliance:"do", litigation_investigation:"rcpro", financial_stress_reporting:"do", mna_transactions:"mna", cyber_data_breach:"cyber", fraud_crime:"fraud", esg_reputation:"do", hr_culture:"epl" };
+  lines.push(primary[cat] || "do");
+  if (t.includes("cyber") || t.includes("hack") || t.includes("breach") || t.includes("data")) lines.push("cyber");
+  if (t.includes("fraud") || t.includes("corruption") || t.includes("embezzlement") || t.includes("whistleblower")) lines.push("fraud");
+  if (t.includes("merger") || t.includes("acquisition") || t.includes("takeover") || t.includes("ipo") || t.includes("spin")) lines.push("mna");
+  if (t.includes("employee") || t.includes("layoff") || t.includes("harassment") || t.includes("strike") || t.includes("discrimination")) lines.push("epl");
+  if (t.includes("liability") || t.includes("professional") || t.includes("negligence") || t.includes("malpractice")) lines.push("rcpro");
+  if (t.includes("environment") || t.includes("pollution") || t.includes("emission") || t.includes("climate")) lines.push("rc_env");
+  if (t.includes("transport") || t.includes("shipping") || t.includes("cargo") || t.includes("vessel") || t.includes("maritime")) lines.push("marine");
+  if (t.includes("vehicle") || t.includes("automotive") || t.includes("car ") || t.includes("fleet") || t.includes("motor")) lines.push("motor");
+  if (t.includes("property") || t.includes("building") || t.includes("fire") || t.includes("damage") || t.includes("facility")) lines.push("property");
+  if (t.includes("credit") || t.includes("trade finance") || t.includes("export") || t.includes("import")) lines.push("trade_credit");
+  if (t.includes("aviation") || t.includes("airline") || t.includes("aircraft") || t.includes("flight")) lines.push("aviation");
+  return [...new Set(lines)];
+}
+
+const LINE_MAP = { governance:"do", regulatory_compliance:"do", litigation_investigation:"rcpro", financial_stress_reporting:"do", mna_transactions:"mna", cyber_data_breach:"cyber", fraud_crime:"fraud", esg_reputation:"do", hr_culture:"epl" };
 
 async function fetchYahoo(ticker) {
   try {
@@ -144,7 +166,7 @@ export async function POST(req) {
         const text = `${n.title} ${n.desc}`;
         const cat = detectCat(text);
         const imp = detectImp(text);
-        const line = LINE_MAP[cat] || "do";
+        const lines = detectLines(cat, text);
         const level = imp >= 85 ? "critical" : imp >= 70 ? "high" : imp >= 50 ? "medium" : "low";
         return {
           id: `yf-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
@@ -154,7 +176,7 @@ export async function POST(req) {
           source: n.source || "Yahoo Finance",
           category: cat, importance: imp, confidence: 72,
           factuality: "needs_review",
-          impacts: [{ line, level, why: { en: `Detected for ${co.name}. Review for FL relevance.`, fr: `Détecté pour ${co.name}. À analyser pour pertinence FL.` }, angle: { en: "", fr: "" } }],
+          impacts: lines.map((l,i) => ({ line: l, level: i === 0 ? level : "medium", why: { en: `Detected for ${co.name}. Review for FL relevance.`, fr: `Détecté pour ${co.name}. À analyser pour pertinence FL.` }, angle: { en: "", fr: "" } })),
           live: true, fetchedAt: new Date().toISOString(),
         };
       });
