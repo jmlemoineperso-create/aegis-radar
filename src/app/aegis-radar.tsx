@@ -35,7 +35,7 @@ const T={
   greeting_morning:{en:"Good morning, Anne-Sophie",fr:"Bonjour, Anne-Sophie"},
   greeting_afternoon:{en:"Good afternoon, Anne-Sophie",fr:"Bon après-midi, Anne-Sophie"},
   greeting_evening:{en:"Good evening, Anne-Sophie",fr:"Bonsoir, Anne-Sophie"},
-  dedication:{en:"Designed & built by Jean-Maurice",fr:"Conçu et développé par Jean-Maurice"},
+  dedication:{en:"© Designed & built by Jean-Maurice Lemoine",fr:"© Conçu et développé par Jean-Maurice Lemoine"},
   dedication_sub:{en:"For Anne-Sophie — because your work deserves the right tools.",fr:"Pour Anne-Sophie — parce que ton travail mérite les bons outils."},
   daily_digest:{en:"Daily Digest",fr:"Synthèse du jour"},
   digest_full_title:{en:"Daily Intelligence Brief",fr:"Brief de veille quotidien"},
@@ -587,6 +587,11 @@ function App(){
   const[lastRefresh,setLastRefresh]=useState(null);
   const[newCount,setNewCount]=useState(0);
   const[autoRefresh,setAutoRefresh]=useState(()=>lsGet("autoRefresh",true));
+  const INTERVALS=[{m:15,l:{en:"15 min",fr:"15 min"}},{m:30,l:{en:"30 min",fr:"30 min"}},{m:60,l:{en:"1h",fr:"1h"}},{m:120,l:{en:"2h",fr:"2h"}},{m:240,l:{en:"4h",fr:"4h"}}];
+  const[refreshMin,setRefreshMin]=useState(()=>lsGet("refreshMin",60));
+  const[refreshVal,setRefreshVal]=useState(()=>{const m=lsGet("refreshMin",60);return m>=60?m/60:m});
+  const[refreshUnit,setRefreshUnit]=useState(()=>{const m=lsGet("refreshMin",60);return m>=60?"h":"m"});
+  const applyRefresh=(val,unit)=>{const num=Math.max(1,parseInt(val)||1);const mins=unit==="h"?num*60:unit==="j"?num*1440:num;setRefreshMin(mins);lsSet("refreshMin",mins);setRefreshVal(num);setRefreshUnit(unit)};
 
   const showT=m=>{setToast(m);setTimeout(()=>setToast(null),2800)};
   const watched=useMemo(()=>cos.filter(c=>c.prio).sort((a,b)=>b.risk-a.risk),[cos]);
@@ -639,10 +644,10 @@ function App(){
   const refreshRef=useRef(null);
   useEffect(()=>{
     if(autoRefresh&&step==="app"){
-      refreshRef.current=setInterval(()=>refreshSignals(),3600000);
+      refreshRef.current=setInterval(()=>refreshSignals(),refreshMin*60000);
       return ()=>clearInterval(refreshRef.current);
     }
-  },[autoRefresh,step,refreshSignals]);
+  },[autoRefresh,step,refreshSignals,refreshMin]);
 
   // Auto-load DB if already logged in (page refresh)
   useEffect(()=>{
@@ -894,7 +899,8 @@ function App(){
         <div className="card" style={{padding:"16px 18px",marginBottom:28}}><p style={{fontSize:12,color:"var(--t4)",marginBottom:12}}>{t("preferred_lines_sub")}</p><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{Object.entries(LINES).map(([k])=>{const checked=selLines.includes(k);return (<label key={k} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"4px 0"}} onClick={()=>togLine(k)}><div style={{width:16,height:16,borderRadius:4,border:`2px solid ${checked?"var(--gold)":"var(--b2)"}`,background:checked?"var(--gbg)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s",flexShrink:0}}>{checked&&<span style={{color:"var(--gold)",fontSize:10,fontWeight:700}}>✓</span>}</div><span style={{fontSize:12,color:checked?"var(--t1)":"var(--t3)",transition:"color .2s"}}>{lineLbl(k,lang)}</span></label>)})}</div></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("notifications")}</h3>
         <div className="card" style={{padding:"16px 18px",marginBottom:28}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}} onClick={()=>{setAutoRefresh(!autoRefresh);savePrefsDB({auto_refresh:!autoRefresh})}}><span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Rafraîchissement auto (1h)":"Auto-refresh (1h)"}</span><div style={{width:36,height:20,borderRadius:10,background:autoRefresh?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}}><div style={{width:16,height:16,borderRadius:8,background:autoRefresh?"white":"var(--t4)",marginLeft:autoRefresh?16:0,transition:"margin-left .2s"}}/></div></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}} onClick={()=>{setAutoRefresh(!autoRefresh);savePrefsDB({auto_refresh:!autoRefresh})}}><span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Rafraîchissement automatique":"Auto-refresh"}</span><div style={{width:36,height:20,borderRadius:10,background:autoRefresh?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}}><div style={{width:16,height:16,borderRadius:8,background:autoRefresh?"white":"var(--t4)",marginLeft:autoRefresh?16:0,transition:"margin-left .2s"}}/></div></div>
+          {autoRefresh&&<div style={{marginBottom:14}}><p className="lbl" style={{color:"var(--t5)",marginBottom:8,fontSize:9}}>{lang==="fr"?"Fréquence de mise à jour":"Update frequency"}</p><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}><input type="number" className="inp" style={{width:70,textAlign:"center",padding:"8px 10px"}} value={refreshVal} min={1} onChange={e=>applyRefresh(e.target.value,refreshUnit)}/><div style={{display:"flex",borderRadius:"var(--rs)",overflow:"hidden",border:"1px solid var(--b)"}}>{[{k:"m",l:"min"},{k:"h",l:lang==="fr"?"heure(s)":"hour(s)"},{k:"j",l:lang==="fr"?"jour(s)":"day(s)"}].map(u=><button key={u.k} className="btn" style={{padding:"8px 14px",fontSize:12,background:refreshUnit===u.k?"var(--gbg)":"var(--bg3)",color:refreshUnit===u.k?"var(--gold)":"var(--t4)",borderRight:"1px solid var(--b)"}} onClick={()=>applyRefresh(refreshVal,u.k)}>{u.l}</button>)}</div></div><p style={{fontSize:10,color:"var(--t5)",marginBottom:4}}>{lang==="fr"?"Suggestions :":"Suggestions:"}</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[{v:15,u:"m",l:"15 min"},{v:30,u:"m",l:"30 min"},{v:1,u:"h",l:"1h"},{v:2,u:"h",l:"2h"},{v:4,u:"h",l:"4h"},{v:1,u:"j",l:lang==="fr"?"1 jour":"1 day"}].map(s=><button key={s.l} className="btn" style={{padding:"4px 10px",fontSize:10,borderRadius:12,background:"var(--bg3)",color:"var(--t4)",border:"1px solid var(--b)"}} onClick={()=>{setRefreshVal(s.v);setRefreshUnit(s.u);applyRefresh(s.v,s.u)}}>{s.l}</button>)}</div></div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>{if(typeof Notification!=="undefined"){if(Notification.permission==="granted")showT(lang==="fr"?"Notifications déjà activées":"Notifications already enabled");else Notification.requestPermission().then(p=>{if(p==="granted")showT(lang==="fr"?"Notifications activées":"Notifications enabled");else showT(lang==="fr"?"Notifications refusées par le navigateur":"Notifications denied by browser")})}else showT(lang==="fr"?"Non supporté sur ce navigateur":"Not supported on this browser")}}><span style={{fontSize:13,color:"var(--t2)"}}>{t("critical_alerts")}</span><div style={{width:36,height:20,borderRadius:10,background:typeof Notification!=="undefined"&&Notification.permission==="granted"?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}}><div style={{width:16,height:16,borderRadius:8,background:typeof Notification!=="undefined"&&Notification.permission==="granted"?"white":"var(--t4)",marginLeft:typeof Notification!=="undefined"&&Notification.permission==="granted"?16:0,transition:"margin-left .2s"}}/></div></div>
           <p style={{fontSize:11,color:"var(--t5)",marginTop:12}}>{t("notif_coming")}</p>
         </div>
