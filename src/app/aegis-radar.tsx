@@ -110,6 +110,10 @@ const T={
   rec_error:{en:"Recording not available on this browser",fr:"Enregistrement non disponible sur ce navigateur"},
   rec_empty:{en:"No transcript captured. Try speaking louder or check microphone access.",fr:"Aucune transcription captée. Essayez de parler plus fort ou vérifiez l'accès au micro."},
   rec_btn:{en:"Record a meeting",fr:"Enregistrer une réunion"},
+  dict_start:{en:"Tap to dictate",fr:"Appuyez pour dicter"},
+  dict_stop:{en:"Stop dictation",fr:"Arrêter la dictée"},
+  dict_listening:{en:"Listening…",fr:"Écoute en cours…"},
+  formatting:{en:"Formatting…",fr:"Mise en forme…"},
   company_overview:{en:"Company overview",fr:"Vue d'ensemble"},
   latest_signals:{en:"Latest signals",fr:"Derniers signaux"},
   fl_relevance:{en:"Financial Lines relevance",fr:"Pertinence Financial Lines"},
@@ -518,6 +522,19 @@ function App(){
   const[activeCat,setACat]=useState(null);
   const[showNewNote,setSNN]=useState(false);
   const[nText,setNT]=useState("");
+  const[noteDictating,setNoteDictating]=useState(false);
+  const noteDictRef=useRef(null);
+  const startNoteDict=useCallback(()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){showT(t("rec_error"));return}
+    const r=new SR();r.continuous=true;r.interimResults=true;r.lang=lang==="fr"?"fr-FR":"en-US";
+    let base=nText;
+    r.onresult=e=>{let final="",interim="";for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)final+=e.results[i][0].transcript+" ";else interim=e.results[i][0].transcript}if(final)base+=final;setNT(base+interim)};
+    r.onerror=()=>{};
+    r.onend=()=>{if(noteDictating)try{r.start()}catch(e){}};
+    noteDictRef.current=r;r.start();setNoteDictating(true);
+  },[lang,nText,noteDictating,t]);
+  const stopNoteDict=useCallback(()=>{if(noteDictRef.current){noteDictRef.current.onend=null;noteDictRef.current.stop();noteDictRef.current=null}setNoteDictating(false)},[]);
   const[nComp,setNC]=useState("");
   const[nTag,setNTg]=useState("observation");
   const[showSearch,setSSh]=useState(false);
@@ -585,7 +602,7 @@ function App(){
       return updated;
     });
   },[saveWatchlistDB]);
-  const addN=()=>{if(!nText.trim())return;const note={id:`n${Date.now()}`,cid:nComp||null,text:nText,tag:nTag,at:new Date().toISOString()};setNotes(p=>[note,...p]);saveNoteDB(note);setNT("");setSNN(false);showT(t("note_saved"))};
+  const addN=()=>{if(!nText.trim())return;if(noteDictating)stopNoteDict();const cleaned=nText.trim().replace(/\s+/g," ").replace(/ ([.,;:!?])/g,"$1");const sentences=cleaned.replace(/([.!?])\s+/g,"$1\n").split("\n").map(s=>s.trim()).filter(Boolean).map(s=>s.charAt(0).toUpperCase()+s.slice(1));const formatted=sentences.join(". ").replace(/\.\./g,".");const note={id:`n${Date.now()}`,cid:nComp||null,text:formatted,tag:nTag,at:new Date().toISOString()};setNotes(p=>[note,...p]);saveNoteDB(note);setNT("");setSNN(false);showT(t("note_saved"))};
 
   // ── Live refresh ──
   const refreshSignals=useCallback(async()=>{
@@ -738,17 +755,17 @@ function App(){
     </div>);}
 
   // ── SIGNAL CARD ──
-  const SigCard=({s,d=0})=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid);const imps=getImpsAll(s.id);return (
+  const SigCard=({s,d=0})=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid)||cos.find(c=>s.company&&(c.name.toLowerCase()===s.company.toLowerCase()||s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])));const imps=getImpsAll(s.id);return (
     <div className={`card fi ${d>0?`fi${Math.min(d,5)}`:""}`} style={{padding:"16px 18px",cursor:"pointer"}} onClick={()=>setSS(s)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>{cat?.icon}</span><span className="lbl" style={{color:cat?.c,fontSize:10}}>{cat?.label}</span></div><span className="badge" style={{background:sBg(s.imp),color:sT(s.imp)}}>{s.imp}</span></div>
       <h3 style={{fontSize:14,fontWeight:600,color:"var(--t1)",lineHeight:1.4,marginBottom:8}}>{tx(s.title,lang)}</h3>
       <p style={{fontSize:12,color:"var(--t3)",lineHeight:1.45,marginBottom:12,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{tx(s.sum,lang)}</p>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:6}}>{co&&<span className="mono" style={{width:22,height:22,borderRadius:5,fontSize:10}}>{co.logo}</span>}<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co?.name}</span><span style={{fontSize:10,color:"var(--t5)"}}>·</span><span style={{fontSize:10,color:"var(--t5)"}}>{tx(s.src,lang)}</span></div><span style={{fontSize:10,color:"var(--t5)",display:"flex",alignItems:"center",gap:4}}><I.clock/>{fD(s.at)}</span></div>
-      {imps.length>0&&<div style={{display:"flex",gap:5,marginTop:10,flexWrap:"wrap"}}>{imps.map(im=><span key={im.line} style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:LVL_BG[im.lvl],color:LVL_T[im.lvl],border:`1px solid ${LVL_C[im.lvl]}22`}}>{lineLbl(im.line,lang)} · {im.lvl}</span>)}</div>}
+      {imps.length>0&&<div style={{display:"flex",gap:5,marginTop:10,flexWrap:"wrap"}}>{imps.map((im,idx)=><span key={`${im.line}-${idx}`} style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:LVL_BG[im.lvl]||"rgba(59,130,246,.1)",color:LVL_T[im.lvl]||"#93C5FD",border:`1px solid ${(LVL_C[im.lvl]||"#3B82F6")}22`}}>{lineLbl(im.line,lang)} · {im.lvl||"—"}</span>)}</div>}
     </div>)};
 
   // ── SIGNAL DETAIL ──
-  const SigDet=({s,onClose})=>{if(!s)return null;const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid);const f=factLbl(s.fact,t);const imps=getImpsAll(s.id);return (
+  const SigDet=({s,onClose})=>{if(!s)return null;const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid)||cos.find(c=>s.company&&(c.name.toLowerCase()===s.company.toLowerCase()||s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])));const f=factLbl(s.fact,t);const imps=getImpsAll(s.id);return (
     <div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingTop:8}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{cat?.icon}</span><span className="lbl" style={{color:cat?.c,fontSize:11}}>{cat?.label}</span></div><button className="bi" style={{width:32,height:32}} onClick={onClose}><I.x/></button></div>
@@ -760,20 +777,20 @@ function App(){
       <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)"}}>{t("source_label")}</span>{srcUrl(s.src)?<a href={srcUrl(s.src)} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--gold)",fontWeight:500,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>{tx(s.src,lang)}<I.ext/></a>:<span style={{fontSize:11,color:"var(--gold)",fontWeight:500}}>{tx(s.src,lang)}</span>}</div>
       <div className="dv"/>
       <h4 className="lbl" style={{color:"var(--t3)",marginBottom:12}}>{t("lines_impacted")}</h4>
-      {imps.map((im,idx)=><div key={im.line} style={{marginBottom:idx<imps.length-1?12:22}}>
-        <div style={{padding:"16px 18px",background:LVL_BG[im.lvl],borderRadius:"var(--rs)",border:`1px solid ${LVL_C[im.lvl]}18`,borderLeft:`3px solid ${LVL_C[im.lvl]}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h4 className="lbl" style={{color:LVL_T[im.lvl]}}>{lineLbl(im.line,lang)}</h4><span className="badge" style={{background:`${LVL_C[im.lvl]}20`,color:LVL_T[im.lvl],textTransform:"capitalize"}}>{im.lvl}</span></div>
+      {imps.map((im,idx)=><div key={`${im.line}-${idx}`} style={{marginBottom:idx<imps.length-1?12:22}}>
+        <div style={{padding:"16px 18px",background:LVL_BG[im.lvl]||"rgba(59,130,246,.1)",borderRadius:"var(--rs)",border:`1px solid ${(LVL_C[im.lvl]||"#3B82F6")}18`,borderLeft:`3px solid ${LVL_C[im.lvl]||"#3B82F6"}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><h4 className="lbl" style={{color:LVL_T[im.lvl]||"#93C5FD"}}>{lineLbl(im.line,lang)}</h4><span className="badge" style={{background:`${(LVL_C[im.lvl]||"#3B82F6")}20`,color:LVL_T[im.lvl]||"#93C5FD",textTransform:"capitalize"}}>{im.lvl||"medium"}</span></div>
           <div style={{marginBottom:12}}><p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{t("why_matters")}</p><p style={{fontSize:13,color:"var(--t1)",lineHeight:1.6}}>{tx(im.why,lang)}</p></div>
           {im.angle&&<div style={{marginBottom:12}}><p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{t("discussion_angle")}</p><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.55}}>{tx(im.angle,lang)}</p></div>}
-          {im.vig.length>0&&<div style={{marginBottom:im.hyp.length>0?12:0}}><p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{t("points_verify")}</p>{im.vig.map((v,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:3}}><span style={{color:LVL_T[im.lvl],marginTop:1,flexShrink:0,fontSize:11}}>▸</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{tx(v,lang)}</span></div>)}</div>}
-          {im.hyp.length>0&&<div><p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{t("hyp_check")}</p>{im.hyp.map((h,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:3}}><span className="ftag" style={{background:"rgba(139,92,246,.1)",color:"#C4B5FD",flexShrink:0,marginTop:1}}>H{i+1}</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{tx(h,lang)}</span></div>)}</div>}
+          {(im.vig||[]).length>0&&<div style={{marginBottom:(im.hyp||[]).length>0?12:0}}><p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{t("points_verify")}</p>{(im.vig||[]).map((v,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:3}}><span style={{color:LVL_T[im.lvl]||"var(--t3)",marginTop:1,flexShrink:0,fontSize:11}}>▸</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{tx(v,lang)}</span></div>)}</div>}
+          {(im.hyp||[]).length>0&&<div><p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{t("hyp_check")}</p>{(im.hyp||[]).map((h,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:3}}><span className="ftag" style={{background:"rgba(139,92,246,.1)",color:"#C4B5FD",flexShrink:0,marginTop:1}}>H{i+1}</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{tx(h,lang)}</span></div>)}</div>}
         </div>
       </div>)}
       <div style={{display:"flex",gap:28,marginBottom:10}}><div><h4 className="lbl" style={{color:"var(--t4)",marginBottom:6}}>{t("importance")}</h4><SR s={s.imp} sz={50}/></div><div><h4 className="lbl" style={{color:"var(--t4)",marginBottom:6}}>{t("confidence")}</h4><SR s={s.conf} sz={50}/></div></div>
     </div></div>)};
 
   // ── BRIEF ──
-  const BriefSheet=({cid,onClose})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);const imps=[...IMPACTS,...liveImpacts].filter(i=>sigs.some(s=>s.id===i.sid));const angles=imps.filter(i=>i.angle).slice(0,4).map(i=>tx(i.angle,lang));const questions=imps.flatMap(i=>i.hyp).slice(0,5).map(h=>tx(h,lang));const actions=cn.filter(n=>n.tag==="action").map(n=>tx(n.text,lang));
+  const BriefSheet=({cid,onClose})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);const imps=[...IMPACTS,...liveImpacts].filter(i=>sigs.some(s=>s.id===i.sid));const angles=imps.filter(i=>i.angle).slice(0,4).map(i=>tx(i.angle,lang));const questions=imps.flatMap(i=>(i.hyp||[])).slice(0,5).map(h=>tx(h,lang));const actions=cn.filter(n=>n.tag==="action").map(n=>tx(n.text,lang));
     const brokerCtx=lang==="fr"?"INTERLOCUTEURS\nCourtier : Partager les signaux clés et discuter du positionnement du programme FL.\nRisk Manager : Valider la perception du risque et confirmer les mesures de prévention.":"KEY CONTACTS\nBroker: Share key signals and discuss FL programme positioning.\nRisk Manager: Validate risk perception and confirm prevention measures.";
     const txt=`${t("brief_title").toUpperCase()} — ${co?.name}\n${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}\n\n${t("exec_summary").toUpperCase()}\n${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk,t)}\n\n${t("key_signals").toUpperCase()}\n${sigs.slice(0,5).map((s,i)=>`${i+1}. [${s.imp}] ${tx(s.title,lang)}`).join("\n")}\n\n${t("fl_implications").toUpperCase()}\n${lines.map(l=>lineLbl(l,lang)).join(", ")}\n\n${t("discussion_angles").toUpperCase()}\n${angles.map(a=>`• ${a}`).join("\n")}\n\n${brokerCtx}\n\n${t("questions_to_ask").toUpperCase()}\n${questions.map(q=>`• ${q}`).join("\n")}\n\n${t("next_steps").toUpperCase()}\n${actions.length>0?actions.map(a=>`• ${a}`).join("\n"):`• ${t("to_be_defined")}`}\n\n— SIGNALIS`;
     return (<div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
@@ -905,13 +922,13 @@ function App(){
     <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"signals",l:lang==="fr"?"Signaux":"Signals",Ic:I.bar},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:"Brief",Ic:I.brief},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
     {selSig&&<SigDet s={selSig} onClose={()=>setSS(null)}/>}
     {showBrief&&briefCid&&<BriefSheet cid={briefCid} onClose={()=>{setSB(false);setBC(null)}}/>}
-    {showNewNote&&<div className="bsbg" onClick={()=>setSNN(false)}><div className="bsm" onClick={e=>e.stopPropagation()}>
+    {showNewNote&&<div className="bsbg" onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("new_note_title")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setSNN(false)}><I.x/></button></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("new_note_title")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><I.x/></button></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("company_optional")}</label><select className="inp" value={nComp} onChange={e=>setNC(e.target.value)} style={{appearance:"auto"}}><option value="">{t("general")}</option>{cos.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("tag_label")}</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{["observation","hypothesis","action","question","decision"].map(tg=><button key={tg} className={`chip ${nTag===tg?"on":""}`} onClick={()=>setNTg(tg)}>{noteTagLbl(tg,t)}</button>)}</div></div>
-      <div style={{marginBottom:20}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("note_label")}</label><textarea className="inp" placeholder={t("note_placeholder")} value={nText} onChange={e=>setNT(e.target.value)} rows={4}/></div>
-      <button className="btn bp" style={{width:"100%",height:46}} onClick={addN} disabled={!nText.trim()}>{t("save_note")}</button>
+      <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><label className="lbl" style={{color:"var(--t4)"}}>{t("note_label")}</label><button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:noteDictating?"rgba(239,68,68,.15)":"rgba(201,168,76,.1)",color:noteDictating?"#FCA5A5":"var(--gold)",border:`1px solid ${noteDictating?"rgba(239,68,68,.3)":"rgba(201,168,76,.2)"}`}} onClick={noteDictating?stopNoteDict:startNoteDict}>{noteDictating?<><div style={{width:6,height:6,borderRadius:"50%",background:"#EF4444",animation:"pd 1s ease-in-out infinite",marginRight:4}}/>{t("dict_stop")}</>:<><I.mic style={{width:14,height:14}}/>{t("dict_start")}</>}</button></div>{noteDictating&&<p style={{fontSize:10,color:"#FCA5A5",marginBottom:6}}>{t("dict_listening")}</p>}<textarea className="inp" placeholder={t("note_placeholder")} value={nText} onChange={e=>setNT(e.target.value)} rows={4} style={{borderColor:noteDictating?"rgba(239,68,68,.3)":"var(--b)"}}/></div>
+      <button className="btn bp" style={{width:"100%",height:46}} onClick={()=>{if(noteDictating)stopNoteDict();addN()}} disabled={!nText.trim()}>{t("save_note")}</button>
     </div></div>}
     {/* Daily Digest sheet */}
     {showDigest&&<div className="bsbg" onClick={()=>setSD(false)}><div className="bsm" onClick={e=>e.stopPropagation()}>
