@@ -766,7 +766,7 @@ function App(){
         <div style={{marginBottom:18}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("email")}</label><input className="inp" type="email" placeholder="asprevel@gmail.com" value={loginEm} onChange={e=>{setLoginEm(e.target.value);setLoginErr(false)}} style={loginErr?{borderColor:"#EF4444"}:{}}/></div>
         <div style={{marginBottom:28}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("password")}</label><input className="inp" type="password" placeholder="••••••••" value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr(false)}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={loginErr?{borderColor:"#EF4444"}:{}}/>{loginErr&&<p style={{fontSize:12,color:"#FCA5A5",marginTop:8}}>{t("login_err")}</p>}</div>
         <button className="btn bp" style={{width:"100%",height:46}} onClick={tryLogin}><I.lock/>{t("onboarding_cta")}</button>
-        <p style={{textAlign:"center",marginTop:24,fontSize:11,color:"var(--t5)",fontStyle:"italic"}}>{lang==="fr"?"Pour Anne-Sophie, avec admiration.":"For Anne-Sophie, with admiration."}</p>
+        <p style={{textAlign:"center",marginTop:24,fontSize:10,color:"var(--t5)"}}>© 2026 SIGNALIS — Jean-Maurice Lemoine</p>
       </div>
     </div>
   );
@@ -993,12 +993,7 @@ function App(){
           <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Base de données":"Database"}</span><span style={{fontSize:13,color:sbOk?"#6EE7B7":"var(--t5)"}}>{sbOk?(lang==="fr"?"Connectée":"Connected"):(lang==="fr"?"Hors-ligne":"Offline")}</span></div>
           {lastRefresh&&<><div className="dv" style={{margin:"8px 0"}}/><div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{lang==="fr"?"Dernière mise à jour":"Last refresh"}</span><span style={{fontSize:13,color:"var(--t4)"}}>{new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</span></div></>}
         </div>
-        <div style={{textAlign:"center",padding:"20px 16px",marginBottom:28}}>
-          <div className="aline" style={{width:32,margin:"0 auto 16px"}}/>
-          <p style={{fontSize:13,fontWeight:500,color:"var(--t2)",marginBottom:6}}>{t("dedication")}</p>
-          <p style={{fontSize:12,color:"var(--t4)",lineHeight:1.5,fontStyle:"italic"}}>{t("dedication_sub")}</p>
-          <div className="aline" style={{width:32,margin:"16px auto 0"}}/>
-        </div>
+        <p style={{textAlign:"center",fontSize:11,color:"var(--t5)",marginBottom:28}}>© 2026 SIGNALIS — Jean-Maurice Lemoine</p>
         <button className="btn" style={{width:"100%",background:"rgba(239,68,68,.08)",color:"#FCA5A5",border:"1px solid rgba(239,68,68,.15)",borderRadius:"var(--rs)"}} onClick={()=>{try{["step","tab","lang","selLines","autoRefresh","watchPrios","watchExtras","userNotes"].forEach(k=>localStorage.removeItem("signalis_"+k))}catch(e){}setStep("login");setTab("dashboard");setLoginEm("");setLoginPw("");setLoginErr(false)}}><I.logout/>{t("sign_out")}</button>
       </div>
     </div>);
