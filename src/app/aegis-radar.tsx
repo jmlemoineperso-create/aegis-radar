@@ -87,6 +87,9 @@ const T={
   brief_sub:{en:"Prepare for your next broker or Risk Manager meeting.",fr:"Préparez votre prochaine réunion courtier ou Risk Manager."},
   generate:{en:"Generate",fr:"Générer"},generate_brief:{en:"Generate meeting brief",fr:"Générer le brief"},
   copy_brief:{en:"Copy brief",fr:"Copier le brief"},copied:{en:"Copied",fr:"Copié"},
+  export_pdf:{en:"Export PDF",fr:"Exporter PDF"},
+  share_brief:{en:"Share",fr:"Partager"},
+  share_error:{en:"Sharing not available on this browser",fr:"Partage non disponible sur ce navigateur"},
   copied_clipboard:{en:"Copied to clipboard",fr:"Copié dans le presse-papier"},
   exec_summary:{en:"Executive summary",fr:"Synthèse"},
   key_signals:{en:"Key recent signals",fr:"Signaux récents clés"},
@@ -418,6 +421,8 @@ const I={
   refresh:ic("M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"),
   mic:ic("M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3zM19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"),
   stop:ic("M6 4h4v16H6zM14 4h4v16h-4z"),
+  share:ic("M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"),
+  download:ic("M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"),
 };
 
 function SR({s,sz=44,sw=3}){const r=(sz-sw*2)/2,c=2*Math.PI*r,o=c-(s/100)*c,col=sC(s);return (<div className="sr" style={{width:sz,height:sz}}><svg width={sz} height={sz}><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="var(--b)" strokeWidth={sw}/><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)"}}/></svg><span className="sr-v" style={{color:col,fontSize:sz*.29}}>{s}</span></div>)}
@@ -844,7 +849,33 @@ function App(){
       {questions.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("questions_to_ask")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{questions.map((q,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"#A78BFA",marginTop:1,flexShrink:0}}>?</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{q}</span></div>)}</div></>}
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("next_steps")}</h4>
       <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{actions.length>0?actions.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"#34D399",marginTop:1,flexShrink:0}}>→</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>):<p style={{fontSize:12,color:"var(--t4)"}}>{t("to_be_defined")}</p>}</div>
-      <button className="btn bp" style={{width:"100%",height:46}} onClick={()=>{navigator.clipboard?.writeText(txt);setCopied(true);showT(t("copied_clipboard"));setTimeout(()=>setCopied(false),1500)}}>{copied?<><I.check/>{t("copied")}</>:<><I.copy/>{t("copy_brief")}</>}</button>
+      <div style={{display:"flex",gap:8,marginTop:4}}>
+        <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{navigator.clipboard?.writeText(txt);setCopied(true);showT(t("copied_clipboard"));setTimeout(()=>setCopied(false),1500)}}>{copied?<><I.check/>{t("copied")}</>:<><I.copy/>{t("copy_brief")}</>}</button>
+        <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{
+          const w=window.open("","_blank");if(!w)return;
+          const sigHtml=sigs.slice(0,5).map(s=>`<tr><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb"><span style="background:${sBg(s.imp||50)};color:${sT(s.imp||50)};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${s.imp||50}</span></td><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:13px">${tx(s.title,lang)||s.company||"—"}</td></tr>`).join("");
+          const lineHtml=lines.map(l=>`<span style="background:#f0f4ff;color:#1e40af;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;margin:2px">${lineLbl(l,lang)}</span>`).join(" ");
+          const angleHtml=angles.length>0?angles.map(a=>`<li style="margin:4px 0;font-size:13px;color:#374151">${a}</li>`).join(""):"<li>—</li>";
+          w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>SIGNALIS Brief — ${co?.name||""}</title><style>@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');body{font-family:'DM Sans',Arial,sans-serif;max-width:700px;margin:40px auto;padding:0 24px;color:#1f2937}h1{font-family:'Playfair Display',Georgia,serif;font-size:24px;color:#111827;margin-bottom:4px}h2{font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#b8860b;margin:24px 0 10px;font-weight:700;border-bottom:2px solid #f5e6b8;padding-bottom:4px}table{width:100%;border-collapse:collapse}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b8860b;padding-bottom:16px;margin-bottom:24px}.logo{font-family:'Playfair Display';font-size:20px;font-weight:700;color:#b8860b}.date{font-size:12px;color:#6b7280}.company{background:#f8f9fc;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin-bottom:20px;display:flex;align-items:center;gap:14px}.mono{width:40px;height:40px;border-radius:8px;background:linear-gradient(135deg,#1e3a5f,#0f2440);color:white;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display';font-weight:700;font-size:16px}.score{width:44px;height:44px;border-radius:50%;border:3px solid ${sC(co?.risk||50)};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:${sC(co?.risk||50)}}.contacts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.contact{background:#f8f9fc;border:1px solid #e5e7eb;border-radius:8px;padding:12px}.contact h4{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;margin-bottom:6px}.contact p{font-size:12px;color:#374151;line-height:1.5}@media print{body{margin:20px}@page{margin:1.5cm}}</style></head><body>
+          <div class="header"><div><span class="logo">SIGNALIS</span><br><span style="font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:#9ca3af">Financial Lines Intelligence</span></div><span class="date">${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}</span></div>
+          <h1>${lang==="fr"?"Brief de réunion":"Meeting Brief"} — ${co?.name||""}</h1>
+          <div class="company"><span class="mono">${co?.logo||"?"}</span><div><strong style="font-size:15px">${co?.name||""}</strong><br><span style="font-size:12px;color:#6b7280">${tx(co?.sector,lang)||""}</span></div><div style="margin-left:auto"><div class="score">${co?.risk||"—"}</div></div></div>
+          <h2>${t("exec_summary")}</h2><p style="font-size:14px">${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk||50,t)}</p>
+          <h2>${t("key_signals")}</h2><table>${sigHtml}</table>
+          <h2>${t("fl_implications")}</h2><div style="display:flex;flex-wrap:wrap;gap:4px">${lineHtml||"—"}</div>
+          <h2>${t("discussion_angles")}</h2><ul style="padding-left:20px">${angleHtml}</ul>
+          <h2>${t("interlocutors")}</h2><div class="contacts"><div class="contact"><h4>${t("broker")}</h4><p>${lang==="fr"?"Partager les signaux clés et discuter du positionnement du programme FL lors du prochain comité de renouvellement.":"Share key signals and discuss FL programme positioning at next renewal committee."}</p></div><div class="contact"><h4>${t("risk_manager")}</h4><p>${lang==="fr"?"Valider la perception du risque et confirmer les mesures de prévention mises en place par l'entreprise.":"Validate risk perception and confirm prevention measures implemented by the company."}</p></div></div>
+          <h2>${t("next_steps")}</h2><p style="font-size:13px;color:#6b7280">${actions.length>0?actions.join(" · "):t("to_be_defined")}</p>
+          <div style="margin-top:40px;padding-top:16px;border-top:2px solid #f5e6b8;display:flex;justify-content:space-between;align-items:center"><span style="font-size:10px;color:#9ca3af">© SIGNALIS — Jean-Maurice Lemoine</span><span style="font-size:10px;color:#9ca3af">${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB")}</span></div>
+          </body></html>`);
+          w.document.close();setTimeout(()=>w.print(),500);
+        }}><I.download/>{t("export_pdf")}</button>
+        <button className="btn bp" style={{flex:1,height:44,fontSize:12}} onClick={()=>{
+          const shareData={title:`SIGNALIS — ${co?.name||""}`,text:txt};
+          if(navigator.share){navigator.share(shareData).catch(()=>{})}
+          else{const mailto=`mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(txt)}`;window.open(mailto)}
+        }}><I.share/>{t("share_brief")}</button>
+      </div>
     </div></div>)};
 
   // ── COMPANY PAGE ──
