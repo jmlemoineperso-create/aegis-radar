@@ -57,7 +57,7 @@ const T={
   watchlist_label:{en:"Watchlist",fr:"Watchlist"},active:{en:"Active",fr:"Actifs"},critical_lbl:{en:"Critical",fr:"Critiques"},
   priority_feed:{en:"Priority feed",fr:"Flux prioritaire"},
   view_grid:{en:"Grid",fr:"Grille"},view_list:{en:"List",fr:"Liste"},
-  sort_recent:{en:"Most recent",fr:"Plus récent"},sort_important:{en:"Most important",fr:"Plus important"},
+  sort_recent:{en:"Most recent",fr:"Plus récent"},sort_important:{en:"Most important",fr:"Plus important"},sort_risk:{en:"Risk",fr:"Risque"},sort_alpha:{en:"A→Z",fr:"A→Z"},sort_signals:{en:"Signals",fr:"Signaux"},
   no_signals_match:{en:"No signals match",fr:"Aucun signal correspondant"},
   adjust_filters:{en:"Try adjusting your filters",fr:"Essayez d'ajuster vos filtres"},
   no_signals_yet:{en:"No relevant signals detected yet.",fr:"Aucun signal pertinent détecté pour le moment."},
@@ -568,6 +568,8 @@ function App(){
   const[showSearch,setSSh]=useState(false);
   const[viewMode,setViewMode]=useState(()=>lsGet("viewMode","grid"));
   const[sortMode,setSortMode]=useState(()=>lsGet("sortMode","recent"));
+  const[wlView,setWlView]=useState(()=>lsGet("wlView","grid"));
+  const[wlSort,setWlSort]=useState(()=>lsGet("wlSort","risk"));
   const[toast,setToast]=useState(null);
   const[copied,setCopied]=useState(false);
   const[noteFilter,setNF]=useState(null);
@@ -1010,14 +1012,43 @@ function App(){
     if(tab==="watchlist")return (<div style={{paddingBottom:100}}>
       <div className="hdr"><h2 className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("watchlist_title")}</h2><p style={{fontSize:12,color:"var(--t4)",marginTop:4}}>{t("watchlist_sub")}</p></div>
       <div style={{padding:"18px 20px"}}>
-        <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("tracked")} ({watched.length})</h3>
-        <div className="co-grid" style={{marginBottom:28}}>{watched.map((c,i)=>{const sc=getSigs(c.id).length;return (
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <h3 className="lbl" style={{color:"var(--gold)"}}>{t("tracked")} ({watched.length})</h3>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}>{[{k:"risk",l:t("sort_risk")},{k:"alpha",l:t("sort_alpha")},{k:"signals",l:t("sort_signals")}].map(s=><button key={s.k} className="btn" style={{padding:"4px 10px",fontSize:10,background:wlSort===s.k?"var(--gbg)":"var(--bg3)",color:wlSort===s.k?"var(--gold)":"var(--t5)",borderRight:"1px solid var(--b)"}} onClick={()=>{setWlSort(s.k);lsSet("wlSort",s.k)}}>{s.l}</button>)}</div>
+            <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}><button className="btn" style={{padding:"4px 8px",background:wlView==="grid"?"var(--gbg)":"var(--bg3)",color:wlView==="grid"?"var(--gold)":"var(--t5)"}} onClick={()=>{setWlView("grid");lsSet("wlView","grid")}}>▦</button><button className="btn" style={{padding:"4px 8px",background:wlView==="list"?"var(--gbg)":"var(--bg3)",color:wlView==="list"?"var(--gold)":"var(--t5)",borderLeft:"1px solid var(--b)"}} onClick={()=>{setWlView("list");lsSet("wlView","list")}}>☰</button></div>
+          </div>
+        </div>
+        {(()=>{const sorted=[...watched].sort((a,b)=>{if(wlSort==="alpha")return a.name.localeCompare(b.name);if(wlSort==="signals")return getSigs(b.id).length-getSigs(a.id).length;return(b.risk||0)-(a.risk||0)});
+        return wlView==="grid"?
+        <div className="co-grid" style={{marginBottom:28}}>{sorted.map((c,i)=>{const sc=getSigs(c.id).length;return (
           <div key={c.id} className={`card fi fi${Math.min(i+1,5)} prio-${c.prio}`} style={{padding:"16px 18px",position:"relative"}}>
             <button style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:6,background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={(e)=>{e.stopPropagation();togW(c.id)}}><I.x style={{width:12,height:12,color:"#F87171"}}/></button>
             <button style={{width:"100%",textAlign:"left",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",color:"inherit",padding:0}} onClick={()=>setSC(c.id)}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0}}><span className="mono">{c.logo}</span><div style={{minWidth:0}}><h4 style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>{tx(c.sector,lang)}</p><div style={{display:"flex",gap:8,marginTop:6}}><span style={{fontSize:10,color:"var(--t5)"}}>{sc} {sc>1?t("signals_lc"):t("signal")}</span><span className="lbl" style={{fontSize:8,color:c.prio==="primary"?"var(--gold)":c.prio==="secondary"?"#60A5FA":"var(--t5)"}}>{t(c.prio)}</span></div></div></div><SR s={c.risk} sz={40} sw={2.5}/></div>
             </button>
-          </div>)})}{watched.length===0&&<div style={{textAlign:"center",padding:"48px 20px"}}><p style={{fontSize:14,color:"var(--t3)",fontWeight:500,marginBottom:4}}>{t("no_companies_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{t("no_companies_sub")}</p></div>}</div>
+          </div>)})}
+        </div>
+        :<div style={{display:"flex",flexDirection:"column",gap:2,marginBottom:28}}>{sorted.map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lines=getLinesAll(getSigs(c.id));return (
+          <div key={c.id} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"10px 16px",borderBottom:"1px solid var(--b)",background:i%2===0?"transparent":"rgba(13,20,36,.4)",display:"flex",alignItems:"center",gap:10}}>
+            <button style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0,background:"none",border:"none",cursor:"pointer",fontFamily:"inherit",color:"inherit",padding:0,textAlign:"left"}} onClick={()=>setSC(c.id)}>
+              <span className="mono" style={{width:28,height:28,fontSize:11,flexShrink:0}}>{c.logo}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4>{c.ticker&&<span style={{fontSize:9,color:"var(--t5)"}}>{c.ticker}</span>}</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,color:"var(--t4)"}}>{tx(c.sector,lang)}</span>
+                  <span style={{fontSize:9,color:"var(--t5)"}}>·</span>
+                  <span style={{fontSize:10,color:"var(--t5)"}}>{c.hq}</span>
+                  {sc>0&&<><span style={{fontSize:9,color:"var(--t5)"}}>·</span><span style={{fontSize:10,color:"#60A5FA",fontWeight:500}}>{sc} {t("signals_lc")}</span></>}
+                  {nc>0&&<><span style={{fontSize:9,color:"var(--t5)"}}>·</span><span style={{fontSize:10,color:"var(--gold2)"}}>{nc} {t("notes_lc")}</span></>}
+                </div>
+                {lines.length>0&&<div style={{display:"flex",gap:4,marginTop:4,flexWrap:"wrap"}}>{lines.slice(0,4).map(l=><span key={l} style={{fontSize:8,padding:"1px 6px",borderRadius:6,background:"rgba(96,165,250,.1)",color:"#93C5FD"}}>{lineLbl(l,lang)}</span>)}</div>}
+              </div>
+              <SR s={c.risk} sz={34} sw={2}/>
+            </button>
+            <button style={{width:20,height:20,borderRadius:5,background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0,flexShrink:0}} onClick={()=>togW(c.id)}><I.x style={{width:10,height:10,color:"#F87171"}}/></button>
+          </div>)})}
+        </div>;})()}{watched.length===0&&<div style={{textAlign:"center",padding:"48px 20px"}}><p style={{fontSize:14,color:"var(--t3)",fontWeight:500,marginBottom:4}}>{t("no_companies_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{t("no_companies_sub")}</p></div>}
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:10}}>{t("add_company")}</h3><input className="inp" style={{marginBottom:14}} placeholder={t("search_company")} value={addSrch} onChange={e=>{setAS(e.target.value);searchExternal(e.target.value)}}/>{(()=>{const localFiltered=cos.filter(c=>!c.prio).filter(c=>!addSrch||c.name.toLowerCase().includes(addSrch.toLowerCase())||(c.ticker||"").toLowerCase().includes(addSrch.toLowerCase())||tx(c.sector,lang).toLowerCase().includes(addSrch.toLowerCase()));return (<><div style={{display:"flex",flexDirection:"column",gap:10}}>{localFiltered.slice(0,10).map(c=>(<div key={c.id} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><button style={{flex:1,textAlign:"left",background:"none",border:"none",cursor:"pointer",minWidth:0,fontFamily:"inherit",color:"inherit"}} onClick={()=>setSC(c.id)}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)"}}>{tx(c.sector,lang)}</p></button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>togW(c.id)}><I.plus/>{t("add_to_watchlist")}</button></div>))}</div>{addSrch.length>=3&&<>{extLoading&&<p style={{fontSize:12,color:"var(--t4)",marginTop:14,textAlign:"center"}}>{t("searching")}</p>}{!extLoading&&extRes.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginTop:18,marginBottom:10}}>{t("ext_results")}</h4><div style={{display:"flex",flexDirection:"column",gap:10}}>{extRes.map((r,i)=>(<div key={i} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderColor:"rgba(201,168,76,.15)"}}><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{r.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.desc}</p></div><button className="btn bp" style={{padding:"6px 14px",fontSize:12,flexShrink:0,marginLeft:10}} onClick={()=>addExtCompany(r.name,r.desc)}><I.plus/>{lang==="fr"?"Ajouter":"Add"}</button></div>))}</div></>}{!extLoading&&extRes.length===0&&localFiltered.length===0&&addSrch.length>=3&&<p style={{fontSize:12,color:"var(--t4)",marginTop:14,textAlign:"center"}}>{t("no_ext_results")}</p>}</>}</>)})()}
       </div>
     </div>);
