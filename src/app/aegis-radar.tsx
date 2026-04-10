@@ -145,7 +145,7 @@ const T={
   signal:{en:"signal",fr:"signal"},signals_lc:{en:"signals",fr:"signaux"},
   note_lc:{en:"note",fr:"note"},notes_lc:{en:"notes",fr:"notes"},
   headquarters:{en:"Headquarters",fr:"Siège"},market_cap:{en:"Market Cap",fr:"Capitalisation"},
-  employees:{en:"Employees",fr:"Effectifs"},risk_score:{en:"Risk score",fr:"Score de risque"},
+  employees:{en:"Employees",fr:"Effectifs"},risk_score:{en:"Risk score",fr:"Score de risque"},risk_history:{en:"Risk evolution",fr:"Évolution du risque"},risk_no_history:{en:"Score history will appear after updates.",fr:"L'historique apparaîtra après les mises à jour."},last_30_days:{en:"Last 30 days",fr:"30 derniers jours"},
   removed:{en:"removed",fr:"retiré"},added_wl:{en:"added to watchlist",fr:"ajouté au suivi"},
   select_companies:{en:"Select your companies",fr:"Sélectionnez vos entreprises"},
   select_companies_sub:{en:"Choose the companies you want to monitor.",fr:"Choisissez les entreprises à surveiller."},
@@ -427,6 +427,26 @@ const I={
 
 function SR({s,sz=44,sw=3}){const r=(sz-sw*2)/2,c=2*Math.PI*r,o=c-(s/100)*c,col=sC(s);return (<div className="sr" style={{width:sz,height:sz}}><svg width={sz} height={sz}><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="var(--b)" strokeWidth={sw}/><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)"}}/></svg><span className="sr-v" style={{color:col,fontSize:sz*.29}}>{s}</span></div>)}
 
+function RiskChart({data,h=100}){
+  if(!data||data.length<2)return null;
+  const w=300,pad=24,gw=w-pad*2,gh=h-pad*2;
+  const scores=data.map(d=>d.score);
+  const mn=Math.max(0,Math.min(...scores)-10),mx=Math.min(100,Math.max(...scores)+10);
+  const pts=data.map((d,i)=>{const x=pad+i/(data.length-1)*gw;const y=pad+(1-(d.score-mn)/(mx-mn||1))*gh;return{x,y,s:d.score,d:d.date}});
+  const line=pts.map((p,i)=>i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`).join(" ");
+  const area=`${line} L${pts[pts.length-1].x},${h-pad} L${pts[0].x},${h-pad} Z`;
+  const last=pts[pts.length-1];
+  return (<svg viewBox={`0 0 ${w} ${h}`} style={{width:"100%",height:h}}>
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={sC(last.s)} stopOpacity="0.2"/><stop offset="100%" stopColor={sC(last.s)} stopOpacity="0"/></linearGradient></defs>
+    {[25,50,75].filter(v=>v>=mn&&v<=mx).map(v=>{const y=pad+(1-(v-mn)/(mx-mn||1))*gh;return (<g key={v}><line x1={pad} y1={y} x2={w-pad} y2={y} stroke="var(--b)" strokeWidth="0.5" strokeDasharray="3,3"/><text x={pad-4} y={y+3} fill="var(--t5)" fontSize="8" textAnchor="end">{v}</text></g>)})}
+    <path d={area} fill="url(#rg)"/>
+    <path d={line} fill="none" stroke={sC(last.s)} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    {pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={i===pts.length-1?4:2} fill={i===pts.length-1?sC(p.s):"var(--bg2)"} stroke={sC(p.s)} strokeWidth="1.5"/>)}
+    <text x={last.x+8} y={last.y+4} fill={sC(last.s)} fontSize="11" fontWeight="700">{last.s}</text>
+    {data.length>1&&<><text x={pad} y={h-4} fill="var(--t5)" fontSize="8">{data[0].date.slice(5)}</text><text x={w-pad} y={h-4} fill="var(--t5)" fontSize="8" textAnchor="end">{data[data.length-1].date.slice(5)}</text></>}
+  </svg>);
+}
+
 // ── APP ──
 function App(){
   const{lang,t,setLang}=useLang();
@@ -593,6 +613,7 @@ function App(){
     showT(t("rec_saved"));
   },[transcript,recCid,cos,lang,t,saveNoteDB]);
   const[liveSigs,setLiveSigs]=useState([]);
+  const[riskHistory,setRiskHistory]=useState(()=>lsGet("riskHistory",{}));
   const[refreshing,setRefreshing]=useState(false);
   const[lastRefresh,setLastRefresh]=useState(null);
   const[newCount,setNewCount]=useState(0);
@@ -643,6 +664,9 @@ function App(){
         }
         setLastRefresh(new Date().toISOString());
         showT(lang==="fr"?`${mapped.length} nouveau(x) signal(aux) détecté(s)`:`${mapped.length} new signal(s) detected`);
+        // Record risk snapshots
+        const today=new Date().toISOString().split("T")[0];
+        setRiskHistory(prev=>{const h={...prev};cos.filter(c=>c.prio).forEach(c=>{const sigs=mapped.filter(s=>s.cid===c.id);const sigCount=sigs.length;const avgImp=sigCount>0?sigs.reduce((a,s)=>a+(s.imp||50),0)/sigCount:0;const boost=Math.min(30,sigCount*5+Math.max(0,avgImp-50)*0.3);const score=Math.min(100,Math.round((c.risk||50)+boost));if(!h[c.id])h[c.id]=[];const last=h[c.id][h[c.id].length-1];if(!last||last.date!==today){h[c.id].push({date:today,score});if(h[c.id].length>30)h[c.id]=h[c.id].slice(-30)}else{h[c.id][h[c.id].length-1].score=Math.max(last.score,score)}});lsSet("riskHistory",h);return h});
       }else{
         setLastRefresh(new Date().toISOString());
         showT(lang==="fr"?"Aucun nouveau signal":"No new signals");
@@ -664,6 +688,29 @@ function App(){
   useEffect(()=>{
     if(step==="app"&&!dbLoaded)loadDB();
   },[step,dbLoaded,loadDB]);
+
+  // Seed risk history with base scores and auto-refresh on app start
+  const initialRefreshDone=useRef(false);
+  useEffect(()=>{
+    if(step==="app"&&!initialRefreshDone.current){
+      initialRefreshDone.current=true;
+      // Seed base scores for today if not already recorded
+      const today=new Date().toISOString().split("T")[0];
+      setRiskHistory(prev=>{
+        const h={...prev};
+        cos.filter(c=>c.prio).forEach(c=>{
+          if(!h[c.id])h[c.id]=[];
+          if(h[c.id].length===0||h[c.id][h[c.id].length-1].date!==today){
+            h[c.id].push({date:today,score:c.risk||50});
+          }
+        });
+        lsSet("riskHistory",h);
+        return h;
+      });
+      // Auto-refresh after 2 seconds
+      setTimeout(()=>refreshSignals(),2000);
+    }
+  },[step,cos,refreshSignals]);
 
   // Request notification permission
   useEffect(()=>{
@@ -894,6 +941,7 @@ function App(){
             {[{l:t("headquarters"),v:co.hq},{l:t("market_cap"),v:co.cap},{l:t("employees"),v:co.emp}].map(x=><div key={x.l} className="cs" style={{padding:"10px 12px"}}><p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{x.l}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{x.v||"—"}</p></div>)}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12,padding:"12px 16px",background:"var(--bg3)",borderRadius:"var(--rs)",border:"1px solid var(--b)"}}><SR s={co.risk} sz={42}/><div><p className="lbl" style={{color:"var(--t4)",fontSize:9}}>{t("risk_score")}</p><p style={{fontSize:13,fontWeight:600,color:sC(co.risk)}}>{scoreLbl(co.risk,t)} · {tI(co.trend)} {co.trend}</p></div></div>
+          {riskHistory[co.id]&&riskHistory[co.id].length>=2?<div style={{marginTop:12,padding:"14px 16px",background:"var(--bg3)",borderRadius:"var(--rs)",border:"1px solid var(--b)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><p className="lbl" style={{color:"var(--t4)",fontSize:9}}>{t("risk_history")}</p><span style={{fontSize:9,color:"var(--t5)"}}>{t("last_30_days")}</span></div><RiskChart data={riskHistory[co.id]}/></div>:riskHistory[co.id]&&riskHistory[co.id].length===1?<p style={{fontSize:11,color:"var(--t5)",marginTop:8,fontStyle:"italic"}}>{t("risk_no_history")}</p>:null}
         </div>
         <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("latest_signals")}</h3>
         <div className="sig-grid" style={{marginBottom:28}}>{sigs.map((s,i)=><SigCard key={s.id} s={s} d={i+1}/>)}{sigs.length===0&&<p style={{fontSize:13,color:"var(--t4)"}}>{t("no_signals_yet")}</p>}</div>
