@@ -55,7 +55,7 @@ const T={
   critical_signal:{en:"critical signal",fr:"signal critique"},critical_signals:{en:"critical signals",fr:"signaux critiques"},
   across:{en:"across",fr:"sur"},companies_lc:{en:"companies",fr:"entreprises"},
   watchlist_label:{en:"Watchlist",fr:"Watchlist"},active:{en:"Active",fr:"Actifs"},critical_lbl:{en:"Critical",fr:"Critiques"},
-  priority_feed:{en:"Priority feed",fr:"Flux prioritaire"},
+  portfolio:{en:"Portfolio",fr:"Portefeuille"},portfolio_risk:{en:"Risk distribution",fr:"Répartition des risques"},portfolio_lines:{en:"Lines coverage",fr:"Couverture par ligne"},portfolio_top:{en:"Most exposed",fr:"Plus exposées"},priority_feed:{en:"Priority feed",fr:"Flux prioritaire"},
   view_grid:{en:"Grid",fr:"Grille"},view_list:{en:"List",fr:"Liste"},
   sort_recent:{en:"Most recent",fr:"Plus récent"},sort_important:{en:"Most important",fr:"Plus important"},sort_risk:{en:"Risk",fr:"Risque"},sort_alpha:{en:"A→Z",fr:"A→Z"},sort_signals:{en:"Signals",fr:"Signaux"},
   no_signals_match:{en:"No signals match",fr:"Aucun signal correspondant"},
@@ -978,6 +978,38 @@ function App(){
         <div className="card-el fi" style={{padding:"16px 18px",marginBottom:22,borderLeft:"3px solid var(--gold)",cursor:"pointer"}} onClick={()=>setSD(true)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><p className="lbl" style={{color:"var(--gold)"}}>{t("daily_digest")} — {fFull()}</p>{autoRefresh&&<div className="pd"/>}</div>{liveSigs.length>0?<p style={{fontSize:14,color:"var(--t2)",lineHeight:1.45}}><strong style={{color:"var(--t1)"}}>{liveSigs.length}</strong> {t("signal_count")} · <strong style={{color:"var(--t1)"}}>{watched.length}</strong> {t("companies_monitored")}{digest.crit>0&&<> · <span style={{color:"#FCA5A5"}}>{digest.crit} {digest.crit>1?t("critical_signals"):t("critical_signal")}</span></>}</p>:<p style={{fontSize:13,color:"var(--t4)",lineHeight:1.45}}>{t("no_data_refresh")}</p>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{lang==="fr"?"Dernière mise à jour":"Last update"}: {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>{autoRefresh&&<span style={{fontSize:9,color:"var(--gold)",fontWeight:600}}>LIVE</span>}<I.chR style={{color:"var(--t5)"}}/></div></div></div>
         <div className="fi fi1" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:22}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("active"),v:digest.total,c:"#60A5FA"},{l:t("critical_lbl"),v:digest.crit,c:"#F87171"}].map(x=>(<div key={x.l} className="card" style={{padding:"14px 12px",textAlign:"center"}}><p style={{fontSize:22,fontWeight:700,color:x.c,lineHeight:1}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:5,fontSize:9}}>{x.l}</p></div>))}</div>
         <div className="fi fi2 hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:22}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return <button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div>
+
+        {/* Portfolio overview */}
+        {watched.length>0&&<div className="fi fi2" style={{marginBottom:22}}>
+          <h3 className="lbl" style={{color:"var(--gold)",marginBottom:12}}>{t("portfolio")}</h3>
+          {/* Risk distribution bar */}
+          {(()=>{const buckets=[{l:lang==="fr"?"Critique":"Critical",c:"#EF4444",min:75,max:100},{l:lang==="fr"?"Élevé":"High",c:"#F59E0B",min:50,max:74},{l:lang==="fr"?"Moyen":"Medium",c:"#3B82F6",min:25,max:49},{l:lang==="fr"?"Faible":"Low",c:"#10B981",min:0,max:24}];const counts=buckets.map(b=>({...b,n:watched.filter(c=>(c.risk||50)>=b.min&&(c.risk||50)<=b.max).length}));const total=watched.length||1;return (
+          <div className="cs" style={{padding:"14px 16px",marginBottom:12}}>
+            <p className="lbl" style={{color:"var(--t4)",marginBottom:10,fontSize:9}}>{t("portfolio_risk")}</p>
+            <div style={{display:"flex",borderRadius:6,overflow:"hidden",height:10,marginBottom:10}}>{counts.filter(b=>b.n>0).map(b=><div key={b.l} style={{width:`${(b.n/total)*100}%`,background:b.c,transition:"width .4s"}}/>)}</div>
+            <div style={{display:"flex",justifyContent:"space-between"}}>{counts.map(b=><div key={b.l} style={{textAlign:"center"}}><div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"center"}}><div style={{width:6,height:6,borderRadius:3,background:b.c}}/><span style={{fontSize:16,fontWeight:700,color:b.c}}>{b.n}</span></div><p style={{fontSize:8,color:"var(--t5)",marginTop:2}}>{b.l}</p></div>)}</div>
+          </div>)})()}
+          {/* Top exposed + Lines coverage side by side */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {/* Most exposed */}
+            <div className="cs" style={{padding:"12px 14px"}}>
+              <p className="lbl" style={{color:"var(--t4)",marginBottom:8,fontSize:9}}>{t("portfolio_top")}</p>
+              {[...watched].sort((a,b)=>(b.risk||0)-(a.risk||0)).slice(0,5).map((c,i)=><div key={c.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:i<4?6:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,minWidth:0,flex:1}}><span style={{fontSize:10,color:"var(--t5)",width:12}}>{i+1}.</span><span style={{fontSize:11,fontWeight:500,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</span></div>
+                <span style={{fontSize:11,fontWeight:700,color:sC(c.risk||50),flexShrink:0}}>{c.risk||50}</span>
+              </div>)}
+            </div>
+            {/* Lines coverage */}
+            <div className="cs" style={{padding:"12px 14px"}}>
+              <p className="lbl" style={{color:"var(--t4)",marginBottom:8,fontSize:9}}>{t("portfolio_lines")}</p>
+              {(()=>{const allLines=wlSigs.flatMap(s=>getImpsAll(s.id).map(i=>i.line));const lineCounts={};allLines.forEach(l=>{lineCounts[l]=(lineCounts[l]||0)+1});const sorted=Object.entries(lineCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);return sorted.length>0?sorted.map(([l,n])=><div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:11,color:"var(--t2)"}}>{lineLbl(l,lang)}</span>
+                <span style={{fontSize:10,fontWeight:600,color:"var(--gold)"}}>{n}</span>
+              </div>):<p style={{fontSize:10,color:"var(--t5)",fontStyle:"italic"}}>{lang==="fr"?"Aucun signal":"No signals"}</p>})()}
+            </div>
+          </div>
+        </div>}
+
         <div className="fi fi3" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <h3 className="lbl" style={{color:"var(--t4)"}}>{t("priority_feed")}</h3>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
