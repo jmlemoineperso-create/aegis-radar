@@ -627,6 +627,10 @@ function App(){
   const[lastRefresh,setLastRefresh]=useState(null);
   const[newCount,setNewCount]=useState(0);
   const[autoRefresh,setAutoRefresh]=useState(()=>lsGet("autoRefresh",true));
+  const[ollamaUrl,setOllamaUrl]=useState(()=>lsGet("ollamaUrl","http://localhost:11434"));
+  const[ollamaModel,setOllamaModel]=useState(()=>lsGet("ollamaModel","mistral"));
+  const[ollamaEnabled,setOllamaEnabled]=useState(()=>lsGet("ollamaEnabled",true));
+  const[enriching,setEnriching]=useState(false);
   const INTERVALS=[{m:15,l:{en:"15 min",fr:"15 min"}},{m:30,l:{en:"30 min",fr:"30 min"}},{m:60,l:{en:"1h",fr:"1h"}},{m:120,l:{en:"2h",fr:"2h"}},{m:240,l:{en:"4h",fr:"4h"}}];
   const[refreshMin,setRefreshMin]=useState(()=>lsGet("refreshMin",60));
   const[refreshVal,setRefreshVal]=useState(()=>{const m=lsGet("refreshMin",60);return m>=60?m/60:m});
@@ -651,6 +655,39 @@ function App(){
   const deleteN=(id)=>{setNotes(p=>p.filter(n=>n.id!==id));if(sbOk)sbFetch("notes","DELETE",null,`?id=eq.${encodeURIComponent(id)}`).catch(()=>{});showT(lang==="fr"?"Note supprimée":"Note deleted")};
 
   // ── Live refresh ──
+  // Ollama enrichment
+  const enrichWithOllama=useCallback(async(signals)=>{
+    if(!ollamaEnabled||signals.length===0)return;
+    setEnriching(true);
+    for(let i=0;i<signals.length;i+=3){
+      const batch=signals.slice(i,i+3);
+      try{
+        const prompt=`Tu es expert assurance Financial Lines. Traduis et analyse ces signaux pour un Account Manager français.\n\n${batch.map((s,j)=>`[${j}] ${s.company||""}: ${tx(s.title,"en")}`).join("\n")}\n\nRéponds UNIQUEMENT en JSON array sans markdown:\n[{"i":0,"title_fr":"titre français","summary_fr":"résumé 2 phrases","category":"governance|regulatory_compliance|litigation_investigation|financial_stress_reporting|mna_transactions|cyber_data_breach|fraud_crime|esg_reputation|hr_culture","importance":50,"impacts":[{"line":"do","level":"medium","why_fr":"pourquoi FL","angle_fr":"angle discussion"}]}]`;
+        const res=await fetch(ollamaUrl+"/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:ollamaModel,messages:[{role:"user",content:prompt}],stream:false,options:{temperature:0.3}})});
+        if(!res.ok)continue;
+        const data=await res.json();
+        const raw=(data.message?.content||"").replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
+        const arr=JSON.parse(raw);
+        if(!Array.isArray(arr))continue;
+        setLiveSigs(prev=>prev.map(s=>{
+          const bIdx=batch.findIndex(b=>b.id===s.id);
+          if(bIdx===-1)return s;
+          const e=arr.find(x=>x.i===bIdx);
+          if(!e)return s;
+          return {...s,
+            title:{en:tx(s.title,"en"),fr:e.title_fr||tx(s.title,"en")},
+            sum:{en:tx(s.sum||s.summary,"en"),fr:e.summary_fr||""},
+            cat:e.category||s.cat,
+            imp:e.importance||s.imp,
+            _impacts:(e.impacts||[]).map(imp=>({line:imp.line||"do",level:imp.level||"medium",why:{en:imp.why_en||imp.why_fr||"",fr:imp.why_fr||""},angle:{en:imp.angle_en||imp.angle_fr||"",fr:imp.angle_fr||""},vig:[],hyp:[]}))
+          };
+        }));
+      }catch(e){console.error("Ollama error:",e)}
+    }
+    setEnriching(false);
+    showT(lang==="fr"?"Enrichissement IA terminé":"AI enrichment complete");
+  },[ollamaUrl,ollamaModel,ollamaEnabled,lang]);
+
   const refreshSignals=useCallback(async()=>{
     const wCos=cos.filter(c=>c.prio);
     if(wCos.length===0||refreshing)return;
@@ -676,6 +713,8 @@ function App(){
         // Record risk snapshots
         const today=new Date().toISOString().split("T")[0];
         setRiskHistory(prev=>{const h={...prev};cos.filter(c=>c.prio).forEach(c=>{const sigs=mapped.filter(s=>s.cid===c.id);const sigCount=sigs.length;const avgImp=sigCount>0?sigs.reduce((a,s)=>a+(s.imp||50),0)/sigCount:0;const boost=Math.min(30,sigCount*5+Math.max(0,avgImp-50)*0.3);const score=Math.min(100,Math.round((c.risk||50)+boost));if(!h[c.id])h[c.id]=[];const last=h[c.id][h[c.id].length-1];if(!last||last.date!==today){h[c.id].push({date:today,score});if(h[c.id].length>30)h[c.id]=h[c.id].slice(-30)}else{h[c.id][h[c.id].length-1].score=Math.max(last.score,score)}});lsSet("riskHistory",h);return h});
+        // Enrich with Ollama (async, signals update in place)
+        if(ollamaEnabled)setTimeout(()=>enrichWithOllama(mapped),500);
       }else{
         setLastRefresh(new Date().toISOString());
         showT(lang==="fr"?"Aucun nouveau signal":"No new signals");
@@ -1117,6 +1156,19 @@ function App(){
           {autoRefresh&&<div style={{marginBottom:14}}><p className="lbl" style={{color:"var(--t5)",marginBottom:8,fontSize:9}}>{lang==="fr"?"Fréquence de mise à jour":"Update frequency"}</p><div style={{display:"flex",gap:8,alignItems:"center",marginBottom:10}}><input type="number" className="inp" style={{width:70,textAlign:"center",padding:"8px 10px"}} value={refreshVal} min={1} onChange={e=>applyRefresh(e.target.value,refreshUnit)}/><div style={{display:"flex",borderRadius:"var(--rs)",overflow:"hidden",border:"1px solid var(--b)"}}>{[{k:"m",l:"min"},{k:"h",l:lang==="fr"?"heure(s)":"hour(s)"},{k:"j",l:lang==="fr"?"jour(s)":"day(s)"}].map(u=><button key={u.k} className="btn" style={{padding:"8px 14px",fontSize:12,background:refreshUnit===u.k?"var(--gbg)":"var(--bg3)",color:refreshUnit===u.k?"var(--gold)":"var(--t4)",borderRight:"1px solid var(--b)"}} onClick={()=>applyRefresh(refreshVal,u.k)}>{u.l}</button>)}</div></div><p style={{fontSize:10,color:"var(--t5)",marginBottom:4}}>{lang==="fr"?"Suggestions :":"Suggestions:"}</p><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[{v:15,u:"m",l:"15 min"},{v:30,u:"m",l:"30 min"},{v:1,u:"h",l:"1h"},{v:2,u:"h",l:"2h"},{v:4,u:"h",l:"4h"},{v:1,u:"j",l:lang==="fr"?"1 jour":"1 day"}].map(s=><button key={s.l} className="btn" style={{padding:"4px 10px",fontSize:10,borderRadius:12,background:"var(--bg3)",color:"var(--t4)",border:"1px solid var(--b)"}} onClick={()=>{setRefreshVal(s.v);setRefreshUnit(s.u);applyRefresh(s.v,s.u)}}>{s.l}</button>)}</div></div>}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,color:"var(--t2)"}}>{t("critical_alerts")}</span><div style={{width:36,height:20,borderRadius:10,background:lsGet("critAlerts",false)?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}} onClick={()=>{const next=!lsGet("critAlerts",false);lsSet("critAlerts",next);if(next&&typeof Notification!=="undefined"&&Notification.permission!=="granted"){Notification.requestPermission().then(p=>{if(p!=="granted"){lsSet("critAlerts",false);showT(lang==="fr"?"Notifications refusées par le navigateur":"Notifications denied by browser")}else{showT(lang==="fr"?"Alertes critiques activées":"Critical alerts enabled")}})}else if(next){showT(lang==="fr"?"Alertes critiques activées":"Critical alerts enabled")}else{showT(lang==="fr"?"Alertes critiques désactivées":"Critical alerts disabled")}}}><div style={{width:16,height:16,borderRadius:8,background:lsGet("critAlerts",false)?"white":"var(--t4)",marginLeft:lsGet("critAlerts",false)?16:0,transition:"margin-left .2s"}}/></div></div>
           <p style={{fontSize:11,color:"var(--t5)",marginTop:12}}>{t("notif_coming")}</p>
+        </div>
+        <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{lang==="fr"?"IA Locale (Ollama)":"Local AI (Ollama)"}</h3>
+        <div className="card" style={{padding:"16px 18px",marginBottom:24}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Enrichissement IA":"AI Enrichment"}</span>
+            <div style={{width:36,height:20,borderRadius:10,background:ollamaEnabled?"var(--gold)":"var(--b2)",padding:2,cursor:"pointer",transition:"background .2s"}} onClick={()=>{const v=!ollamaEnabled;setOllamaEnabled(v);lsSet("ollamaEnabled",v);showT(v?(lang==="fr"?"IA activée":"AI enabled"):(lang==="fr"?"IA désactivée":"AI disabled"))}}><div style={{width:16,height:16,borderRadius:8,background:ollamaEnabled?"white":"var(--t4)",marginLeft:ollamaEnabled?16:0,transition:"margin-left .2s"}}/></div>
+          </div>
+          {ollamaEnabled&&<>
+            <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t5)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Adresse Ollama":"Ollama URL"}</label><input className="inp" value={ollamaUrl} onChange={e=>{setOllamaUrl(e.target.value);lsSet("ollamaUrl",e.target.value)}} placeholder="http://localhost:11434"/></div>
+            <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t5)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Modèle":"Model"}</label><input className="inp" value={ollamaModel} onChange={e=>{setOllamaModel(e.target.value);lsSet("ollamaModel",e.target.value)}} placeholder="mistral"/></div>
+            <button className="btn" style={{width:"100%",padding:"8px",fontSize:12,background:"var(--bg3)",color:"var(--t3)",border:"1px solid var(--b)",borderRadius:"var(--rs)"}} onClick={async()=>{try{const r=await fetch(ollamaUrl+"/api/tags");if(r.ok){const d=await r.json();showT(`${lang==="fr"?"Connecté":"Connected"} — ${(d.models||[]).length} ${lang==="fr"?"modèle(s)":"model(s)"}`)}else showT(lang==="fr"?"Erreur de connexion":"Connection error")}catch(e){showT(lang==="fr"?"Ollama non accessible. Vérifiez qu'il est lancé.":"Ollama unreachable. Check it's running.")}}}>{lang==="fr"?"Tester la connexion":"Test connection"}</button>
+            {enriching&&<p style={{fontSize:11,color:"var(--gold)",marginTop:10,textAlign:"center"}}>{lang==="fr"?"Enrichissement en cours...":"Enriching signals..."}</p>}
+          </>}
         </div>
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:14}}>{t("about")}</h3>
         <div className="card" style={{padding:"16px 18px",marginBottom:16}}>
