@@ -481,7 +481,8 @@ function App(){
       const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=50`);
       if(liveDb&&liveDb.length>0){
         const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
-        setLiveSigs(mapped);
+        const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
+        setLiveSigs(deduped);
       }
       setDbLoaded(true);
     }catch(e){console.error("DB load error:",e);setDbLoaded(true)}
@@ -629,7 +630,7 @@ function App(){
       const data=await res.json();
       if(data.signals&&data.signals.length>0){
         const mapped=data.signals.map(s=>{const co=cos.find(c=>c.name.toLowerCase()===s.company.toLowerCase())||cos.find(c=>s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0]));return {id:s.id,cid:co?.id||null,title:s.title||{en:s.company,fr:s.company},sum:s.summary||{en:"",fr:""},src:s.source||"Web",at:s.fetchedAt||new Date().toISOString(),cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}}).filter(s=>s.cid);
-        setLiveSigs(p=>{const existIds=new Set(p.map(s=>s.id));const fresh=mapped.filter(s=>!existIds.has(s.id));return[...fresh,...p]});
+        setLiveSigs(p=>{const existTitles=new Set(p.map(s=>tx(s.title,"en").toLowerCase().trim()));const fresh=mapped.filter(s=>{const t=tx(s.title,"en").toLowerCase().trim();return t&&!existTitles.has(t)});return[...fresh,...p]});
         saveLiveSignalsDB(mapped);
         setNewCount(p=>{const n=p+mapped.length;try{navigator.setAppBadge&&navigator.setAppBadge(n)}catch(e){}return n});
         // Push notification for critical signals
@@ -705,15 +706,17 @@ function App(){
   // getSigs and getNotes include live data
   const getSigs=useCallback(cid=>{
     const co=cos.find(c=>c.id===cid);
-    return allSignals.filter(s=>{
+    const raw=allSignals.filter(s=>{
       if(s.cid===cid)return true;
       if(co&&s.company){const n=s.company.toLowerCase();return n===co.name.toLowerCase()||n.includes(co.name.toLowerCase().split(" ")[0])}
       return false;
-    }).sort((a,b)=>b.imp-a.imp);
+    }).sort((a,b)=>(b.imp||0)-(a.imp||0));
+    const seen=new Set();
+    return raw.filter(s=>{const t=tx(s.title,"en").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
   },[allSignals,cos]);
   const getNotes=useCallback(cid=>notes.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at)),[notes]);
 
-  const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}if(sortMode==="recent")return s.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));return s.sort((a,b)=>(b.imp||0)-(a.imp||0))},[activeCat,search,lang,sortMode]);
+  const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}const seen=new Set();s=s.filter(x=>{const t=tx(x.title,"en").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});if(sortMode==="recent")return s.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));return s.sort((a,b)=>(b.imp||0)-(a.imp||0))},[activeCat,search,lang,sortMode]);
   const wlSigs=useMemo(()=>filterSigs(allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs,allSignals]);
   const allSigs=useMemo(()=>filterSigs(allSignals),[filterSigs,allSignals]);
   const digest=useMemo(()=>{const ws=allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return {total:ws.length,crit:ws.filter(s=>s.imp>=80).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos,allSignals]);
