@@ -86,7 +86,7 @@ const T={
   brief_title:{en:"Meeting Brief",fr:"Brief de réunion"},
   brief_sub:{en:"Prepare for your next broker or Risk Manager meeting.",fr:"Préparez votre prochaine réunion courtier ou Risk Manager."},
   generate:{en:"Generate",fr:"Générer"},generate_brief:{en:"Generate meeting brief",fr:"Générer le brief"},
-  copy_brief:{en:"Copy brief",fr:"Copier le brief"},copied:{en:"Copied",fr:"Copié"},
+  copy_brief:{en:"Copy brief",fr:"Copier le brief"},copied:{en:"Copied",fr:"Copié"},meetings:{en:"Meetings",fr:"Réunions"},add_meeting:{en:"New meeting",fr:"Nouvelle réunion"},meeting_company:{en:"Company",fr:"Entreprise"},meeting_date:{en:"Date \u0026 time",fr:"Date \u0026 heure"},meeting_type:{en:"Type",fr:"Type"},meeting_broker:{en:"Broker meeting",fr:"RDV Courtier"},meeting_rm:{en:"Risk Manager meeting",fr:"RDV Risk Manager"},meeting_internal:{en:"Internal",fr:"Interne"},meeting_notes:{en:"Preparation notes",fr:"Notes de préparation"},upcoming:{en:"Upcoming",fr:"À venir"},past_meetings:{en:"Past",fr:"Passées"},no_meetings:{en:"No meetings planned",fr:"Aucune réunion planifiée"},meeting_saved:{en:"Meeting saved",fr:"Réunion enregistrée"},meeting_deleted:{en:"Meeting deleted",fr:"Réunion supprimée"},export_cal:{en:"Add to calendar",fr:"Ajouter au calendrier"},brief_ready:{en:"Brief ready",fr:"Brief prêt"},days_left:{en:"days",fr:"jours"},today:{en:"Today",fr:"Aujourd'hui"},tomorrow:{en:"Tomorrow",fr:"Demain"},
   export_pdf:{en:"Export PDF",fr:"Exporter PDF"},
   share_brief:{en:"Share",fr:"Partager"},
   share_error:{en:"Sharing not available on this browser",fr:"Partage non disponible sur ce navigateur"},
@@ -423,6 +423,7 @@ const I={
   stop:ic("M6 4h4v16H6zM14 4h4v16h-4z"),
   share:ic("M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"),
   download:ic("M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"),
+  calendar:ic("M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"),
 };
 
 function SR({s,sz=44,sw=3}){const r=(sz-sw*2)/2,c=2*Math.PI*r,o=c-(s/100)*c,col=sC(s);return (<div className="sr" style={{width:sz,height:sz}}><svg width={sz} height={sz}><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke="var(--b)" strokeWidth={sw}/><circle cx={sz/2} cy={sz/2} r={r} fill="none" stroke={col} strokeWidth={sw} strokeDasharray={c} strokeDashoffset={o} strokeLinecap="round" style={{transition:"stroke-dashoffset .6s cubic-bezier(.22,1,.36,1)"}}/></svg><span className="sr-v" style={{color:col,fontSize:sz*.29}}>{s}</span></div>)}
@@ -546,6 +547,12 @@ function App(){
   const[showBrief,setSB]=useState(false);
   const[briefCid,setBC]=useState(null);
   const[showDigest,setSD]=useState(false);
+  const[meetings,setMeetings]=useState(()=>lsGet("meetings",[]));
+  const[showNewMeeting,setSNM]=useState(false);
+  const[mtgCo,setMtgCo]=useState("");
+  const[mtgDate,setMtgDate]=useState("");
+  const[mtgType,setMtgType]=useState("broker");
+  const[mtgNotes,setMtgNotes]=useState("");
   const[search,setSrch]=useState("");
   const[activeCat,setACat]=useState(null);
   const[showNewNote,setSNN]=useState(false);
@@ -653,6 +660,15 @@ function App(){
   },[saveWatchlistDB]);
   const addN=()=>{if(!nText.trim())return;if(noteDictating)stopNoteDict();const cleaned=nText.trim().replace(/\s+/g," ").replace(/ ([.,;:!?])/g,"$1");const sentences=cleaned.replace(/([.!?])\s+/g,"$1\n").split("\n").map(s=>s.trim()).filter(Boolean).map(s=>s.charAt(0).toUpperCase()+s.slice(1));const formatted=sentences.join(". ").replace(/\.\./g,".");const note={id:`n${Date.now()}`,cid:nComp||null,text:formatted,tag:nTag,at:new Date().toISOString()};setNotes(p=>[note,...p]);saveNoteDB(note);setNT("");setSNN(false);showT(t("note_saved"))};
   const deleteN=(id)=>{setNotes(p=>p.filter(n=>n.id!==id));if(sbOk)sbFetch("notes","DELETE",null,`?id=eq.${encodeURIComponent(id)}`).catch(()=>{});showT(lang==="fr"?"Note supprimée":"Note deleted")};
+
+  // Meetings
+  const addMeeting=()=>{if(!mtgCo||!mtgDate)return;const m={id:`mtg${Date.now()}`,cid:mtgCo,date:mtgDate,type:mtgType,notes:mtgNotes,createdAt:new Date().toISOString()};setMeetings(p=>{const n=[m,...p];lsSet("meetings",n);return n});setMtgCo("");setMtgDate("");setMtgType("broker");setMtgNotes("");setSNM(false);showT(t("meeting_saved"))};
+  const deleteMeeting=(id)=>{setMeetings(p=>{const n=p.filter(m=>m.id!==id);lsSet("meetings",n);return n});showT(t("meeting_deleted"))};
+  const exportICS=(mtg)=>{const co=cos.find(c=>c.id===mtg.cid);const name=co?.name||"Réunion";const d=new Date(mtg.date);const end=new Date(d.getTime()+3600000);const fmt=d=>d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SIGNALIS//FR\nBEGIN:VEVENT\nDTSTART:${fmt(d)}\nDTEND:${fmt(end)}\nSUMMARY:${mtg.type==="broker"?"RDV Courtier":"RDV RM"} — ${name}\nDESCRIPTION:${mtg.notes||"Préparé par SIGNALIS"}\nEND:VEVENT\nEND:VCALENDAR`;const blob=new Blob([ics],{type:"text/calendar"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`signalis-${name.replace(/\s/g,"-")}.ics`;a.click();URL.revokeObjectURL(url)};
+  const upcomingMtgs=meetings.filter(m=>new Date(m.date)>=new Date()).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const pastMtgs=meetings.filter(m=>new Date(m.date)<new Date()).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const mtgLabel=(mtg)=>{const d=new Date(mtg.date);const now=new Date();const diff=Math.ceil((d-now)/(86400000));if(diff===0)return{l:t("today"),c:"#F87171"};if(diff===1)return{l:t("tomorrow"),c:"#FBBF24"};if(diff>0)return{l:`${diff} ${t("days_left")}`,c:"#60A5FA"};return{l:fD(mtg.date),c:"var(--t5)"}};
+  useEffect(()=>{lsSet("meetings",meetings)},[meetings]);
 
   // ── Live refresh ──
   // Ollama enrichment
@@ -1137,8 +1153,47 @@ function App(){
     </div>);
 
     if(tab==="brief")return (<div style={{paddingBottom:100}}>
-      <div className="hdr"><h2 className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("brief_title")}</h2><p style={{fontSize:12,color:"var(--t4)",marginTop:4}}>{t("brief_sub")}</p></div>
-      <div style={{padding:"18px 20px"}}><div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><span className="mono">{c.logo}</span><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}</p></div></div><button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button></div>)})}</div></div>
+      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("brief_title")}</h2><p style={{fontSize:12,color:"var(--t4)",marginTop:4}}>{t("brief_sub")}</p></div><button className="btn bp" style={{padding:"7px 14px",fontSize:12}} onClick={()=>setSNM(true)}><I.calendar/>{t("add_meeting")}</button></div></div>
+      <div style={{padding:"18px 20px"}}>
+        {/* Upcoming meetings */}
+        {upcomingMtgs.length>0&&<><h3 className="lbl" style={{color:"var(--gold)",marginBottom:12}}><I.calendar style={{width:14,height:14,display:"inline",marginRight:6}}/>{t("upcoming")} ({upcomingMtgs.length})</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>{upcomingMtgs.map((mtg,i)=>{const co=cos.find(c=>c.id===mtg.cid);const ml=mtgLabel(mtg);const d=new Date(mtg.date);return (
+          <div key={mtg.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",borderLeft:`3px solid ${ml.c}`,position:"relative"}}>
+            <button style={{position:"absolute",top:8,right:8,width:20,height:20,borderRadius:5,background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteMeeting(mtg.id)}><I.x style={{width:10,height:10,color:"#F87171"}}/></button>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",paddingRight:24}}>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <span style={{fontSize:11,fontWeight:700,color:ml.c,textTransform:"uppercase"}}>{ml.l}</span>
+                  <span className="ftag" style={{background:mtg.type==="broker"?"rgba(201,168,76,.15)":"rgba(96,165,250,.15)",color:mtg.type==="broker"?"var(--gold)":"#93C5FD"}}>{mtg.type==="broker"?t("meeting_broker"):mtg.type==="rm"?t("meeting_rm"):t("meeting_internal")}</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  {co&&<><span className="mono" style={{width:24,height:24,fontSize:10}}>{co.logo}</span><span style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{co.name}</span></>}
+                </div>
+                <p style={{fontSize:11,color:"var(--t4)"}}>{d.toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"long",day:"numeric",month:"long"})} · {d.toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
+                {mtg.notes&&<p style={{fontSize:11,color:"var(--t5)",marginTop:4,fontStyle:"italic"}}>{mtg.notes}</p>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:6,marginTop:10}}>
+              <button className="btn" style={{flex:1,padding:"6px",fontSize:11,background:"var(--bg3)",color:"var(--t3)",border:"1px solid var(--b)",borderRadius:"var(--rs)"}} onClick={()=>{setBC(mtg.cid);setSB(true);setCopied(false)}}><I.brief style={{width:12,height:12}}/>{t("generate")}</button>
+              <button className="btn" style={{flex:1,padding:"6px",fontSize:11,background:"var(--bg3)",color:"var(--t3)",border:"1px solid var(--b)",borderRadius:"var(--rs)"}} onClick={()=>exportICS(mtg)}><I.download style={{width:12,height:12}}/>{t("export_cal")}</button>
+            </div>
+          </div>)})}</div></>}
+
+        {/* Past meetings */}
+        {pastMtgs.length>0&&<><h3 className="lbl" style={{color:"var(--t5)",marginBottom:10}}>{t("past_meetings")} ({pastMtgs.length})</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:24}}>{pastMtgs.slice(0,5).map(mtg=>{const co=cos.find(c=>c.id===mtg.cid);return (
+          <div key={mtg.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:"1px solid var(--b)",opacity:.6}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>{co&&<span className="mono" style={{width:22,height:22,fontSize:9}}>{co.logo}</span>}<span style={{fontSize:12,color:"var(--t3)"}}>{co?.name||"—"}</span><span style={{fontSize:10,color:"var(--t5)"}}>{fD(mtg.date)}</span></div>
+            <button style={{width:18,height:18,borderRadius:4,background:"rgba(239,68,68,.06)",border:"1px solid rgba(239,68,68,.1)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteMeeting(mtg.id)}><I.x style={{width:9,height:9,color:"#F87171"}}/></button>
+          </div>)})}</div></>}
+
+        {meetings.length===0&&<div style={{textAlign:"center",padding:"32px 20px",marginBottom:24}}><I.calendar style={{width:32,height:32,color:"var(--b2)",margin:"0 auto 12px",display:"block"}}/><p style={{fontSize:13,color:"var(--t4)",marginBottom:12}}>{t("no_meetings")}</p><button className="btn bp" style={{padding:"8px 18px",fontSize:12}} onClick={()=>setSNM(true)}><I.plus/>{t("add_meeting")}</button></div>}
+
+        {/* Company list for quick brief */}
+        <div className="dv" style={{marginBottom:18}}/>
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("brief_title")} — {t("generate")}</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><span className="mono">{c.logo}</span><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}</p></div></div><button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button></div>)})}</div>
+      </div>
     </div>);
 
     if(tab==="settings")return (<div style={{paddingBottom:100}}>
@@ -1187,9 +1242,19 @@ function App(){
   return (<>
     {isOffline&&<div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--mw)",zIndex:999,background:"rgba(245,158,11,.15)",borderBottom:"1px solid rgba(245,158,11,.3)",padding:"6px 20px",textAlign:"center"}}><span style={{fontSize:11,color:"#FCD34D",fontWeight:600}}>{lang==="fr"?"Mode hors-ligne — données en cache":"Offline mode — cached data"}</span></div>}
     {render()}
-    <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"signals",l:lang==="fr"?"Signaux":"Signals",Ic:I.bar},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:"Brief",Ic:I.brief},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
+    <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"signals",l:lang==="fr"?"Signaux":"Signals",Ic:I.bar},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:lang==="fr"?"Brief":"Brief",Ic:I.calendar},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
     {selSig&&<SigDet s={selSig} onClose={()=>setSS(null)}/>}
     {showBrief&&briefCid&&<BriefSheet cid={briefCid} onClose={()=>{setSB(false);setBC(null)}}/>}
+    {/* New meeting modal */}
+    {showNewMeeting&&<div className="bsbg" onClick={()=>setSNM(false)}><div className="bsm" onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("add_meeting")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setSNM(false)}><I.x/></button></div>
+      <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_company")}</label><select className="inp" value={mtgCo} onChange={e=>setMtgCo(e.target.value)} style={{appearance:"auto"}}><option value="">{lang==="fr"?"Sélectionner...":"Select..."}</option>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+      <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_date")}</label><input className="inp" type="datetime-local" value={mtgDate} onChange={e=>setMtgDate(e.target.value)}/></div>
+      <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_type")}</label><div style={{display:"flex",gap:6}}>{[{k:"broker",l:t("meeting_broker")},{k:"rm",l:t("meeting_rm")},{k:"internal",l:t("meeting_internal")}].map(tp=><button key={tp.k} className={`chip ${mtgType===tp.k?"on":""}`} onClick={()=>setMtgType(tp.k)}>{tp.l}</button>)}</div></div>
+      <div style={{marginBottom:20}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_notes")}</label><textarea className="inp" placeholder={lang==="fr"?"Points à aborder, contexte...":"Topics to discuss, context..."} value={mtgNotes} onChange={e=>setMtgNotes(e.target.value)} rows={3}/></div>
+      <button className="btn bp" style={{width:"100%",height:46}} onClick={addMeeting} disabled={!mtgCo||!mtgDate}>{t("save_note")}</button>
+    </div></div>}
     {showNewNote&&<div className="bsbg" onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("new_note_title")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><I.x/></button></div>
