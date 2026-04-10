@@ -688,7 +688,7 @@ function App(){
     if(step!=="login"){
       const seedIds=new Set(NOTES.map(n=>n.id));
       const userNotes=notes.filter(n=>!seedIds.has(n.id));
-      if(userNotes.length>0)lsSet("userNotes",userNotes);
+      lsSet("userNotes",userNotes);
     }
   },[notes,step]);
 
