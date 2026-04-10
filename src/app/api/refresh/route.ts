@@ -121,32 +121,79 @@ async function fetchYahoo(ticker) {
 async function enhanceWithClaude(signals) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || signals.length === 0) return signals;
-  try {
-    const prompt = `Analyze these news headlines for Financial Lines insurance (D&O, Crime, Cyber, PI/E&O, EPL) relevance. For each, provide a French translation of the title, and a one-sentence FL impact analysis in both EN and FR.
 
-${signals.map((s, i) => `${i}. [${s.company}] ${s.title_en}`).join("\n")}
+  // Process in batches of 8
+  const batches = [];
+  for (let i = 0; i < signals.length; i += 8) batches.push(signals.slice(i, i + 8));
+  const allEnhanced = [];
 
-Respond ONLY with a JSON array:
-[{"i":0,"fr":"titre en français","why_en":"FL impact","why_fr":"impact FL","imp":0-100}]
-No markdown. Return [] if none relevant.`;
+  for (const batch of batches) {
+    try {
+      const prompt = `Tu es un expert senior en assurance Financial Lines (D&O/RCMS, Crime/Fraude, Cyber, RCPro, EPL, M&A/W&I, RC Environnementale). Tu travailles pour un Senior Account Manager qui gère les grands comptes français.
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2048, messages: [{ role: "user", content: prompt }] }),
-    });
-    if (!res.ok) return signals;
-    const data = await res.json();
-    let text = (data.content || []).map(b => b.text || "").join("");
-    text = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-    const arr = JSON.parse(text);
-    if (!Array.isArray(arr)) return signals;
-    return signals.map((s, idx) => {
-      const e = arr.find(x => x.i === idx);
-      if (!e) return s;
-      return { ...s, title: { en: s.title_en, fr: e.fr || s.title_en }, summary: { ...s.summary, fr: e.fr || s.summary.fr }, importance: e.imp || s.importance, impacts: [{ ...s.impacts[0], why: { en: e.why_en || s.impacts[0].why.en, fr: e.why_fr || s.impacts[0].why.fr } }] };
-    });
-  } catch (e) { return signals; }
+Analyse ces actualités et fournis une analyse FL structurée pour chaque signal.
+
+SIGNAUX À ANALYSER :
+${batch.map((s, i) => `[${i}] Entreprise: ${s.company} | Titre: ${s.title_en} | Résumé: ${s.summary?.en || s.title_en}`).join("\n")}
+
+Pour chaque signal, réponds avec un JSON. Chaque objet doit contenir :
+- "i": index du signal
+- "title_fr": traduction française du titre (concise, professionnelle)
+- "summary_fr": résumé factuel en français (2-3 phrases)
+- "category": une parmi governance|regulatory_compliance|litigation_investigation|financial_stress_reporting|mna_transactions|cyber_data_breach|fraud_crime|esg_reputation|hr_culture
+- "importance": score 0-100 (80+ = critique pour FL, 60-79 = significatif, 40-59 = à surveiller, <40 = informatif)
+- "confidence": score 0-100 (fiabilité de la source et du signal)
+- "factuality": verified|probable|hypothesis|needs_review
+- "impacts": tableau d'objets, chaque objet = une ligne FL impactée :
+  - "line": code ligne (do|fraud|cyber|rcpro|epl|mna|rc_env|property|marine|motor|trade_credit|aviation)
+  - "level": critical|high|medium|low
+  - "why_fr": pourquoi cette ligne est impactée (1-2 phrases, spécifique au contexte)
+  - "why_en": même chose en anglais
+  - "angle_fr": angle de discussion pour un RDV courtier ou Risk Manager
+  - "angle_en": même chose en anglais
+  - "vig": 1-2 points de vigilance en français
+  - "hyp": 1 hypothèse à vérifier en français
+
+Réponds UNIQUEMENT avec un JSON array. Pas de markdown, pas de backticks.
+Exemple format: [{"i":0,"title_fr":"...","summary_fr":"...","category":"governance","importance":72,"confidence":80,"factuality":"probable","impacts":[{"line":"do","level":"high","why_fr":"...","why_en":"...","angle_fr":"...","angle_en":"...","vig":["..."],"hyp":["..."]}]}]`;
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
+      });
+      if (!res.ok) { allEnhanced.push(...batch); continue; }
+      const data = await res.json();
+      let text = (data.content || []).map(b => b.text || "").join("");
+      text = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) { allEnhanced.push(...batch); continue; }
+
+      const enhanced = batch.map((s, idx) => {
+        const e = arr.find(x => x.i === idx);
+        if (!e) return s;
+        return {
+          ...s,
+          title: { en: s.title_en, fr: e.title_fr || s.title_en },
+          summary: { en: s.summary?.en || s.title_en, fr: e.summary_fr || s.summary?.fr || s.title_en },
+          category: e.category || s.category,
+          importance: e.importance || s.importance,
+          confidence: e.confidence || s.confidence || 72,
+          factuality: e.factuality || s.factuality,
+          impacts: (e.impacts || []).map(imp => ({
+            line: imp.line || "do",
+            level: imp.level || "medium",
+            why: { en: imp.why_en || "", fr: imp.why_fr || "" },
+            angle: { en: imp.angle_en || "", fr: imp.angle_fr || "" },
+            vig: (imp.vig || []).map(v => ({ en: v, fr: v })),
+            hyp: (imp.hyp || []).map(h => ({ en: h, fr: h })),
+          })),
+        };
+      });
+      allEnhanced.push(...enhanced);
+    } catch (e) { allEnhanced.push(...batch); }
+  }
+  return allEnhanced;
 }
 
 export async function POST(req) {
