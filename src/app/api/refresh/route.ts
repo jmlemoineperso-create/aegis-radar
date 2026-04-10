@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 const TICKER_MAP = {
   "LVMH": "MC.PA", "TotalEnergies": "TTE.PA", "Sanofi": "SAN.PA",
   "L'Oréal": "OR.PA", "Schneider Electric": "SU.PA", "Air Liquide": "AI.PA",
@@ -124,7 +127,7 @@ async function enhanceWithClaude(signals) {
 
   // Process in batches of 8
   const batches = [];
-  for (let i = 0; i < signals.length; i += 8) batches.push(signals.slice(i, i + 8));
+  for (let i = 0; i < signals.length; i += 5) batches.push(signals.slice(i, i + 8));
   const allEnhanced = [];
 
   for (const batch of batches) {
@@ -160,9 +163,9 @@ Exemple format: [{"i":0,"title_fr":"...","summary_fr":"...","category":"governan
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4096, messages: [{ role: "user", content: prompt }] }),
       });
-      if (!res.ok) { allEnhanced.push(...batch); continue; }
+      if (!res.ok) { console.error("Claude API error:", res.status, await res.text().catch(()=>"")); allEnhanced.push(...batch); continue; }
       const data = await res.json();
       let text = (data.content || []).map(b => b.text || "").join("");
       text = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
@@ -191,7 +194,7 @@ Exemple format: [{"i":0,"title_fr":"...","summary_fr":"...","category":"governan
         };
       });
       allEnhanced.push(...enhanced);
-    } catch (e) { allEnhanced.push(...batch); }
+    } catch (e) { console.error("Claude enrichment error:", e.message || e); allEnhanced.push(...batch); }
   }
   return allEnhanced;
 }
