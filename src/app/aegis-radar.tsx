@@ -578,6 +578,13 @@ function App(){
 
   // ── Voice recording ──
   const[showRec,setShowRec]=useState(false);
+  const[isOffline,setIsOffline]=useState(false);
+  useEffect(()=>{
+    const on=()=>setIsOffline(false);const off=()=>setIsOffline(true);
+    window.addEventListener("online",on);window.addEventListener("offline",off);
+    setIsOffline(!navigator.onLine);
+    return ()=>{window.removeEventListener("online",on);window.removeEventListener("offline",off)};
+  },[]);
   const[recCid,setRecCid]=useState(null);
   const[isRec,setIsRec]=useState(false);
   const[transcript,setTranscript]=useState("");
@@ -718,6 +725,13 @@ function App(){
       setTimeout(()=>Notification.requestPermission(),3000);
     }
   },[step]);
+
+  // Register Service Worker for offline support
+  useEffect(()=>{
+    if(typeof window!=="undefined"&&"serviceWorker"in navigator){
+      navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    }
+  },[]);
 
   // Persist watchlist to localStorage
   useEffect(()=>{
@@ -1056,6 +1070,7 @@ function App(){
   };
 
   return (<>
+    {isOffline&&<div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--mw)",zIndex:999,background:"rgba(245,158,11,.15)",borderBottom:"1px solid rgba(245,158,11,.3)",padding:"6px 20px",textAlign:"center"}}><span style={{fontSize:11,color:"#FCD34D",fontWeight:600}}>{lang==="fr"?"Mode hors-ligne — données en cache":"Offline mode — cached data"}</span></div>}
     {render()}
     <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"signals",l:lang==="fr"?"Signaux":"Signals",Ic:I.bar},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:"Brief",Ic:I.brief},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
     {selSig&&<SigDet s={selSig} onClose={()=>setSS(null)}/>}
