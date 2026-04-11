@@ -654,10 +654,64 @@ function App(){
   const[enriching,setEnriching]=useState(false);
   const[scoreThresholds,setScoreThresholds]=useState(()=>lsGet("scoreThresholds",{critical:80,high:60,medium:40}));
   const defaultKeywords={
-    critical:["fraude avérée","fraud","ransomware","data breach","class action","corruption","whistleblower","démission CEO","criminal","insolvabilité","liquidation"],
-    high:["restructuring","restructuration","enquête","investigation","downgrade","sanction","amende","penalty","lawsuit","procès","cyber-attaque","hack","licenciement massif","layoff"],
-    medium:["résultats","earnings","acquisition","merger","nomination","ESG","compliance","audit","partenariat","partnership","dividend","rating","IPO"],
-    low:["communiqué","press release","conférence","event","sponsoring","prix","award","rapport annuel","annual report"]
+    critical:[
+      // Fraude & Crime
+      "fraude avérée","fraud confirmed","détournement de fonds","embezzlement","blanchiment","money laundering","corruption","pot-de-vin","bribery",
+      // Cyber
+      "ransomware","data breach","fuite de données","violation de données","cyber-attaque majeure",
+      // Gouvernance
+      "démission CEO","CEO resignation","révocation dirigeant","mise en examen","criminal charges","garde à vue","arrestation",
+      // Juridique
+      "class action","action de groupe","condamnation","criminal conviction","inculpation","indictment","perquisition","raid",
+      // Financier
+      "insolvabilité","insolvency","liquidation judiciaire","cessation de paiement","défaut de paiement","default","faillite","bankruptcy",
+      // Compliance
+      "whistleblower","lanceur d'alerte","violation RGPD","GDPR violation","sanction AMF","sanction SEC","délit d'initié","insider trading"
+    ],
+    high:[
+      // Gouvernance
+      "restructuration","restructuring","changement de direction","board shakeup","conflit d'intérêts","conflict of interest","gouvernance contestée",
+      // Juridique
+      "enquête","investigation","procès","lawsuit","litige","litigation","mise en demeure","plainte déposée","complaint filed","arbitrage","arbitration",
+      // Régulateur
+      "sanction","amende","fine","penalty","downgrade","avertissement régulateur","regulatory warning","non-conformité","non-compliance","rappel produit","product recall",
+      // Financier
+      "avertissement sur résultats","profit warning","perte nette","net loss","dette critique","credit watch","dégradation notation","rating downgrade",
+      // RH & Social
+      "licenciement massif","mass layoff","plan social","PSE","grève","strike","harcèlement","harassment","discrimination",
+      // Cyber
+      "cyber-attaque","hack","incident de sécurité","security incident","vulnérabilité critique",
+      // M&A
+      "OPA hostile","hostile takeover","rupture de contrat","contract breach","litige post-acquisition",
+      // Environnement
+      "pollution majeure","marée noire","oil spill","catastrophe industrielle","amende environnementale"
+    ],
+    medium:[
+      // Financier
+      "résultats trimestriels","quarterly results","chiffre d'affaires","revenue","bénéfice net","net profit","prévisions","guidance","dividende","dividend",
+      // M&A
+      "acquisition","merger","fusion","cession","divestiture","prise de participation","stake acquisition","joint venture","IPO","introduction en bourse",
+      // Gouvernance
+      "nomination","appointment","assemblée générale","AGM","vote des actionnaires","shareholder vote","nouveau CEO","new CEO","succession",
+      // ESG & Compliance
+      "ESG","RSE","CSR","compliance","conformité","audit","contrôle interne","internal control","rapport de durabilité","sustainability report",
+      // Partenariat
+      "partenariat","partnership","contrat majeur","major contract","accord commercial",
+      // Rating
+      "rating","notation","outlook stable","perspective positive","upgrade"
+    ],
+    low:[
+      // Communication
+      "communiqué","press release","conférence","conference","événement","event","salon professionnel","trade show",
+      // Marketing & Image
+      "sponsoring","mécénat","prix","award","distinction","classement","ranking","certification",
+      // Publications
+      "rapport annuel","annual report","document de référence","lettre aux actionnaires",
+      // RH positif
+      "recrutement","hiring","formation","training","label employeur","great place to work",
+      // Divers
+      "innovation","brevet","patent","lancement produit","product launch","expansion","ouverture site"
+    ]
   };
   const[scoreKeywords,setScoreKeywords]=useState(()=>lsGet("scoreKeywords",defaultKeywords));
   const[editingKwLevel,setEditingKwLevel]=useState(null);
