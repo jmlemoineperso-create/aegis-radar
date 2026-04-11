@@ -600,6 +600,12 @@ function App(){
   },[]);
   const[contacts,setContacts]=useState(()=>lsGet("contacts",[]));
   const[briefHistory,setBriefHistory]=useState(()=>lsGet("briefHistory",[]));
+  const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
+  const[editingDossier,setEditingDossier]=useState(null);
+  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:""});
+  const openDossier=(cid)=>{const d=clientDossiers[cid]||{broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:""};setDossierDraft(d);setEditingDossier(cid)};
+  const saveDossier=()=>{if(!editingDossier)return;setClientDossiers(prev=>{const n={...prev,[editingDossier]:{...dossierDraft,updatedAt:new Date().toISOString()}};lsSet("clientDossiers",n);if(sbOk)sbFetch("client_dossiers","POST",{id:editingDossier,user_email:USER_EMAIL,company_id:editingDossier,data:n[editingDossier]}).catch(()=>{});return n});setEditingDossier(null);showT(lang==="fr"?"Dossier sauvegardé":"Dossier saved")};
+  const getDossier=(cid)=>clientDossiers[cid]||null;
   const saveBrief=(cid,content)=>{const co=cos.find(c=>c.id===cid);setBriefHistory(prev=>{const n=[{id:`br${Date.now()}`,cid,company:co?.name||"",date:new Date().toISOString(),signalCount:getSigs(cid).length,lines:getLinesAll(getSigs(cid)),risk:co?.risk||50,preview:content.slice(0,200)},...prev].slice(0,100);lsSet("briefHistory",n);return n})};
   const getBriefHistory=(cid)=>briefHistory.filter(b=>b.cid===cid);
   const getLastBriefDate=(cid)=>{const h=getBriefHistory(cid);return h.length>0?h[0].date:null};
@@ -1081,6 +1087,7 @@ function App(){
     const angles=imps.filter(i=>i.angle&&tx(i.angle,lang)).slice(0,4).map(i=>tx(i.angle,lang)).filter(Boolean);
     const questions=imps.flatMap(i=>(i.hyp||[])).slice(0,5).map(h=>tx(h,lang)).filter(Boolean);
     const actions=cn.filter(n=>n.tag==="action").map(n=>typeof n.text==="string"?n.text:tx(n.text,lang)).filter(Boolean);
+    const dos=getDossier(cid);
     const history=getBriefHistory(cid);
     const lastDate=getLastBriefDate(cid);
     const newSince=getNewSignalsSinceLastBrief(cid);
@@ -1120,6 +1127,18 @@ function App(){
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("fl_implications")}</h4>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>{lines.map(l=><span key={l} className="chip on">{lineLbl(l,lang)}</span>)}</div>
       {angles.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("discussion_angles")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{angles.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"var(--gold)",marginTop:1,flexShrink:0}}>▸</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>)}</div></>}
+      {/* Dossier client */}
+      {dos&&(dos.broker||dos.rm||dos.renewal||dos.premium||dos.program||dos.sinistres||dos.context)&&<>
+        <h4 className="lbl" style={{color:"#A78BFA",marginBottom:10}}>📁 {lang==="fr"?"Dossier client":"Client file"}</h4>
+        <div className="cs" style={{padding:"14px 16px",marginBottom:20}}>
+          {(dos.broker||dos.rm)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.broker&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Courtier":"Broker"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.broker}</p></div>}{dos.rm&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>Risk Manager</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.rm}</p></div>}</div>}
+          {(dos.renewal||dos.premium)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.renewal&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Renouvellement":"Renewal"}</p><p style={{fontSize:12,color:"#FBBF24",fontWeight:600}}>{new Date(dos.renewal).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}</p></div>}{dos.premium&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Prime":"Premium"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.premium}</p></div>}</div>}
+          {dos.program&&<div style={{marginBottom:8}}><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Programme FL":"FL Programme"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.program}</p></div>}
+          {dos.sinistres&&<div style={{marginBottom:8}}><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Sinistralité":"Claims"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.sinistres}</p></div>}
+          {dos.context&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Contexte":"Context"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.context}</p></div>}
+        </div>
+      </>}
+      {!dos&&<div style={{padding:"10px 14px",background:"rgba(139,92,246,.04)",borderRadius:"var(--rs)",border:"1px dashed rgba(139,92,246,.15)",marginBottom:20,textAlign:"center"}}><p style={{fontSize:11,color:"var(--t5)"}}>{lang==="fr"?"Ajoutez un dossier client pour enrichir ce brief":"Add a client file to enrich this brief"}</p><button className="btn" style={{padding:"4px 12px",fontSize:10,color:"#C4B5FD",background:"rgba(139,92,246,.1)",border:"1px solid rgba(139,92,246,.2)",borderRadius:6,marginTop:6}} onClick={()=>{onClose();setTimeout(()=>openDossier(cid),300)}}>+ {lang==="fr"?"Créer le dossier":"Create file"}</button></div>}
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("interlocutors")}</h4>
       <div style={{display:"flex",gap:8,marginBottom:20}}>
         <div className="cs" style={{flex:1,padding:"12px 14px"}}><p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{t("broker")}</p><p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{lang==="fr"?"Partager les signaux clés et discuter du positionnement du programme FL lors du prochain comité de renouvellement.":"Share key signals and discuss FL programme positioning at next renewal committee."}</p></div>
@@ -1400,7 +1419,15 @@ function App(){
         {/* Company list for quick brief */}
         <div className="dv" style={{marginBottom:18}}/>
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("brief_title")} — {t("generate")}</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lb=getLastBriefDate(c.id);const ns=getNewSignalsSinceLastBrief(c.id).length;const bh=getBriefHistory(c.id).length;return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}{lb&&<span style={{color:"var(--t5)"}}> · {lang==="fr"?"Brief":"Brief"} {fD(lb)}</span>}{ns>0&&<span style={{color:"#34D399",fontWeight:600}}> · 🆕 {ns}</span>}</p></div></div><div style={{display:"flex",alignItems:"center",gap:6}}>{bh>0&&<span style={{fontSize:9,color:"var(--t5)",background:"var(--bg3)",padding:"2px 6px",borderRadius:8}}>{bh}</span>}<button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button></div></div>)})}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lb=getLastBriefDate(c.id);const ns=getNewSignalsSinceLastBrief(c.id).length;const bh=getBriefHistory(c.id).length;const dos=getDossier(c.id);return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}{lb&&<span style={{color:"var(--t5)"}}> · Brief {fD(lb)}</span>}{ns>0&&<span style={{color:"#34D399",fontWeight:600}}> · 🆕 {ns}</span>}</p></div></div>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <button className="btn" style={{padding:"5px 10px",fontSize:10,background:dos?"rgba(139,92,246,.1)":"var(--bg3)",color:dos?"#C4B5FD":"var(--t5)",border:`1px solid ${dos?"rgba(139,92,246,.2)":"var(--b)"}`,borderRadius:6}} onClick={()=>openDossier(c.id)}>{dos?"📁":"+"} {lang==="fr"?"Dossier":"File"}</button>
+              <button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button>
+            </div>
+          </div>
+        </div>)})}</div>
       </div>
     </div>);
 
@@ -1493,6 +1520,26 @@ function App(){
     <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:"Brief",Ic:I.calendar},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
     {selSig&&<SigDet s={selSig} onClose={()=>setSS(null)}/>}
     {showBrief&&briefCid&&<BriefSheet cid={briefCid} onClose={()=>{setSB(false);setBC(null)}}/>}
+    {/* Client dossier modal */}
+    {editingDossier&&<div className="bsbg" onClick={()=>setEditingDossier(null)}><div className="bsm" onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>📁 {lang==="fr"?"Dossier client":"Client file"}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setEditingDossier(null)}><I.x/></button></div>
+      {(()=>{const co=cos.find(c=>c.id===editingDossier);return co?<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:16,border:"1px solid var(--b)"}}><Logo name={co.name} sz={28} fallback={co.logo}/><div><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{co.name}</span><p style={{fontSize:10,color:"var(--t4)"}}>{tx(co.sector,lang)}</p></div></div>:null})()}
+      <p style={{fontSize:10,color:"var(--t5)",marginBottom:14}}>{lang==="fr"?"Ces informations enrichiront les prochains briefs de réunion.":"This information will enrich future meeting briefs."}</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Courtier référent":"Lead broker"}</label><input className="inp" value={dossierDraft.broker} onChange={e=>setDossierDraft(p=>({...p,broker:e.target.value}))} placeholder={lang==="fr"?"Nom du courtier...":"Broker name..."}/></div>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Risk Manager":"Risk Manager"}</label><input className="inp" value={dossierDraft.rm} onChange={e=>setDossierDraft(p=>({...p,rm:e.target.value}))} placeholder={lang==="fr"?"Nom du RM...":"RM name..."}/></div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Date de renouvellement":"Renewal date"}</label><input className="inp" type="date" value={dossierDraft.renewal} onChange={e=>setDossierDraft(p=>({...p,renewal:e.target.value}))}/></div>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Prime estimée":"Estimated premium"}</label><input className="inp" value={dossierDraft.premium} onChange={e=>setDossierDraft(p=>({...p,premium:e.target.value}))} placeholder="ex: 850K€"/></div>
+      </div>
+      <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Programme FL en place":"Current FL programme"}</label><textarea className="inp" value={dossierDraft.program} onChange={e=>setDossierDraft(p=>({...p,program:e.target.value}))} rows={2} placeholder={lang==="fr"?"D&O: 50M€ / Cyber: 10M€ / EPL: 25M€...":"D&O: €50M / Cyber: €10M / EPL: €25M..."}/></div>
+      <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Sinistralité / historique":"Claims history"}</label><textarea className="inp" value={dossierDraft.sinistres} onChange={e=>setDossierDraft(p=>({...p,sinistres:e.target.value}))} rows={2} placeholder={lang==="fr"?"Sinistres notables, tendances, fréquence...":"Notable claims, trends, frequency..."}/></div>
+      <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Contexte / informations clés":"Context / key information"}</label><textarea className="inp" value={dossierDraft.context} onChange={e=>setDossierDraft(p=>({...p,context:e.target.value}))} rows={3} placeholder={lang==="fr"?"Informations stratégiques, enjeux particuliers, historique de la relation, points de vigilance...":"Strategic information, specific issues, relationship history, vigilance points..."}/></div>
+      {clientDossiers[editingDossier]?.updatedAt&&<p style={{fontSize:9,color:"var(--t5)",marginBottom:10,fontStyle:"italic"}}>{lang==="fr"?"Dernière mise à jour":"Last updated"}: {fD(clientDossiers[editingDossier].updatedAt)}</p>}
+      <button className="btn bp" style={{width:"100%",height:46}} onClick={saveDossier}>{lang==="fr"?"Sauvegarder le dossier":"Save dossier"}</button>
+    </div></div>}
     {/* New meeting modal */}
     {showNewMeeting&&<div className="bsbg" onClick={()=>{if(mtgDictating)stopMtgDict();setSNM(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
