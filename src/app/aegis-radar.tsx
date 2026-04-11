@@ -644,6 +644,16 @@ function App(){
   const[ollamaModel,setOllamaModel]=useState(()=>lsGet("ollamaModel","mistral"));
   const[ollamaEnabled,setOllamaEnabled]=useState(()=>lsGet("ollamaEnabled",true));
   const[enriching,setEnriching]=useState(false);
+  const[scoreThresholds,setScoreThresholds]=useState(()=>lsGet("scoreThresholds",{critical:80,high:60,medium:40}));
+  const defaultKeywords={
+    critical:["fraude avérée","fraud","ransomware","data breach","class action","corruption","whistleblower","démission CEO","criminal","insolvabilité","liquidation"],
+    high:["restructuring","restructuration","enquête","investigation","downgrade","sanction","amende","penalty","lawsuit","procès","cyber-attaque","hack","licenciement massif","layoff"],
+    medium:["résultats","earnings","acquisition","merger","nomination","ESG","compliance","audit","partenariat","partnership","dividend","rating","IPO"],
+    low:["communiqué","press release","conférence","event","sponsoring","prix","award","rapport annuel","annual report"]
+  };
+  const[scoreKeywords,setScoreKeywords]=useState(()=>lsGet("scoreKeywords",defaultKeywords));
+  const[editingKwLevel,setEditingKwLevel]=useState(null);
+  const[newKw,setNewKw]=useState("");
   const INTERVALS=[{m:15,l:{en:"15 min",fr:"15 min"}},{m:30,l:{en:"30 min",fr:"30 min"}},{m:60,l:{en:"1h",fr:"1h"}},{m:120,l:{en:"2h",fr:"2h"}},{m:240,l:{en:"4h",fr:"4h"}}];
   const[refreshMin,setRefreshMin]=useState(()=>lsGet("refreshMin",60));
   const[refreshVal,setRefreshVal]=useState(()=>{const m=lsGet("refreshMin",60);return m>=60?m/60:m});
@@ -724,7 +734,7 @@ function App(){
         saveLiveSignalsDB(mapped);
         setNewCount(p=>{const n=p+mapped.length;try{navigator.setAppBadge&&navigator.setAppBadge(n)}catch(e){}return n});
         // Push notification for critical signals
-        const crits=mapped.filter(s=>s.imp>=80);
+        const crits=mapped.filter(s=>s.imp>=scoreThresholds.critical);
         if(crits.length>0&&typeof Notification!=="undefined"&&Notification.permission==="granted"){
           const co=cos.find(c=>c.id===crits[0].cid);
           new Notification("SIGNALIS",{body:`${lang==="fr"?"Signal critique":"Critical signal"}: ${co?.name||""} — ${tx(crits[0].title,lang)}`,icon:"/icon-192.png",badge:"/icon-192.png",tag:"signalis-"+crits[0].id});
@@ -844,7 +854,7 @@ function App(){
   const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}const seen=new Set();s=s.filter(x=>{const t=tx(x.title,"en").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});if(sortMode==="recent")return s.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));return s.sort((a,b)=>(b.imp||0)-(a.imp||0))},[activeCat,search,lang,sortMode]);
   const wlSigs=useMemo(()=>filterSigs(allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs,allSignals]);
   const allSigs=useMemo(()=>filterSigs(allSignals),[filterSigs,allSignals]);
-  const digest=useMemo(()=>{const ws=allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return {total:ws.length,crit:ws.filter(s=>s.imp>=80).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos,allSignals]);
+  const digest=useMemo(()=>{const ws=allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return {total:ws.length,crit:ws.filter(s=>s.imp>=scoreThresholds.critical).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos,allSignals,scoreThresholds]);
   const goTab=tb=>{setTab(tb);setSC(null);setSSh(false);setSrch("");setACat(null);setAS("");setExtRes([])};
   const fFull=()=>new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"long",day:"numeric",month:"long"});
   const greeting=()=>{const h=new Date().getHours();return h<12?t("greeting_morning"):h<18?t("greeting_afternoon"):t("greeting_evening")};
@@ -1228,6 +1238,38 @@ function App(){
             {enriching&&<p style={{fontSize:11,color:"var(--gold)",marginTop:10,textAlign:"center"}}>{lang==="fr"?"Enrichissement en cours...":"Enriching signals..."}</p>}
           </>}
         </div>
+        <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{lang==="fr"?"Scores & Critères":"Scores & Criteria"}</h3>
+        <div className="card" style={{padding:"16px 18px",marginBottom:24}}>
+          <p className="lbl" style={{color:"var(--t5)",marginBottom:14,fontSize:9}}>{lang==="fr"?"Chaque signal est classé selon les mots-clés détectés. Personnalisez les critères de chaque niveau.":"Each signal is classified by detected keywords. Customize criteria for each level."}</p>
+          {[
+            {k:"critical",c:"#EF4444",l:lang==="fr"?"Critique":"Critical",d:lang==="fr"?"Impact direct FL. Action immédiate.":"Direct FL impact. Immediate action.",range:`${scoreThresholds.critical}–100`},
+            {k:"high",c:"#FBBF24",l:lang==="fr"?"Élevé":"High",d:lang==="fr"?"Signal significatif. Discussion courtier/RM.":"Significant. Broker/RM discussion.",range:`${scoreThresholds.high}–${scoreThresholds.critical-1}`},
+            {k:"medium",c:"#3B82F6",l:lang==="fr"?"Moyen":"Medium",d:lang==="fr"?"Contexte utile. À surveiller.":"Useful context. Monitor.",range:`${scoreThresholds.medium}–${scoreThresholds.high-1}`},
+            {k:"low",c:"#6B7280",l:lang==="fr"?"Faible":"Low",d:lang==="fr"?"Information générale.":"General information.",range:`0–${scoreThresholds.medium-1}`},
+          ].map(x=><div key={x.k} style={{marginBottom:16,padding:"12px 14px",background:`${x.c}08`,borderRadius:"var(--rs)",border:`1px solid ${x.c}18`,borderLeft:`3px solid ${x.c}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,fontWeight:700,color:x.c}}>{x.l}</span><span style={{fontSize:9,color:"var(--t5)",background:"var(--bg3)",padding:"1px 6px",borderRadius:8}}>{x.range}</span></div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input type="range" min={x.k==="critical"?60:x.k==="high"?30:x.k==="medium"?10:0} max={x.k==="critical"?95:x.k==="high"?79:x.k==="medium"?59:39} value={scoreThresholds[x.k]||0} onChange={e=>{if(x.k==="low")return;const v=parseInt(e.target.value);setScoreThresholds(p=>{const n={...p,[x.k]:v};lsSet("scoreThresholds",n);return n})}} style={{width:60,accentColor:x.c}} disabled={x.k==="low"}/>
+                <span style={{fontSize:11,fontWeight:700,color:x.c,width:22}}>{scoreThresholds[x.k]||0}</span>
+              </div>
+            </div>
+            <p style={{fontSize:9,color:"var(--t4)",marginBottom:8}}>{x.d}</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:6}}>
+              {(scoreKeywords[x.k]||[]).map((kw,i)=><span key={i} style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:`${x.c}15`,color:x.c,border:`1px solid ${x.c}25`,display:"flex",alignItems:"center",gap:4}}>
+                {kw}
+                <button style={{background:"none",border:"none",cursor:"pointer",padding:0,color:x.c,fontSize:12,lineHeight:1,opacity:.6}} onClick={()=>{setScoreKeywords(p=>{const n={...p,[x.k]:p[x.k].filter((_,j)=>j!==i)};lsSet("scoreKeywords",n);return n})}}>×</button>
+              </span>)}
+            </div>
+            {editingKwLevel===x.k?<div style={{display:"flex",gap:6}}>
+              <input className="inp" style={{flex:1,padding:"4px 10px",fontSize:11}} placeholder={lang==="fr"?"Nouveau critère...":"New keyword..."} value={newKw} onChange={e=>setNewKw(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newKw.trim()){setScoreKeywords(p=>{const n={...p,[x.k]:[...p[x.k],newKw.trim()]};lsSet("scoreKeywords",n);return n});setNewKw("");setEditingKwLevel(null)}}} autoFocus/>
+              <button className="btn" style={{padding:"4px 10px",fontSize:10,background:`${x.c}15`,color:x.c,border:`1px solid ${x.c}30`,borderRadius:6}} onClick={()=>{if(newKw.trim()){setScoreKeywords(p=>{const n={...p,[x.k]:[...p[x.k],newKw.trim()]};lsSet("scoreKeywords",n);return n});setNewKw("")}setEditingKwLevel(null)}}>OK</button>
+              <button className="btn" style={{padding:"4px 8px",fontSize:10,color:"var(--t5)",background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:6}} onClick={()=>{setNewKw("");setEditingKwLevel(null)}}>✕</button>
+            </div>
+            :<button style={{fontSize:10,color:"var(--t5)",background:"none",border:`1px dashed ${x.c}30`,borderRadius:6,padding:"3px 10px",cursor:"pointer"}} onClick={()=>setEditingKwLevel(x.k)}>+ {lang==="fr"?"Ajouter un critère":"Add keyword"}</button>}
+          </div>)}
+          <div style={{display:"flex",justifyContent:"flex-end"}}><button className="btn" style={{padding:"4px 12px",fontSize:10,color:"var(--t5)",background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:6}} onClick={()=>{setScoreKeywords(defaultKeywords);lsSet("scoreKeywords",defaultKeywords);showT(lang==="fr"?"Critères réinitialisés":"Criteria reset")}}>{lang==="fr"?"Réinitialiser":"Reset defaults"}</button></div>
+        </div>
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:14}}>{t("about")}</h3>
         <div className="card" style={{padding:"16px 18px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0"}}><span style={{fontSize:13,color:"var(--t3)"}}>{t("version")}</span><span style={{fontSize:13,color:"var(--t4)"}}>1.0.0</span></div>
@@ -1274,7 +1316,7 @@ function App(){
       <p style={{fontSize:10,color:"var(--t5)",marginBottom:16}}>{fFull()} {lastRefresh?`· ${lang==="fr"?"MAJ":"Updated"} ${new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}`:""}</p>
       <div className="aline" style={{marginBottom:18}}/>
       {/* Stats bar */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("signals_lc"),v:liveSigs.length,c:"#60A5FA"},{l:t("critical_lbl"),v:liveSigs.filter(s=>s.imp>=80).length,c:"#F87171"}].map(x=><div key={x.l} className="cs" style={{textAlign:"center",padding:"10px"}}><p style={{fontSize:20,fontWeight:700,color:x.c}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:3,fontSize:9}}>{x.l}</p></div>)}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("signals_lc"),v:liveSigs.length,c:"#60A5FA"},{l:t("critical_lbl"),v:liveSigs.filter(s=>s.imp>=scoreThresholds.critical).length,c:"#F87171"}].map(x=><div key={x.l} className="cs" style={{textAlign:"center",padding:"10px"}}><p style={{fontSize:20,fontWeight:700,color:x.c}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:3,fontSize:9}}>{x.l}</p></div>)}</div>
       {/* Risk overview — top companies */}
       {watched.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("risk_overview")}</h4><div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>{watched.slice(0,8).map(co=>{const coSigs=liveSigs.filter(s=>{const n=s.company||"";return n.toLowerCase()===co.name.toLowerCase()||n.toLowerCase().includes(co.name.toLowerCase().split(" ")[0])});return (<div key={co.id} className="cs" style={{padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}><Logo name={co.name} sz={26} fallback={co.logo}/><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{co.name}</p><p style={{fontSize:10,color:"var(--t4)",marginTop:1}}>{coSigs.length} {coSigs.length>1?t("signals_lc"):t("signal")}</p></div></div><SR s={co.risk} sz={32} sw={2}/></div>)})}</div></>}
       {/* Recent signals timeline */}
