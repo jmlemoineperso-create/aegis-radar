@@ -574,6 +574,7 @@ function App(){
   const[showBrief,setSB]=useState(false);
   const[briefCid,setBC]=useState(null);
   const[showDigest,setSD]=useState(false);
+  const[showBriefHist,setSBH]=useState(false);
   const[meetings,setMeetings]=useState(()=>lsGet("meetings",[]));
   const[showNewMeeting,setSNM]=useState(false);
   const[mtgCo,setMtgCo]=useState("");
@@ -1070,12 +1071,8 @@ function App(){
     const history=getBriefHistory(cid);
     const lastDate=getLastBriefDate(cid);
     const newSince=getNewSignalsSinceLastBrief(cid);
-    const [showHist,setShowHist]=useState(false);
     const brokerCtx=lang==="fr"?"INTERLOCUTEURS\nCourtier : Partager les signaux clés et discuter du positionnement du programme FL.\nRisk Manager : Valider la perception du risque et confirmer les mesures de prévention.":"KEY CONTACTS\nBroker: Share key signals and discuss FL programme positioning.\nRisk Manager: Validate risk perception and confirm prevention measures.";
     const txt=`${t("brief_title").toUpperCase()} — ${co?.name}\n${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}\n\n${t("exec_summary").toUpperCase()}\n${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk,t)}\n\n${t("key_signals").toUpperCase()}\n${sigs.slice(0,5).map((s,i)=>`${i+1}. [${s.imp}] ${tx(s.title,lang)}`).join("\n")}\n\n${t("fl_implications").toUpperCase()}\n${lines.map(l=>lineLbl(l,lang)).join(", ")}\n\n${t("discussion_angles").toUpperCase()}\n${angles.map(a=>`• ${a}`).join("\n")}\n\n${brokerCtx}\n\n${t("questions_to_ask").toUpperCase()}\n${questions.map(q=>`• ${q}`).join("\n")}\n\n${t("next_steps").toUpperCase()}\n${actions.length>0?actions.map(a=>`• ${a}`).join("\n"):`• ${t("to_be_defined")}`}\n\n— SIGNALIS`;
-
-    // Auto-save brief on first render
-    useEffect(()=>{saveBrief(cid,txt)},[]);
 
     return (<div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
@@ -1095,10 +1092,10 @@ function App(){
       </div>}
 
       {/* Brief history toggle */}
-      {history.length>1&&<button style={{width:"100%",padding:"8px",marginBottom:18,background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:"var(--rs)",cursor:"pointer",color:"var(--t4)",fontSize:11,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>setShowHist(!showHist)}>
-        <span>📋 {lang==="fr"?`${history.length} briefs précédents`:`${history.length} previous briefs`}</span><I.chR style={{width:12,height:12,transform:showHist?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+      {history.length>1&&<button style={{width:"100%",padding:"8px",marginBottom:18,background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:"var(--rs)",cursor:"pointer",color:"var(--t4)",fontSize:11,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>setSBH(!showBriefHist)}>
+        <span>📋 {lang==="fr"?`${history.length} briefs précédents`:`${history.length} previous briefs`}</span><I.chR style={{width:12,height:12,transform:showBriefHist?"rotate(90deg)":"none",transition:"transform .2s"}}/>
       </button>}
-      {showHist&&<div style={{marginBottom:18,maxHeight:200,overflow:"auto"}}>{history.slice(1).map((b,i)=><div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:"1px solid var(--b)",opacity:.7+(i===0?.3:0)}}>
+      {showBriefHist&&<div style={{marginBottom:18,maxHeight:200,overflow:"auto"}}>{history.slice(1).map((b,i)=><div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:"1px solid var(--b)",opacity:.7+(i===0?.3:0)}}>
         <div><p style={{fontSize:11,color:"var(--t2)"}}>{fD(b.date)}</p><p style={{fontSize:9,color:"var(--t5)"}}>{b.signalCount} {lang==="fr"?"signaux":"signals"} · {lang==="fr"?"Score":"Score"} {b.risk}</p></div>
         <div style={{display:"flex",gap:3}}>{(b.lines||[]).slice(0,3).map(l=><span key={l} style={{fontSize:7,padding:"1px 5px",borderRadius:5,background:"rgba(96,165,250,.1)",color:"#93C5FD"}}>{lineLbl(l,lang)}</span>)}</div>
       </div>)}</div>}
@@ -1138,7 +1135,7 @@ function App(){
       </div>
 
       <div style={{display:"flex",gap:8,marginTop:4}}>
-        <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{navigator.clipboard?.writeText(txt);setCopied(true);showT(t("copied_clipboard"));setTimeout(()=>setCopied(false),1500)}}>{copied?<><I.check/>{t("copied")}</>:<><I.copy/>{t("copy_brief")}</>}</button>
+        <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{saveBrief(cid,txt);navigator.clipboard?.writeText(txt);setCopied(true);showT(t("copied_clipboard"));setTimeout(()=>setCopied(false),1500)}}>{copied?<><I.check/>{t("copied")}</>:<><I.copy/>{t("copy_brief")}</>}</button>
         <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{
           const w=window.open("","_blank");if(!w)return;
           const sigHtml=sigs.slice(0,5).map(s=>`<tr><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb"><span style="background:${sBg(s.imp||50)};color:${sT(s.imp||50)};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${s.imp||50}</span></td><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:13px">${tx(s.title,lang)||s.company||"—"}</td></tr>`).join("");
