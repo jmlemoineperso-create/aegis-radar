@@ -716,6 +716,21 @@ function App(){
   const[scoreKeywords,setScoreKeywords]=useState(()=>lsGet("scoreKeywords",defaultKeywords));
   const[editingKwLevel,setEditingKwLevel]=useState(null);
   const[newKw,setNewKw]=useState("");
+  const kwCatalog=[
+    {cat:"D&O / Gouvernance",kws:["démission CEO","CEO resignation","révocation dirigeant","changement de direction","board shakeup","conflit d'intérêts","conflict of interest","gouvernance contestée","assemblée générale","AGM","vote des actionnaires","shareholder vote","nouveau CEO","succession","administrateur indépendant","conseil d'administration","mandat social","say on pay","rémunération excessive","golden parachute","cumul des mandats","abus de bien social","faute de gestion"]},
+    {cat:"Fraude / Crime",kws:["fraude avérée","fraud confirmed","détournement de fonds","embezzlement","blanchiment","money laundering","corruption","pot-de-vin","bribery","abus de confiance","faux et usage de faux","escroquerie","extorsion","recel","délit d'initié","insider trading","manipulation de cours","falsification comptable","accounting fraud"]},
+    {cat:"Cyber / Data",kws:["ransomware","data breach","fuite de données","violation de données","cyber-attaque majeure","cyber-attaque","hack","incident de sécurité","security incident","vulnérabilité critique","phishing","DDoS","violation RGPD","GDPR violation","vol de données","exfiltration","compromission","zero-day"]},
+    {cat:"Juridique / Litiges",kws:["class action","action de groupe","condamnation","criminal conviction","inculpation","indictment","perquisition","raid","mise en examen","garde à vue","arrestation","procès","lawsuit","litige","litigation","mise en demeure","plainte déposée","complaint filed","arbitrage","arbitration","jugement","verdict","dommages et intérêts","appel","recours collectif"]},
+    {cat:"Régulateur / Compliance",kws:["sanction AMF","sanction SEC","sanction ACPR","amende","fine","penalty","downgrade","avertissement régulateur","regulatory warning","non-conformité","non-compliance","rappel produit","product recall","lanceur d'alerte","whistleblower","contrôle ACPR","enquête AMF","infraction","suspension de cotation","interdiction"]},
+    {cat:"Financier / Reporting",kws:["insolvabilité","insolvency","liquidation judiciaire","cessation de paiement","défaut de paiement","default","faillite","bankruptcy","avertissement sur résultats","profit warning","perte nette","net loss","dette critique","credit watch","dégradation notation","rating downgrade","résultats trimestriels","chiffre d'affaires","bénéfice net","dividende","prévisions","guidance","trésorerie","cash flow","endettement","leverage","covenant breach"]},
+    {cat:"M&A / Transactions",kws:["acquisition","merger","fusion","cession","divestiture","prise de participation","stake acquisition","joint venture","IPO","introduction en bourse","OPA hostile","hostile takeover","rupture de contrat","litige post-acquisition","garantie de passif","W&I claim","earn-out","due diligence","closing","signing","offre publique","retrait de cote"]},
+    {cat:"RH / EPL",kws:["licenciement massif","mass layoff","plan social","PSE","grève","strike","harcèlement","harassment","discrimination","harcèlement moral","harcèlement sexuel","prud'hommes","conditions de travail","accident du travail","burn-out","diversité","inclusion","droit du travail","représentants du personnel","CSE","syndicat"]},
+    {cat:"ESG / Environnement",kws:["ESG","RSE","CSR","pollution majeure","marée noire","oil spill","catastrophe industrielle","amende environnementale","empreinte carbone","carbon footprint","taxonomie","biodiversité","devoir de vigilance","CSRD","rapport durabilité","sustainability report","greenwashing","transition énergétique","risque climatique","TCFD"]},
+    {cat:"RCPro / E&O",kws:["erreur professionnelle","professional negligence","manquement","défaut de conseil","duty of care","responsabilité professionnelle","professional liability","faute professionnelle","malpractice","préjudice client","obligation de moyen","obligation de résultat"]},
+    {cat:"Business / Général",kws:["partenariat","partnership","contrat majeur","major contract","accord commercial","rating","notation","upgrade","outlook","nomination","appointment","communiqué","press release","innovation","brevet","patent","lancement produit","expansion","recrutement","formation","certification"]}
+  ];
+  const allUsedKws=new Set(Object.values(scoreKeywords).flat().map(k=>k.toLowerCase()));
+  const getKwSuggestions=(q)=>{const ql=(q||"").toLowerCase();return kwCatalog.flatMap(c=>c.kws.filter(k=>!allUsedKws.has(k.toLowerCase())&&(!ql||k.toLowerCase().includes(ql))).map(k=>({kw:k,cat:c.cat}))).slice(0,15)};
   const INTERVALS=[{m:15,l:{en:"15 min",fr:"15 min"}},{m:30,l:{en:"30 min",fr:"30 min"}},{m:60,l:{en:"1h",fr:"1h"}},{m:120,l:{en:"2h",fr:"2h"}},{m:240,l:{en:"4h",fr:"4h"}}];
   const[refreshMin,setRefreshMin]=useState(()=>lsGet("refreshMin",60));
   const[refreshVal,setRefreshVal]=useState(()=>{const m=lsGet("refreshMin",60);return m>=60?m/60:m});
@@ -1327,10 +1342,18 @@ function App(){
                 <button style={{background:"none",border:"none",cursor:"pointer",padding:0,color:x.c,fontSize:12,lineHeight:1,opacity:.6}} onClick={()=>{setScoreKeywords(p=>{const n={...p,[x.k]:p[x.k].filter((_,j)=>j!==i)};lsSet("scoreKeywords",n);return n})}}>×</button>
               </span>)}
             </div>
-            {editingKwLevel===x.k?<div style={{display:"flex",gap:6}}>
-              <input className="inp" style={{flex:1,padding:"4px 10px",fontSize:11}} placeholder={lang==="fr"?"Nouveau critère...":"New keyword..."} value={newKw} onChange={e=>setNewKw(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newKw.trim()){setScoreKeywords(p=>{const n={...p,[x.k]:[...p[x.k],newKw.trim()]};lsSet("scoreKeywords",n);return n});setNewKw("");setEditingKwLevel(null)}}} autoFocus/>
-              <button className="btn" style={{padding:"4px 10px",fontSize:10,background:`${x.c}15`,color:x.c,border:`1px solid ${x.c}30`,borderRadius:6}} onClick={()=>{if(newKw.trim()){setScoreKeywords(p=>{const n={...p,[x.k]:[...p[x.k],newKw.trim()]};lsSet("scoreKeywords",n);return n});setNewKw("")}setEditingKwLevel(null)}}>OK</button>
-              <button className="btn" style={{padding:"4px 8px",fontSize:10,color:"var(--t5)",background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:6}} onClick={()=>{setNewKw("");setEditingKwLevel(null)}}>✕</button>
+            {editingKwLevel===x.k?<div style={{position:"relative"}}>
+              <div style={{display:"flex",gap:6,marginBottom:4}}>
+                <input className="inp" style={{flex:1,padding:"4px 10px",fontSize:11}} placeholder={lang==="fr"?"Rechercher ou taper un critère...":"Search or type a keyword..."} value={newKw} onChange={e=>setNewKw(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newKw.trim()){setScoreKeywords(p=>{const n={...p,[x.k]:[...p[x.k],newKw.trim()]};lsSet("scoreKeywords",n);return n});setNewKw("")}}} autoFocus/>
+                <button className="btn" style={{padding:"4px 8px",fontSize:10,color:"var(--t5)",background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:6}} onClick={()=>{setNewKw("");setEditingKwLevel(null)}}>✕</button>
+              </div>
+              <div style={{maxHeight:180,overflow:"auto",display:"flex",flexDirection:"column",gap:2}}>
+                {getKwSuggestions(newKw).map((s,i)=><button key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 10px",background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:6,cursor:"pointer",fontFamily:"inherit",color:"inherit",textAlign:"left"}} onClick={()=>{setScoreKeywords(p=>{const n={...p,[x.k]:[...p[x.k],s.kw]};lsSet("scoreKeywords",n);return n});setNewKw("")}}>
+                  <span style={{fontSize:11,color:"var(--t2)"}}>{s.kw}</span>
+                  <span style={{fontSize:8,color:"var(--t5)",marginLeft:8}}>{s.cat}</span>
+                </button>)}
+                {getKwSuggestions(newKw).length===0&&newKw&&<p style={{fontSize:10,color:"var(--t5)",padding:"4px 10px",fontStyle:"italic"}}>{lang==="fr"?"Appuyez Entrée pour ajouter ce critère personnalisé":"Press Enter to add this custom keyword"}</p>}
+              </div>
             </div>
             :<button style={{fontSize:10,color:"var(--t5)",background:"none",border:`1px dashed ${x.c}30`,borderRadius:6,padding:"3px 10px",cursor:"pointer"}} onClick={()=>setEditingKwLevel(x.k)}>+ {lang==="fr"?"Ajouter un critère":"Add keyword"}</button>}
           </div>)}
