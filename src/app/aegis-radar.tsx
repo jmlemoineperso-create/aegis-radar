@@ -585,6 +585,19 @@ function App(){
   const[mtgContactPhone,setMtgCP]=useState("");
   const[mtgContactEmail,setMtgCE]=useState("");
   const[mtgContactRole,setMtgCR]=useState("");
+  const[mtgDictating,setMtgDictating]=useState(false);
+  const mtgDictRef=useRef(null);
+  const startMtgDict=useCallback(()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){showT(lang==="fr"?"Dictée non supportée":"Dictation not supported");return}
+    const r=new SR();r.lang=lang==="fr"?"fr-FR":"en-US";r.continuous=true;r.interimResults=false;
+    r.onresult=(e)=>{const t=Array.from(e.results).slice(e.resultIndex).map(r=>r[0].transcript).join(" ");setMtgNotes(p=>p+(p?" ":"")+t)};
+    r.onend=()=>{if(mtgDictating)try{r.start()}catch(e){}};
+    r.start();mtgDictRef.current=r;setMtgDictating(true);
+  },[lang,mtgDictating]);
+  const stopMtgDict=useCallback(()=>{if(mtgDictRef.current){mtgDictRef.current.onend=null;mtgDictRef.current.stop();mtgDictRef.current=null}setMtgDictating(false);
+    setMtgNotes(p=>{const cleaned=p.trim().replace(/\s+/g," ").replace(/ ([.,;:!?])/g,"$1");const sentences=cleaned.replace(/([.!?])\s+/g,"$1\n").split("\n").map(s=>s.trim()).filter(Boolean).map(s=>s.charAt(0).toUpperCase()+s.slice(1));return sentences.join(". ").replace(/\.\./g,".")});
+  },[]);
   const[contacts,setContacts]=useState(()=>lsGet("contacts",[]));
   const[briefHistory,setBriefHistory]=useState(()=>lsGet("briefHistory",[]));
   const saveBrief=(cid,content)=>{const co=cos.find(c=>c.id===cid);setBriefHistory(prev=>{const n=[{id:`br${Date.now()}`,cid,company:co?.name||"",date:new Date().toISOString(),signalCount:getSigs(cid).length,lines:getLinesAll(getSigs(cid)),risk:co?.risk||50,preview:content.slice(0,200)},...prev].slice(0,100);lsSet("briefHistory",n);return n})};
@@ -782,7 +795,7 @@ function App(){
   const deleteN=(id)=>{setNotes(p=>p.filter(n=>n.id!==id));if(sbOk)sbFetch("notes","DELETE",null,`?id=eq.${encodeURIComponent(id)}`).catch(()=>{});showT(lang==="fr"?"Note supprimée":"Note deleted")};
 
   // Meetings
-  const addMeeting=()=>{if(!mtgCo||!mtgDate)return;const co=cos.find(c=>c.id===mtgCo);const m={id:`mtg${Date.now()}`,cid:mtgCo,date:mtgDate,type:mtgType,notes:mtgNotes,createdAt:new Date().toISOString(),contact:mtgType==="autre"?{name:mtgContactName,phone:mtgContactPhone,email:mtgContactEmail,role:mtgContactRole}:null};if(mtgType==="autre"&&mtgContactName)saveContact(mtgContactName,mtgContactPhone,mtgContactEmail,mtgContactRole,co?.name||"");setMeetings(p=>{const n=[m,...p];lsSet("meetings",n);return n});setMtgCo("");setMtgDate("");setMtgType("broker");setMtgNotes("");setMtgCN("");setMtgCP("");setMtgCE("");setMtgCR("");setCSugg([]);setSNM(false);showT(t("meeting_saved"))};
+  const addMeeting=()=>{if(mtgDictating)stopMtgDict();if(!mtgCo||!mtgDate)return;const co=cos.find(c=>c.id===mtgCo);const m={id:`mtg${Date.now()}`,cid:mtgCo,date:mtgDate,type:mtgType,notes:mtgNotes,createdAt:new Date().toISOString(),contact:mtgType==="autre"?{name:mtgContactName,phone:mtgContactPhone,email:mtgContactEmail,role:mtgContactRole}:null};if(mtgType==="autre"&&mtgContactName)saveContact(mtgContactName,mtgContactPhone,mtgContactEmail,mtgContactRole,co?.name||"");setMeetings(p=>{const n=[m,...p];lsSet("meetings",n);return n});setMtgCo("");setMtgDate("");setMtgType("broker");setMtgNotes("");setMtgCN("");setMtgCP("");setMtgCE("");setMtgCR("");setCSugg([]);setSNM(false);showT(t("meeting_saved"))};
   const deleteMeeting=(id)=>{setMeetings(p=>{const n=p.filter(m=>m.id!==id);lsSet("meetings",n);return n});showT(t("meeting_deleted"))};
   const exportICS=(mtg)=>{const co=cos.find(c=>c.id===mtg.cid);const name=co?.name||"Réunion";const d=new Date(mtg.date);const end=new Date(d.getTime()+3600000);const fmt=d=>d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");const summary=mtg.type==="broker"?"RDV Courtier":mtg.type==="rm"?"RDV RM":mtg.type==="autre"?`RDV ${mtg.contact?.name||""}`.trim():"Réunion interne";const desc=[mtg.notes,mtg.contact?`Contact: ${mtg.contact.name||""} ${mtg.contact.phone||""} ${mtg.contact.email||""}`.trim():null,"Préparé par SIGNALIS"].filter(Boolean).join("\\n");const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SIGNALIS//FR\nBEGIN:VEVENT\nDTSTART:${fmt(d)}\nDTEND:${fmt(end)}\nSUMMARY:${summary} — ${name}\nDESCRIPTION:${desc}\nEND:VEVENT\nEND:VCALENDAR`;const blob=new Blob([ics],{type:"text/calendar"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`signalis-${name.replace(/\s/g,"-")}.ics`;a.click();URL.revokeObjectURL(url)};
   const upcomingMtgs=meetings.filter(m=>new Date(m.date)>=new Date()).sort((a,b)=>new Date(a.date)-new Date(b.date));
@@ -1450,9 +1463,9 @@ function App(){
     {selSig&&<SigDet s={selSig} onClose={()=>setSS(null)}/>}
     {showBrief&&briefCid&&<BriefSheet cid={briefCid} onClose={()=>{setSB(false);setBC(null)}}/>}
     {/* New meeting modal */}
-    {showNewMeeting&&<div className="bsbg" onClick={()=>setSNM(false)}><div className="bsm" onClick={e=>e.stopPropagation()}>
+    {showNewMeeting&&<div className="bsbg" onClick={()=>{if(mtgDictating)stopMtgDict();setSNM(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("add_meeting")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setSNM(false)}><I.x/></button></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("add_meeting")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>{if(mtgDictating)stopMtgDict();setSNM(false)}}><I.x/></button></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_company")}</label><select className="inp" value={mtgCo} onChange={e=>setMtgCo(e.target.value)} style={{appearance:"auto"}}><option value="">{lang==="fr"?"Sélectionner...":"Select..."}</option>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_date")}</label><input className="inp" type="datetime-local" value={mtgDate} onChange={e=>setMtgDate(e.target.value)}/></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_type")}</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{[{k:"broker",l:t("meeting_broker")},{k:"rm",l:t("meeting_rm")},{k:"internal",l:t("meeting_internal")},{k:"autre",l:t("meeting_other")}].map(tp=><button key={tp.k} className={`chip ${mtgType===tp.k?"on":""}`} onClick={()=>setMtgType(tp.k)}>{tp.l}</button>)}</div></div>
@@ -1466,7 +1479,7 @@ function App(){
         </div>
         <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{t("contact_role")}</label><input className="inp" value={mtgContactRole} onChange={e=>setMtgCR(e.target.value)} placeholder={lang==="fr"?"Ex : Directeur des risques, Courtier senior...":"E.g.: Risk Director, Senior Broker..."}/></div>
       </div>}
-      <div style={{marginBottom:20}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("meeting_notes")}</label><textarea className="inp" placeholder={lang==="fr"?"Points à aborder, contexte...":"Topics to discuss, context..."} value={mtgNotes} onChange={e=>setMtgNotes(e.target.value)} rows={3}/></div>
+      <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><label className="lbl" style={{color:"var(--t4)"}}>{t("meeting_notes")}</label><button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:mtgDictating?"rgba(239,68,68,.15)":"rgba(201,168,76,.1)",color:mtgDictating?"#FCA5A5":"var(--gold)",border:`1px solid ${mtgDictating?"rgba(239,68,68,.3)":"rgba(201,168,76,.2)"}`}} onClick={mtgDictating?stopMtgDict:startMtgDict}>{mtgDictating?<><div style={{width:6,height:6,borderRadius:"50%",background:"#EF4444",animation:"pd 1s ease-in-out infinite",marginRight:4}}/>{lang==="fr"?"Arrêter":"Stop"}</>:<><I.mic style={{width:14,height:14}}/>{lang==="fr"?"Dicter":"Dictate"}</>}</button></div>{mtgDictating&&<p style={{fontSize:10,color:"#FCA5A5",marginBottom:6}}>{lang==="fr"?"🎙 Parlez, la note se rédige...":"🎙 Speak, the note is being written..."}</p>}<textarea className="inp" placeholder={lang==="fr"?"Points à aborder, contexte...":"Topics to discuss, context..."} value={mtgNotes} onChange={e=>setMtgNotes(e.target.value)} rows={3} style={{borderColor:mtgDictating?"rgba(239,68,68,.3)":"var(--b)"}}/></div>
       <button className="btn bp" style={{width:"100%",height:46}} onClick={addMeeting} disabled={!mtgCo||!mtgDate}>{t("save_note")}</button>
     </div></div>}
     {showNewNote&&<div className="bsbg" onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
