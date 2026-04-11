@@ -1190,6 +1190,37 @@ function App(){
           <div style={{display:"flex",alignItems:"center",gap:12,marginTop:12,padding:"12px 16px",background:"var(--bg3)",borderRadius:"var(--rs)",border:"1px solid var(--b)"}}><SR s={co.risk} sz={42}/><div><p className="lbl" style={{color:"var(--t4)",fontSize:9}}>{t("risk_score")}</p><p style={{fontSize:13,fontWeight:600,color:sC(co.risk)}}>{scoreLbl(co.risk,t)} · {tI(co.trend)} {co.trend}</p></div></div>
           {riskHistory[co.id]&&riskHistory[co.id].length>=2?<div style={{marginTop:12,padding:"14px 16px",background:"var(--bg3)",borderRadius:"var(--rs)",border:"1px solid var(--b)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><p className="lbl" style={{color:"var(--t4)",fontSize:9}}>{t("risk_history")}</p><span style={{fontSize:9,color:"var(--t5)"}}>{t("last_30_days")}</span></div><RiskChart data={riskHistory[co.id]}/></div>:riskHistory[co.id]&&riskHistory[co.id].length===1?<p style={{fontSize:11,color:"var(--t5)",marginTop:8,fontStyle:"italic"}}>{t("risk_no_history")}</p>:null}
         </div>
+        {/* Réunions liées à cette entreprise */}
+        {(()=>{const coMtgs=meetings.filter(m=>m.cid===co.id);const upcoming=coMtgs.filter(m=>new Date(m.date)>=new Date()).sort((a,b)=>new Date(a.date)-new Date(b.date));const past=coMtgs.filter(m=>new Date(m.date)<new Date()).sort((a,b)=>new Date(b.date)-new Date(a.date));if(coMtgs.length===0)return null;return (<>
+          <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}><I.calendar style={{width:12,height:12,display:"inline",marginRight:6}}/>{lang==="fr"?"Réunions":"Meetings"}</h3>
+          {upcoming.length>0&&<div style={{marginBottom:14}}>{upcoming.map(mtg=>{const ml=mtgLabel(mtg);const d=new Date(mtg.date);return (<div key={mtg.id} className="card" style={{padding:"12px 16px",marginBottom:8,borderLeft:`3px solid ${ml.c}`,cursor:"pointer"}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                  <span style={{fontSize:11,fontWeight:700,color:ml.c}}>{ml.l}</span>
+                  <span className="ftag" style={{background:mtg.type==="broker"?"rgba(201,168,76,.15)":mtg.type==="autre"?"rgba(139,92,246,.15)":"rgba(96,165,250,.15)",color:mtg.type==="broker"?"var(--gold)":mtg.type==="autre"?"#C4B5FD":"#93C5FD",fontSize:9}}>{mtg.type==="broker"?t("meeting_broker"):mtg.type==="rm"?t("meeting_rm"):mtg.type==="autre"?t("meeting_other"):t("meeting_internal")}</span>
+                </div>
+                <p style={{fontSize:12,color:"var(--t2)"}}>{d.toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"short",day:"numeric",month:"short"})} · {d.toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
+                {mtg.notes&&<p style={{fontSize:10,color:"var(--t5)",marginTop:3,fontStyle:"italic"}}>{mtg.notes.slice(0,80)}{mtg.notes.length>80?"...":""}</p>}
+                {mtg.contact&&mtg.contact.name&&<p style={{fontSize:10,color:"#C4B5FD",marginTop:3}}>👤 {mtg.contact.name}{mtg.contact.role?` — ${mtg.contact.role}`:""}</p>}
+              </div>
+              <I.chR style={{color:"var(--t5)",flexShrink:0}}/>
+            </div>
+          </div>)})}
+          </div>}
+          {past.length>0&&<div style={{marginBottom:14}}>
+            <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:8}}>{lang==="fr"?"Réunions passées":"Past meetings"}</p>
+            {past.slice(0,3).map(mtg=>{const d=new Date(mtg.date);return (<div key={mtg.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:"1px solid var(--b)",opacity:.7,cursor:"pointer"}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:10,color:"var(--t4)"}}>{d.toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"short"})}</span>
+                <span className="ftag" style={{background:"rgba(107,114,128,.1)",color:"var(--t5)",fontSize:8}}>{mtg.type==="broker"?t("meeting_broker"):mtg.type==="rm"?t("meeting_rm"):mtg.type==="autre"?t("meeting_other"):t("meeting_internal")}</span>
+                {mtg.contact&&mtg.contact.name&&<span style={{fontSize:9,color:"var(--t5)"}}>· {mtg.contact.name}</span>}
+              </div>
+              <I.chR style={{width:10,height:10,color:"var(--t5)"}}/>
+            </div>)})}{past.length>3&&<p style={{fontSize:10,color:"var(--t5)",marginTop:6,textAlign:"center"}}>+ {past.length-3} {lang==="fr"?"autre(s)":"more"}</p>}
+          </div>}
+          <button className="btn" style={{width:"100%",padding:"8px",fontSize:11,background:"var(--bg3)",color:"var(--gold)",border:"1px solid rgba(201,168,76,.2)",borderRadius:"var(--rs)",marginBottom:14}} onClick={()=>{setMtgCo(co.id);setSNM(true)}}><I.plus style={{width:12,height:12}}/>{lang==="fr"?"Planifier une réunion":"Schedule a meeting"}</button>
+        </>)})()}
         <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("latest_signals")}</h3>
         <div className="sig-grid" style={{marginBottom:28}}>{sigs.map((s,i)=><SigCard key={s.id} s={s} d={i+1}/>)}{sigs.length===0&&<p style={{fontSize:13,color:"var(--t4)"}}>{t("no_signals_yet")}</p>}</div>
         <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("fl_relevance")}</h3>
