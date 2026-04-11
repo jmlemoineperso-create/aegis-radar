@@ -505,15 +505,36 @@ function App(){
         const mapped=dbNotes.map(n=>({id:n.id,cid:n.company_id,text:n.content,tag:n.tag,at:n.created_at}));
         setNotes(prev=>[...mapped,...prev.filter(p=>!mapped.find(m=>m.id===p.id))]);
       }
-      const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=50`);
+      const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
       if(liveDb&&liveDb.length>0){
-        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
         const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
         setLiveSigs(deduped);
       }
       setDbLoaded(true);
     }catch(e){console.error("DB load error:",e);setDbLoaded(true)}
   },[]);
+
+  // ── LIVE POLLING — rafraîchit les signaux toutes les 30 secondes ──
+  useEffect(()=>{
+    if(!sbOk||!dbLoaded)return;
+    const poll=async()=>{
+      try{
+        const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
+        if(liveDb&&liveDb.length>0){
+          const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+          const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
+          setLiveSigs(prev=>{
+            if(deduped.length===prev.length&&deduped[0]?.id===prev[0]?.id)return prev;
+            setLastRefresh(new Date().toISOString());
+            return deduped;
+          });
+        }
+      }catch(e){}
+    };
+    const iv=setInterval(poll,30000);
+    return()=>clearInterval(iv);
+  },[sbOk,dbLoaded]);
 
   const saveWatchlistDB=useCallback(async(company,prio)=>{
     if(!sbOk)return;
@@ -1123,7 +1144,7 @@ function App(){
     if(tab==="dashboard")return (<div style={{paddingBottom:100}}>
       <div className="hdr"><div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:10}}><I.radar/><span className="fd" style={{fontSize:18,fontWeight:700,color:"var(--t1)"}}>{t("dashboard_title")}</span>{autoRefresh&&<div className="pd" style={{marginLeft:4}}/>}</div><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>{setSSh(!showSearch);if(showSearch)setSrch("")}}>{showSearch?<I.x/>:<I.search/>}</button><button className="bi" style={{width:34,height:34}} onClick={()=>refreshSignals()} disabled={refreshing}><I.refresh style={{animation:refreshing?"spin 1s linear infinite":"none"}}/></button><button className="bi" style={{width:34,height:34,position:"relative"}} onClick={()=>{setNewCount(0);try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}}}><I.bell/>{newCount>0&&<div style={{position:"absolute",top:3,right:3,minWidth:16,height:16,borderRadius:8,background:"#EF4444",border:"2px solid var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,fontWeight:700,color:"white"}}>{newCount>9?"9+":newCount}</span></div>}</button></div></div>{showSearch&&<input className="inp" style={{marginTop:12}} placeholder={t("search_placeholder")} value={search} onChange={e=>setSrch(e.target.value)} autoFocus/>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:8,textAlign:"right"}}>{lang==="fr"?"Dernière mise à jour :":"Last update:"} {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div>
       <div style={{padding:"18px 20px"}}><p className="fd" style={{fontSize:16,fontWeight:500,color:"var(--t1)",marginBottom:4}}>{greeting()}</p><p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{t("dashboard_sub")}</p>
-        <div className="card-el fi" style={{padding:"16px 18px",marginBottom:22,borderLeft:"3px solid var(--gold)",cursor:"pointer"}} onClick={()=>setSD(true)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><p className="lbl" style={{color:"var(--gold)"}}>{t("daily_digest")} — {fFull()}</p>{autoRefresh&&<div className="pd"/>}</div>{liveSigs.length>0?<p style={{fontSize:14,color:"var(--t2)",lineHeight:1.45}}><strong style={{color:"var(--t1)"}}>{liveSigs.length}</strong> {t("signal_count")} · <strong style={{color:"var(--t1)"}}>{watched.length}</strong> {t("companies_monitored")}{digest.crit>0&&<> · <span style={{color:"#FCA5A5"}}>{digest.crit} {digest.crit>1?t("critical_signals"):t("critical_signal")}</span></>}</p>:<p style={{fontSize:13,color:"var(--t4)",lineHeight:1.45}}>{t("no_data_refresh")}</p>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{lang==="fr"?"Dernière mise à jour":"Last update"}: {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>{autoRefresh&&<span style={{fontSize:9,color:"var(--gold)",fontWeight:600}}>LIVE</span>}<I.chR style={{color:"var(--t5)"}}/></div></div></div>
+        <div className="card-el fi" style={{padding:"16px 18px",marginBottom:22,borderLeft:"3px solid var(--gold)",cursor:"pointer"}} onClick={()=>setSD(true)}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><p className="lbl" style={{color:"var(--gold)"}}>{t("daily_digest")} — {fFull()}</p>{sbOk&&<div className="pd"/>}</div>{liveSigs.length>0?<p style={{fontSize:14,color:"var(--t2)",lineHeight:1.45}}><strong style={{color:"var(--t1)"}}>{liveSigs.length}</strong> {t("signal_count")} · <strong style={{color:"var(--t1)"}}>{watched.length}</strong> {t("companies_monitored")}{digest.crit>0&&<> · <span style={{color:"#FCA5A5"}}>{digest.crit} {digest.crit>1?t("critical_signals"):t("critical_signal")}</span></>}</p>:<p style={{fontSize:13,color:"var(--t4)",lineHeight:1.45}}>{t("no_data_refresh")}</p>}{lastRefresh&&<p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{lang==="fr"?"Dernière mise à jour":"Last update"}: {new Date(lastRefresh).toLocaleTimeString(lang==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"})}</p>}</div><div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>{sbOk&&<span style={{fontSize:9,color:"#34D399",fontWeight:600}}>LIVE</span>}<I.chR style={{color:"var(--t5)"}}/></div></div></div>
         <div className="fi fi1" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:22}}>{[{l:t("watchlist_label"),v:watched.length,c:"var(--gold)"},{l:t("active"),v:digest.total,c:"#60A5FA"},{l:t("critical_lbl"),v:digest.crit,c:"#F87171"}].map(x=>(<div key={x.l} className="card" style={{padding:"14px 12px",textAlign:"center"}}><p style={{fontSize:22,fontWeight:700,color:x.c,lineHeight:1}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:5,fontSize:9}}>{x.l}</p></div>))}</div>
         <div className="fi fi2 hsb" style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,marginBottom:22}}><button className={`chip ${!activeCat?"on":""}`} onClick={()=>setACat(null)}>{t("all")}</button>{CATS.map(c=>{const cc=getCat(c.id,lang);return <button key={c.id} className={`chip ${activeCat===c.id?"on":""}`} onClick={()=>setACat(activeCat===c.id?null:c.id)}>{cc?.icon} {cc?.s}</button>})}</div>
 
