@@ -585,6 +585,11 @@ function App(){
   const[mtgContactEmail,setMtgCE]=useState("");
   const[mtgContactRole,setMtgCR]=useState("");
   const[contacts,setContacts]=useState(()=>lsGet("contacts",[]));
+  const[briefHistory,setBriefHistory]=useState(()=>lsGet("briefHistory",[]));
+  const saveBrief=(cid,content)=>{const co=cos.find(c=>c.id===cid);setBriefHistory(prev=>{const n=[{id:`br${Date.now()}`,cid,company:co?.name||"",date:new Date().toISOString(),signalCount:getSigs(cid).length,lines:getLinesAll(getSigs(cid)),risk:co?.risk||50,preview:content.slice(0,200)},...prev].slice(0,100);lsSet("briefHistory",n);return n})};
+  const getBriefHistory=(cid)=>briefHistory.filter(b=>b.cid===cid);
+  const getLastBriefDate=(cid)=>{const h=getBriefHistory(cid);return h.length>0?h[0].date:null};
+  const getNewSignalsSinceLastBrief=(cid)=>{const lastDate=getLastBriefDate(cid);if(!lastDate)return[];return getSigs(cid).filter(s=>s.at&&new Date(s.at)>new Date(lastDate))};
   const[contactSuggestions,setCSugg]=useState([]);
   const searchContacts=(q)=>{if(!q||q.length<2){setCSugg([]);return}const ql=q.toLowerCase();setCSugg(contacts.filter(c=>c.name.toLowerCase().includes(ql)||c.email?.toLowerCase().includes(ql)||(c.company||"").toLowerCase().includes(ql)).slice(0,5))};
   const saveContact=(name,phone,email,role,company)=>{if(!name)return;setContacts(prev=>{const existing=prev.findIndex(c=>c.name.toLowerCase()===name.toLowerCase());const now=new Date().toISOString();if(existing>=0){const c={...prev[existing]};const changes=[];if(phone&&phone!==c.phone){changes.push({field:"phone",old:c.phone,new:phone,at:now});c.phone=phone}if(email&&email!==c.email){changes.push({field:"email",old:c.email,new:email,at:now});c.email=email}if(role&&role!==c.role){changes.push({field:"role",old:c.role,new:role,at:now});c.role=role}if(company&&company!==c.company){changes.push({field:"company",old:c.company,new:company,at:now});c.company=company}c.history=[...(c.history||[]),...changes];c.updatedAt=now;const n=[...prev];n[existing]=c;lsSet("contacts",n);return n}const n=[{id:`ct${Date.now()}`,name,phone,email,role,company,createdAt:now,updatedAt:now,history:[]},...prev];lsSet("contacts",n);return n})};
@@ -1062,13 +1067,42 @@ function App(){
     const angles=imps.filter(i=>i.angle&&tx(i.angle,lang)).slice(0,4).map(i=>tx(i.angle,lang)).filter(Boolean);
     const questions=imps.flatMap(i=>(i.hyp||[])).slice(0,5).map(h=>tx(h,lang)).filter(Boolean);
     const actions=cn.filter(n=>n.tag==="action").map(n=>typeof n.text==="string"?n.text:tx(n.text,lang)).filter(Boolean);
+    const history=getBriefHistory(cid);
+    const lastDate=getLastBriefDate(cid);
+    const newSince=getNewSignalsSinceLastBrief(cid);
+    const [showHist,setShowHist]=useState(false);
     const brokerCtx=lang==="fr"?"INTERLOCUTEURS\nCourtier : Partager les signaux clés et discuter du positionnement du programme FL.\nRisk Manager : Valider la perception du risque et confirmer les mesures de prévention.":"KEY CONTACTS\nBroker: Share key signals and discuss FL programme positioning.\nRisk Manager: Validate risk perception and confirm prevention measures.";
     const txt=`${t("brief_title").toUpperCase()} — ${co?.name}\n${new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}\n\n${t("exec_summary").toUpperCase()}\n${sigs.length} ${sigs.length>1?t("signals_lc"):t("signal")} · ${lines.length} ${t("lines_lc")} · ${scoreLbl(co?.risk,t)}\n\n${t("key_signals").toUpperCase()}\n${sigs.slice(0,5).map((s,i)=>`${i+1}. [${s.imp}] ${tx(s.title,lang)}`).join("\n")}\n\n${t("fl_implications").toUpperCase()}\n${lines.map(l=>lineLbl(l,lang)).join(", ")}\n\n${t("discussion_angles").toUpperCase()}\n${angles.map(a=>`• ${a}`).join("\n")}\n\n${brokerCtx}\n\n${t("questions_to_ask").toUpperCase()}\n${questions.map(q=>`• ${q}`).join("\n")}\n\n${t("next_steps").toUpperCase()}\n${actions.length>0?actions.map(a=>`• ${a}`).join("\n"):`• ${t("to_be_defined")}`}\n\n— SIGNALIS`;
+
+    // Auto-save brief on first render
+    useEffect(()=>{saveBrief(cid,txt)},[]);
+
     return (<div className="bsbg" onClick={onClose}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}><h3 className="fd" style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("brief_title")}</h3><button className="bi" style={{width:32,height:32}} onClick={onClose}><I.x/></button></div>
       <p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{t("brief_sub")}</p><div className="aline" style={{marginBottom:18}}/>
+
       {co&&<div className="cs" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><div style={{display:"flex",alignItems:"center",gap:12}}><Logo name={co.name} sz={36} fallback={co.logo}/><div><h4 style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{co.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{tx(co.sector,lang)}</p></div></div><SR s={co.risk} sz={46}/></div>}
+
+      {/* Nouveaux signaux depuis le dernier brief */}
+      {lastDate&&newSince.length>0&&<div style={{padding:"12px 14px",background:"rgba(52,211,153,.06)",borderRadius:"var(--rs)",border:"1px solid rgba(52,211,153,.15)",marginBottom:18}}>
+        <p style={{fontSize:11,fontWeight:700,color:"#34D399",marginBottom:6}}>🆕 {lang==="fr"?`${newSince.length} nouveau(x) signal(aux) depuis le dernier brief`:`${newSince.length} new signal(s) since last brief`} <span style={{fontWeight:400,color:"var(--t5)"}}>({fD(lastDate)})</span></p>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>{newSince.slice(0,3).map((s,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"center"}}><span className="badge" style={{background:sBg(s.imp||50),color:sT(s.imp||50),fontSize:9,padding:"1px 5px"}}>{s.imp||50}</span><span style={{fontSize:11,color:"var(--t2)"}}>{tx(s.title,lang)}</span></div>)}{newSince.length>3&&<p style={{fontSize:10,color:"var(--t5)",marginTop:2}}>+ {newSince.length-3} {lang==="fr"?"autre(s)":"more"}</p>}
+        </div>
+      </div>}
+      {lastDate&&newSince.length===0&&<div style={{padding:"10px 14px",background:"rgba(96,165,250,.06)",borderRadius:"var(--rs)",border:"1px solid rgba(96,165,250,.12)",marginBottom:18}}>
+        <p style={{fontSize:11,color:"#93C5FD"}}>✓ {lang==="fr"?"Aucun nouveau signal depuis le dernier brief":"No new signals since last brief"} ({fD(lastDate)})</p>
+      </div>}
+
+      {/* Brief history toggle */}
+      {history.length>1&&<button style={{width:"100%",padding:"8px",marginBottom:18,background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:"var(--rs)",cursor:"pointer",color:"var(--t4)",fontSize:11,fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}} onClick={()=>setShowHist(!showHist)}>
+        <span>📋 {lang==="fr"?`${history.length} briefs précédents`:`${history.length} previous briefs`}</span><I.chR style={{width:12,height:12,transform:showHist?"rotate(90deg)":"none",transition:"transform .2s"}}/>
+      </button>}
+      {showHist&&<div style={{marginBottom:18,maxHeight:200,overflow:"auto"}}>{history.slice(1).map((b,i)=><div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:"1px solid var(--b)",opacity:.7+(i===0?.3:0)}}>
+        <div><p style={{fontSize:11,color:"var(--t2)"}}>{fD(b.date)}</p><p style={{fontSize:9,color:"var(--t5)"}}>{b.signalCount} {lang==="fr"?"signaux":"signals"} · {lang==="fr"?"Score":"Score"} {b.risk}</p></div>
+        <div style={{display:"flex",gap:3}}>{(b.lines||[]).slice(0,3).map(l=><span key={l} style={{fontSize:7,padding:"1px 5px",borderRadius:5,background:"rgba(96,165,250,.1)",color:"#93C5FD"}}>{lineLbl(l,lang)}</span>)}</div>
+      </div>)}</div>}
+
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:8}}>{t("exec_summary")}</h4>
       <p style={{fontSize:13,color:"var(--t2)",marginBottom:20,lineHeight:1.55}}>{sigs.length} {sigs.length>1?t("signals_lc"):t("signal")} · {lines.length} {t("lines_lc")} · {scoreLbl(co?.risk,t)}</p>
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("key_signals")}</h4>
@@ -1076,7 +1110,6 @@ function App(){
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("fl_implications")}</h4>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:20}}>{lines.map(l=><span key={l} className="chip on">{lineLbl(l,lang)}</span>)}</div>
       {angles.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("discussion_angles")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{angles.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"var(--gold)",marginTop:1,flexShrink:0}}>▸</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>)}</div></>}
-      {/* Broker / RM meeting context */}
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("interlocutors")}</h4>
       <div style={{display:"flex",gap:8,marginBottom:20}}>
         <div className="cs" style={{flex:1,padding:"12px 14px"}}><p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{t("broker")}</p><p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{lang==="fr"?"Partager les signaux clés et discuter du positionnement du programme FL lors du prochain comité de renouvellement.":"Share key signals and discuss FL programme positioning at next renewal committee."}</p></div>
@@ -1085,6 +1118,25 @@ function App(){
       {questions.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("questions_to_ask")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{questions.map((q,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"#A78BFA",marginTop:1,flexShrink:0}}>?</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{q}</span></div>)}</div></>}
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("next_steps")}</h4>
       <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{actions.length>0?actions.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"#34D399",marginTop:1,flexShrink:0}}>→</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>):<p style={{fontSize:12,color:"var(--t4)"}}>{t("to_be_defined")}</p>}</div>
+
+      {/* Vision — Ce que SIGNALIS pourrait faire avec les outils de l'entreprise */}
+      <div className="aline" style={{marginBottom:18}}/>
+      <div style={{padding:"16px 18px",background:"linear-gradient(135deg,rgba(201,168,76,.04),rgba(139,92,246,.04))",borderRadius:"var(--rs)",border:"1px dashed rgba(201,168,76,.2)",marginBottom:20}}>
+        <p style={{fontSize:10,fontWeight:700,color:"var(--gold)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>💡 {lang==="fr"?"SIGNALIS pourrait aller plus loin":"SIGNALIS could go further"}</p>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[
+            {icon:"📧",l:lang==="fr"?"Connexion email":"Email integration",d:lang==="fr"?"Intégrer automatiquement les derniers échanges avec le courtier et le Risk Manager dans le brief.":"Auto-integrate latest exchanges with broker and Risk Manager into the brief."},
+            {icon:"💼",l:lang==="fr"?"Connexion CRM":"CRM integration",d:lang==="fr"?"Historique client complet, polices en cours, sinistres, taux de prime — tout dans le brief.":"Full client history, active policies, claims, premium rates — all in the brief."},
+            {icon:"📁",l:lang==="fr"?"SharePoint / Drive":"SharePoint / Drive",d:lang==="fr"?"Documents partagés de l'équipe, rapports d'audit, comptes-rendus de comités.":"Shared team documents, audit reports, committee minutes."},
+            {icon:"📅",l:lang==="fr"?"Calendrier":"Calendar sync",d:lang==="fr"?"Synchronisation Outlook — briefs automatiques avant chaque réunion planifiée.":"Outlook sync — automatic briefs before each scheduled meeting."},
+          ].map(v=><div key={v.l} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            <span style={{fontSize:16,flexShrink:0}}>{v.icon}</span>
+            <div><p style={{fontSize:11,fontWeight:600,color:"var(--t2)"}}>{v.l}</p><p style={{fontSize:10,color:"var(--t4)",lineHeight:1.4}}>{v.d}</p></div>
+          </div>)}
+        </div>
+        <p style={{fontSize:9,color:"var(--t5)",marginTop:10,fontStyle:"italic",textAlign:"center"}}>{lang==="fr"?"Ces fonctionnalités nécessitent une connexion aux outils de l'entreprise.":"These features require connection to enterprise tools."}</p>
+      </div>
+
       <div style={{display:"flex",gap:8,marginTop:4}}>
         <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{navigator.clipboard?.writeText(txt);setCopied(true);showT(t("copied_clipboard"));setTimeout(()=>setCopied(false),1500)}}>{copied?<><I.check/>{t("copied")}</>:<><I.copy/>{t("copy_brief")}</>}</button>
         <button className="btn" style={{flex:1,height:44,background:"var(--bg3)",color:"var(--t2)",border:"1px solid var(--b)",borderRadius:"var(--rs)",fontSize:12,fontWeight:600}} onClick={()=>{
@@ -1307,7 +1359,7 @@ function App(){
         {/* Company list for quick brief */}
         <div className="dv" style={{marginBottom:18}}/>
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("brief_title")} — {t("generate")}</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}</p></div></div><button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button></div>)})}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lb=getLastBriefDate(c.id);const ns=getNewSignalsSinceLastBrief(c.id).length;const bh=getBriefHistory(c.id).length;return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}{lb&&<span style={{color:"var(--t5)"}}> · {lang==="fr"?"Brief":"Brief"} {fD(lb)}</span>}{ns>0&&<span style={{color:"#34D399",fontWeight:600}}> · 🆕 {ns}</span>}</p></div></div><div style={{display:"flex",alignItems:"center",gap:6}}>{bh>0&&<span style={{fontSize:9,color:"var(--t5)",background:"var(--bg3)",padding:"2px 6px",borderRadius:8}}>{bh}</span>}<button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button></div></div>)})}</div>
       </div>
     </div>);
 
