@@ -1591,7 +1591,7 @@ function App(){
         </div>
         {viewMode==="grid"?<div className="sig-grid">{wlSigs.map((s,i)=> <SigCard key={s.id||i} s={s} d={Math.min(i+1,5)}/>)}{wlSigs.length===0&&<div style={{textAlign:"center",padding:"56px 20px",gridColumn:"1/-1"}}><I.radar style={{width:40,height:40,color:"var(--b2)",margin:"0 auto 16px",display:"block"}}/><p style={{fontSize:15,color:"var(--t3)",marginBottom:4,fontWeight:500}}>{search||activeCat?t("no_signals_match"):t("no_signals_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{search||activeCat?t("adjust_filters"):t("radar_will_update")}</p></div>}</div>
         :<div style={{display:"flex",flexDirection:"column",gap:2}}>{wlSigs.map((s,i)=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid)||cos.find(c=>s.company&&(c.name.toLowerCase()===s.company.toLowerCase()||s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])));const imps=getImpsAll(s.id);return (
-          <div key={s.id||i} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"12px 16px",borderBottom:"1px solid var(--b)",cursor:"pointer",background:i%2===0?"transparent":"rgba(13,20,36,.4)"}} onClick={()=>setSS(s)}>
+          <div key={s.id||i} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"12px 16px",borderBottom:"1px solid var(--b)",cursor:"pointer",background:i%2===0?"transparent":"rgba(0,43,92,.03)"}} onClick={()=>setSS(s)}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}>
                 <span className="badge" style={{background:sBg(s.imp||50),color:sT(s.imp||50),flexShrink:0}}>{s.imp||50}</span>
@@ -1637,7 +1637,7 @@ function App(){
         :<div style={{marginBottom:28}}>
         <div style={{display:"grid",gridTemplateColumns:"32px 1fr 80px 50px 50px 36px 22px",alignItems:"center",gap:8,padding:"6px 16px",borderBottom:"2px solid var(--b)"}}><span/><span className="lbl" style={{fontSize:8,color:"var(--t5)"}}>{lang==="fr"?"ENTREPRISE":"COMPANY"}</span><span className="lbl" style={{fontSize:8,color:"var(--t5)"}}>{lang==="fr"?"LIGNES":"LINES"}</span><span className="lbl" style={{fontSize:8,color:"var(--t5)",textAlign:"center"}}>{lang==="fr"?"SIG.":"SIG."}</span><span className="lbl" style={{fontSize:8,color:"var(--t5)",textAlign:"center"}}>NOTES</span><span className="lbl" style={{fontSize:8,color:"var(--t5)",textAlign:"center"}}>{lang==="fr"?"RISQ.":"RISK"}</span><span/></div>
         {sorted.map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lines=getLinesAll(getSigs(c.id));return (
-          <div key={c.id} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"10px 16px",borderBottom:"1px solid var(--b)",background:i%2===0?"transparent":"rgba(13,20,36,.4)",display:"grid",gridTemplateColumns:"32px 1fr 80px 50px 50px 36px 22px",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSC(c.id)}>
+          <div key={c.id} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"10px 16px",borderBottom:"1px solid var(--b)",background:i%2===0?"transparent":"rgba(0,43,92,.03)",display:"grid",gridTemplateColumns:"32px 1fr 80px 50px 50px 36px 22px",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSC(c.id)}>
               <Logo name={c.name} sz={28} fallback={c.logo}/>
               <div style={{minWidth:0}}>
                 <h4 style={{fontSize:12,fontWeight:600,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</h4>
