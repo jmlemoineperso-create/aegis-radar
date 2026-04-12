@@ -198,7 +198,7 @@ function LangProvider({children}){const[lang,setLangRaw]=useState(()=>lsGet("lan
 
 // ── Bilingual text helper ──
 // tx(obj, lang) returns the right language string
-const cleanHtml=(s)=>{if(!s||typeof s!=="string")return s;return s.replace(/<[^>]*>/g,"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&").replace(/&quot;/g,"\"").replace(/&#39;/g,"'").replace(/&nbsp;/g," ").replace(/https?:\/\/\S+/g,"").replace(/\s+/g," ").trim()};
+const cleanHtml=(s)=>{if(!s||typeof s!=="string")return s;return s.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&").replace(/&quot;/g,"\"").replace(/&#39;/g,"'").replace(/&nbsp;/g," ").replace(/<[^>]*>/g,"").replace(/https?:\/\/\S+/g,"").replace(/\s+/g," ").trim()};
 const tx=(v,lang)=>{if(!v)return"";if(typeof v==="string")return cleanHtml(v);if(typeof v==="number")return String(v);if(typeof v==="object"){if(v[lang])return cleanHtml(v[lang]);if(v.en)return cleanHtml(v.en);if(v.fr)return cleanHtml(v.fr);return""}return String(v||"")};
 
 // Company logos via Clearbit
