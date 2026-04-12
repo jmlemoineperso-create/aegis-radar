@@ -198,7 +198,8 @@ function LangProvider({children}){const[lang,setLangRaw]=useState(()=>lsGet("lan
 
 // ── Bilingual text helper ──
 // tx(obj, lang) returns the right language string
-const tx=(v,lang)=>{if(!v)return"";if(typeof v==="string")return v;if(typeof v==="number")return String(v);if(typeof v==="object"){if(v[lang])return v[lang];if(v.en)return v.en;if(v.fr)return v.fr;return""}return String(v||"")};
+const cleanHtml=(s)=>{if(!s||typeof s!=="string")return s;return s.replace(/<[^>]*>/g,"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&").replace(/&quot;/g,"\"").replace(/&#39;/g,"'").replace(/&nbsp;/g," ").replace(/https?:\/\/\S+/g,"").replace(/\s+/g," ").trim()};
+const tx=(v,lang)=>{if(!v)return"";if(typeof v==="string")return cleanHtml(v);if(typeof v==="number")return String(v);if(typeof v==="object"){if(v[lang])return cleanHtml(v[lang]);if(v.en)return cleanHtml(v.en);if(v.fr)return cleanHtml(v.fr);return""}return String(v||"")};
 
 // Company logos via Clearbit
 const DOMAINS={"LVMH":"lvmh.com","TotalEnergies":"totalenergies.com","Sanofi":"sanofi.com","L'Oréal":"loreal.com","Schneider Electric":"se.com","Air Liquide":"airliquide.com","BNP Paribas":"bnpparibas.com","AXA":"axa.com","Hermès":"hermes.com","Safran":"safran-group.com","EssilorLuxottica":"essilorluxottica.com","Dassault Systèmes":"3ds.com","Vinci":"vinci.com","Kering":"kering.com","Saint-Gobain":"saint-gobain.com","Société Générale":"societegenerale.com","Danone":"danone.com","Engie":"engie.com","Capgemini":"capgemini.com","Pernod Ricard":"pernod-ricard.com","Michelin":"michelin.com","Publicis Groupe":"publicisgroupe.com","Renault":"renaultgroup.com","Orange":"orange.com","Bouygues":"bouygues.com","Thales":"thalesgroup.com","Stellantis":"stellantis.com","Veolia":"veolia.com","Airbus":"airbus.com","Legrand":"legrand.com","Crédit Agricole":"credit-agricole.com","Alstom":"alstom.com","Worldline":"worldline.com","Edenred":"edenred.com","Vivendi":"vivendi.com","Allianz":"allianz.com","Siemens":"siemens.com","SAP":"sap.com","Deutsche Bank":"db.com","BASF":"basf.com","BMW":"bmw.com","Volkswagen":"volkswagen.com","Unilever":"unilever.com","Shell":"shell.com","HSBC":"hsbc.com","AstraZeneca":"astrazeneca.com","BP":"bp.com","Nestlé":"nestle.com","Novartis":"novartis.com","Roche":"roche.com","Zurich Insurance":"zurich.com","STMicroelectronics":"st.com","ArcelorMittal":"arcelormittal.com","Carrefour":"carrefour.com","Bureau Veritas":"bureauveritas.com","Accor":"group.accor.com","Teleperformance":"teleperformance.com","Amundi":"amundi.com","Arkema":"arkema.com","Dassault Aviation":"dassault-aviation.com","Eiffage":"eiffage.com","Eurazeo":"eurazeo.com","Forvia (Faurecia)":"forvia.com","Gecina":"gecina.fr","Getlink":"getlinkgroup.com","GTT":"gtt.fr","Ipsen":"ipsen.com","JCDecaux":"jcdecaux.com","Klépierre":"klepierre.com","Sartorius Stedim Biotech":"sartorius.com","SEB":"groupeseb.com","Sodexo":"sodexo.com","Sopra Steria":"soprasteria.com","Unibail-Rodamco-Westfield":"urw.com","Valeo":"valeo.com","Wendel":"wendelgroup.com","Nexans":"nexans.com","Atos":"atos.net","Biomérieux":"biomerieux.com","Bolloré":"bollore.com","Coface":"coface.com","Covivio":"covivio.eu","Fnac Darty":"fnacdarty.com","Imerys":"imerys.com","Clariane (ex-Korian)":"clariane.com","Lagardère":"lagardere.com","OVHcloud":"ovhcloud.com","Plastic Omnium":"plasticomnium.com","Rémy Cointreau":"remy-cointreau.com","Rexel":"rexel.com","Rubis":"rubis.fr","Soitec":"soitec.com","Spie":"spie.com","Technip Energies":"technipenergies.com","TF1":"groupe-tf1.fr","Trigano":"trigano.fr","Ubisoft":"ubisoft.com","Vallourec":"vallourec.com","Vicat":"vicat.fr","Eutelsat":"eutelsat.com","Scor":"scor.com","CNP Assurances":"cnp.fr","Nexity":"nexity.fr","Elior":"eliorgroup.com","CGG":"cgg.com","La Poste":"lapostegroupe.com","SNCF":"sncf.com","EDF":"edf.fr","RATP":"ratp.fr","Caisse des Dépôts":"caissedesdepots.fr","Lactalis":"lactalis.fr","Auchan":"auchan.com","Décathlon":"decathlon.com","Orano (ex-Areva)":"orano.group","Groupe BPCE":"groupebpce.com","Groupe Rocher":"groupe-rocher.com","MACIF":"macif.fr"};
@@ -1029,7 +1030,14 @@ function App(){
     const co=cos.find(c=>c.id===cid);
     const raw=allSignals.filter(s=>{
       if(s.cid===cid)return true;
-      if(co&&s.company){const n=s.company.toLowerCase();return n===co.name.toLowerCase()||n.includes(co.name.toLowerCase().split(" ")[0])}
+      if(co&&s.company){
+        const n=s.company.toLowerCase().trim();
+        const coName=co.name.toLowerCase().trim();
+        if(n===coName)return true;
+        // Only match by first word if it's long enough to be unique
+        const firstWord=coName.split(" ")[0];
+        if(firstWord.length>=5&&n.includes(firstWord))return true;
+      }
       return false;
     }).sort((a,b)=>(b.imp||0)-(a.imp||0));
     const seen=new Set();
@@ -1047,7 +1055,7 @@ function App(){
         const cn=s.company.toLowerCase();
         for(const w of watchedNames){
           if(cn===w.name||cn.includes(w.name)||w.name.includes(cn))return true;
-          if(w.first.length>=4&&cn.includes(w.first))return true;
+          if(w.first.length>=5&&cn.includes(w.first))return true;
         }
       }
       return false;
