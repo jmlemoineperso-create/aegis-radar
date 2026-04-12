@@ -216,8 +216,8 @@ const CATS=[
   {id:"esg_reputation",label:{en:"ESG",fr:"ESG"},s:{en:"ESG",fr:"ESG"},icon:"",c:"#115E59"},
   {id:"hr_culture",label:{en:"HR / Culture",fr:"RH / Culture"},s:{en:"HR",fr:"RH"},icon:"",c:"#374151"},
 ];
-const LINES={do:"D&O",epl:"EPL",ptl:"PTL",fraud:{en:"Fraud",fr:"Fraude"},knr:{en:"K&R",fr:"K&R"},bbb:{en:"BBB Global Banking",fr:"BBB Globale de Banque"},rcpro:{en:"PI / Professional Liability",fr:"RCPro"},cyber:"Cyber",rcg:{en:"General Liability",fr:"RCG"},rc_env:{en:"Environmental Liability",fr:"RC Environnementale"},motor:"Motor",marine:{en:"Marine & Transport",fr:"Transports (Marine)"},property:{en:"Property",fr:"Dommages"},mna:{en:"M&A",fr:"M&A"},trade_credit:{en:"Trade Credit",fr:"Trade Crédit"},trade_finance:{en:"Trade Finance",fr:"Trade Finance"},gpa_bta:{en:"GPA & BTA",fr:"GPA & BTA"},affinity:{en:"Affinity",fr:"Affinitaires"},aviation:"Aviation"};
-const lineLbl=(k,lang)=>{const v=LINES[k];return typeof v==="object"?v[lang]||v.en:v};
+const LINES={do:"D&O",epl:"EPL",ptl:"PTL",fraud:{en:"Fraud",fr:"Fraude"},crime:{en:"Crime / Fidelity",fr:"Crime / Fidélité"},knr:{en:"K&R",fr:"K&R"},bbb:{en:"BBB Global Banking",fr:"BBB Globale de Banque"},rcpro:{en:"PI / Professional Liability",fr:"RCPro"},cyber:"Cyber",rcg:{en:"General Liability",fr:"RCG"},rc_env:{en:"Environmental Liability",fr:"RC Environnementale"},motor:"Motor",marine:{en:"Marine & Transport",fr:"Transports (Marine)"},property:{en:"Property",fr:"Dommages"},mna:{en:"M&A / W&I",fr:"M&A / W&I"},trade_credit:{en:"Trade Credit",fr:"Trade Crédit"},trade_finance:{en:"Trade Finance",fr:"Trade Finance"},gpa_bta:{en:"GPA & BTA",fr:"GPA & BTA"},affinity:{en:"Affinity",fr:"Affinitaires"},aviation:"Aviation",pi:{en:"PI / E&O",fr:"RCPro / E&O"},professional:{en:"PI / Professional",fr:"RCPro"},employment:"EPL",directors:"D&O",officers:"D&O",liability:{en:"General Liability",fr:"RCG"},environmental:{en:"Environmental",fr:"RC Env."},transactional:{en:"W&I / Transactional",fr:"W&I / Transactionnel"}};
+const lineLbl=(k,lang)=>{const v=LINES[k];if(!v)return (k||"").toUpperCase();return typeof v==="object"?v[lang]||v.en:v};
 const LVL_C={critical:"#EF4444",high:"#F59E0B",medium:"#3B82F6",low:"#16A34A"};
 const LVL_BG={critical:"rgba(220,38,38,.08)",high:"rgba(217,119,6,.08)",medium:"rgba(37,99,235,.08)",low:"rgba(22,163,74,.08)"};
 const LVL_T={critical:"#991B1B",high:"#92400E",medium:"#1E40AF",low:"#166534"};
@@ -1038,9 +1038,33 @@ function App(){
   const getNotes=useCallback(cid=>notes.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at)),[notes]);
 
   const filterSigs=useCallback(sigs=>{let s=[...sigs];if(activeCat)s=s.filter(x=>x.cat===activeCat);if(search){const q=search.toLowerCase();s=s.filter(x=>tx(x.title,lang).toLowerCase().includes(q)||tx(x.sum,lang).toLowerCase().includes(q))}const seen=new Set();s=s.filter(x=>{const t=tx(x.title,"en").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});if(sortMode==="recent")return s.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));return s.sort((a,b)=>(b.imp||0)-(a.imp||0))},[activeCat,search,lang,sortMode]);
-  const wlSigs=useMemo(()=>filterSigs(allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio)),[cos,filterSigs,allSignals]);
+  const wlSigs=useMemo(()=>{
+    const watchedIds=new Set(cos.filter(c=>c.prio).map(c=>c.id));
+    const watchedNames=cos.filter(c=>c.prio).map(c=>({id:c.id,name:c.name.toLowerCase(),first:c.name.split(" ")[0].toLowerCase()}));
+    const matched=allSignals.filter(s=>{
+      if(s.cid&&watchedIds.has(s.cid))return true;
+      if(s.company){
+        const cn=s.company.toLowerCase();
+        for(const w of watchedNames){
+          if(cn===w.name||cn.includes(w.name)||w.name.includes(cn))return true;
+          if(w.first.length>=4&&cn.includes(w.first))return true;
+        }
+      }
+      return false;
+    });
+    return filterSigs(matched);
+  },[cos,filterSigs,allSignals]);
   const allSigs=useMemo(()=>filterSigs(allSignals),[filterSigs,allSignals]);
-  const digest=useMemo(()=>{const ws=allSignals.filter(s=>cos.find(c=>c.id===s.cid)?.prio);return {total:ws.length,crit:ws.filter(s=>s.imp>=scoreThresholds.critical).length,comps:[...new Set(ws.map(s=>s.cid))].length}},[cos,allSignals,scoreThresholds]);
+  const digest=useMemo(()=>{
+    const watchedIds=new Set(cos.filter(c=>c.prio).map(c=>c.id));
+    const watchedNames=cos.filter(c=>c.prio).map(c=>c.name.toLowerCase());
+    const ws=allSignals.filter(s=>{
+      if(s.cid&&watchedIds.has(s.cid))return true;
+      if(s.company){const cn=s.company.toLowerCase();for(const w of watchedNames){if(cn.includes(w)||w.includes(cn))return true}}
+      return false;
+    });
+    return{total:ws.length,crit:ws.filter(s=>s.imp>=scoreThresholds.critical).length,comps:[...new Set(ws.map(s=>s.cid))].length};
+  },[cos,allSignals,scoreThresholds]);
   const goTab=tb=>{setTab(tb);setSC(null);setSSh(false);setSrch("");setACat(null);setAS("");setExtRes([])};
   const fFull=()=>new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"long",day:"numeric",month:"long"});
   const greeting=()=>{const h=new Date().getHours();return h<12?t("greeting_morning"):h<18?t("greeting_afternoon"):t("greeting_evening")};
@@ -1088,9 +1112,10 @@ function App(){
         lastBrief?new Date(lastBrief).getTime():0
       ].filter(Boolean);
       const lastInteraction=interactions.length>0?Math.max(...interactions):0;
-      const daysSince=lastInteraction?Math.floor((now-lastInteraction)/86400000):999;
-      if(daysSince<THRESHOLD/86400000)return null;
-      return{co,daysSince,lastInteraction};
+      const daysSince=lastInteraction?Math.floor((now-lastInteraction)/86400000):0;
+      if(daysSince<45&&lastInteraction>0)return null;
+      if(!lastInteraction)return{co,daysSince:0,lastInteraction:0,noRecord:true};
+      return{co,daysSince,lastInteraction,noRecord:false};
     }).filter(Boolean).sort((a,b)=>b.daysSince-a.daysSince);
   },[watched,getNotes,meetings,getLastBriefDate]);
 
@@ -1547,7 +1572,7 @@ function App(){
                   <Logo name={alert.co.name} sz={22} fallback={alert.co.logo}/>
                   <div>
                     <span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{alert.co.name}</span>
-                    <p style={{fontSize:11,color:"#92400E"}}>{t("no_interaction_since")} {alert.daysSince} {t("days")}</p>
+                    <p style={{fontSize:11,color:"#92400E"}}>{alert.noRecord?(lang==="fr"?"Aucune interaction enregistrée":"No interaction recorded"):t("no_interaction_since")+" "+alert.daysSince+" "+t("days")}</p>
                   </div>
                 </div>
                 <button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:"rgba(217,119,6,.08)",color:"#92400E",border:"1px solid rgba(217,119,6,.15)"}} onClick={()=>{setMtgCo(alert.co.id);setSNM(true)}}>{t("plan_action")}</button>
