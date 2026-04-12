@@ -1187,20 +1187,23 @@ function App(){
 
   // ── LOGIN ──
   if(step==="login")return (
-    <div className="fi" style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 28px",background:"radial-gradient(ellipse at 50% -10%,rgba(0,114,206,.07) 0%,transparent 55%),var(--bg)"}}>
-      <div style={{textAlign:"center",marginBottom:48}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:12}}><I.radar/><span style={{fontSize:30,fontWeight:700,color:"var(--t1)",letterSpacing:".04em"}}>AIG</span></div>
-        <p className="lbl" style={{color:"var(--t4)",letterSpacing:".14em",fontSize:9}}>Financial Lines Intelligence</p>
-        <div className="aline" style={{width:48,margin:"24px auto 0"}}/>
-      </div>
-      <div className="lang-sw" style={{width:200,marginBottom:32}}><button className={lang==="en"?"on":""} onClick={()=>setLang("en")}>English</button><button className={lang==="fr"?"on":""} onClick={()=>setLang("fr")}>Français</button></div>
-      <div style={{width:"100%",maxWidth:320}}>
-        <h2 style={{fontSize:20,fontWeight:600,color:"var(--t1)",textAlign:"center",marginBottom:6}}>{t("onboarding_title")}</h2>
-        <p style={{fontSize:13,color:"var(--t3)",textAlign:"center",lineHeight:1.55,marginBottom:32}}>{t("onboarding_sub")}</p>
-        <div style={{marginBottom:18}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("email")}</label><input className="inp" type="email" placeholder="asprevel@gmail.com" value={loginEm} onChange={e=>{setLoginEm(e.target.value);setLoginErr(false)}} style={loginErr?{borderColor:"#EF4444"}:{}}/></div>
-        <div style={{marginBottom:28}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8}}>{t("password")}</label><input className="inp" type="password" placeholder="••••••••" value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr(false)}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={loginErr?{borderColor:"#EF4444"}:{}}/>{loginErr&&<p style={{fontSize:12,color:"#991B1B",marginTop:8}}>{t("login_err")}</p>}</div>
-        <button className="btn bp" style={{width:"100%",height:46}} onClick={tryLogin}><I.lock/>{t("onboarding_cta")}</button>
-        <p style={{textAlign:"center",marginTop:24,fontSize:10,color:"var(--t5)"}}>© 2026 AIG — Financial Lines Intelligence</p>
+    <div className="fi" style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"#F3F5F7"}}>
+      <div style={{background:"#FFFFFF",border:"1px solid #E2E6EB",borderRadius:12,padding:"40px 32px",width:"100%",maxWidth:380,textAlign:"center"}}>
+        <div style={{display:"inline-block",border:"2px solid #002B5C",padding:"4px 14px",fontSize:18,fontWeight:700,color:"#002B5C",marginBottom:8,borderRadius:2}}>AIG</div>
+        <div style={{fontSize:15,fontWeight:600,color:"#002B5C",marginBottom:4}}>Financial Lines Intelligence</div>
+        <div style={{fontSize:13,color:"#7D8A9A",marginBottom:28}}>{lang==="fr"?"Connexion sécurisée":"Secure login"}</div>
+        <div style={{marginBottom:14}}>
+          <input className="inp" type="email" placeholder={t("email")} value={loginEm} onChange={e=>{setLoginEm(e.target.value);setLoginErr(false)}} style={Object.assign({marginBottom:10},loginErr?{borderColor:"#DC2626"}:{})}/>
+          <input className="inp" type="password" placeholder={t("password")} value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr(false)}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={loginErr?{borderColor:"#DC2626"}:{}}/>
+        </div>
+        {loginErr&&<p style={{fontSize:12,color:"#991B1B",marginBottom:10}}>{t("login_err")}</p>}
+        <button className="btn bp" style={{width:"100%",height:46,borderRadius:6}} onClick={tryLogin}>{lang==="fr"?"Se connecter":"Sign in"}</button>
+        <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:20}}>
+          <button style={{background:"none",border:"none",fontSize:12,color:lang==="en"?"#002B5C":"#A8B1BD",fontWeight:lang==="en"?600:400,cursor:"pointer"}} onClick={()=>setLang("en")}>EN</button>
+          <span style={{color:"#CDD3DA",fontSize:12}}>|</span>
+          <button style={{background:"none",border:"none",fontSize:12,color:lang==="fr"?"#002B5C":"#A8B1BD",fontWeight:lang==="fr"?600:400,cursor:"pointer"}} onClick={()=>setLang("fr")}>FR</button>
+        </div>
+        <p style={{fontSize:11,color:"#A8B1BD",marginTop:16}}>&copy; 2026 AIG — Financial Lines Intelligence</p>
       </div>
     </div>
   );
