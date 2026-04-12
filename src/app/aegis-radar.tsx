@@ -1487,7 +1487,7 @@ function App(){
           )})}
 
           {/* Commercial windows */}
-          {commercialOpps.length>0&&<>{commercialOpps.map(opp=>{const urgCol=opp.urgency==="critical"?"#DC2626":opp.urgency==="high"?"#D97706":"#2563EB";const urgBg=opp.urgency==="critical"?"rgba(220,38,38,.08)":opp.urgency==="high"?"rgba(217,119,6,.08)":"rgba(37,99,235,.08)";return (
+          {commercialOpps.length>0&&commercialOpps.map(opp=>{const urgCol=opp.urgency==="critical"?"#DC2626":opp.urgency==="high"?"#D97706":"#2563EB";const urgBg=opp.urgency==="critical"?"rgba(220,38,38,.08)":opp.urgency==="high"?"rgba(217,119,6,.08)":"rgba(37,99,235,.08)";return (
             <div key={opp.co.id} className="card" style={{padding:"14px 18px",marginBottom:10,borderLeft:`3px solid ${urgCol}`}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1502,7 +1502,7 @@ function App(){
                 {opp.recentCrit[0]&&<button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>{setEmailSignal(opp.recentCrit[0]);setEmailType("broker")}}>{t("email_to_broker")}</button>}
               </div>
             </div>
-          )})</>}
+          )})}
 
           {/* Inactivity alerts */}
           {inactivityAlerts.slice(0,3).map(alert=>(
