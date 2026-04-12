@@ -160,6 +160,32 @@ const T={
   verified:{en:"Verified",fr:"Vérifié"},likely:{en:"Likely",fr:"Probable"},hypothesis_fact:{en:"Hypothesis",fr:"Hypothèse"},needs_review:{en:"Needs review",fr:"À vérifier"},
   primary:{en:"Primary",fr:"Prioritaire"},secondary:{en:"Secondary",fr:"Secondaire"},watch:{en:"Watch",fr:"Veille"},
   lines_lc:{en:"lines",fr:"lignes"},
+  // ── NEW FEATURES i18n ──
+  auto_brief:{en:"Auto-briefs ready",fr:"Briefs auto prêts"},
+  auto_brief_sub:{en:"Meeting in less than 24h — brief generated automatically",fr:"Réunion dans moins de 24h — brief généré automatiquement"},
+  commercial_opps:{en:"Commercial opportunities",fr:"Opportunités commerciales"},
+  renewal_window:{en:"Renewal in",fr:"Renouvellement dans"},
+  days:{en:"days",fr:"jours"},
+  propose:{en:"Propose",fr:"Proposer"},
+  inactivity_alert:{en:"Inactivity alerts",fr:"Alertes d'inactivité"},
+  no_interaction_since:{en:"No interaction for",fr:"Aucune interaction depuis"},
+  plan_action:{en:"Plan a meeting",fr:"Planifier une réunion"},
+  weekly_summary:{en:"Weekly summary",fr:"Résumé hebdomadaire"},
+  weekly_summary_sub:{en:"Overview of last 7 days across your portfolio",fr:"Synthèse des 7 derniers jours sur votre portefeuille"},
+  copy_weekly:{en:"Copy weekly report",fr:"Copier le rapport hebdo"},
+  email_template:{en:"Email template",fr:"Modèle d'email"},
+  email_to_broker:{en:"Email to broker",fr:"Email au courtier"},
+  email_to_rm:{en:"Email to Risk Manager",fr:"Email au Risk Manager"},
+  copy_email:{en:"Copy email",fr:"Copier l'email"},
+  stock_alert:{en:"Market alert",fr:"Alerte marché"},
+  stock_drop:{en:"Significant price movement",fr:"Mouvement de cours significatif"},
+  actions_center:{en:"Actions center",fr:"Centre d'actions"},
+  smart_alerts:{en:"Smart alerts",fr:"Alertes intelligentes"},
+  kpi_title:{en:"Monthly KPIs",fr:"KPIs du mois"},
+  briefs_generated:{en:"briefs generated",fr:"briefs générés"},
+  meetings_prepared:{en:"meetings prepared",fr:"réunions préparées"},
+  signals_processed:{en:"signals processed",fr:"signaux traités"},
+  opps_detected:{en:"opportunities detected",fr:"opportunités détectées"},
 };
 
 // ── localStorage helpers ──
@@ -987,6 +1013,162 @@ function App(){
   const fFull=()=>new Date().toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{weekday:"long",day:"numeric",month:"long"});
   const greeting=()=>{const h=new Date().getHours();return h<12?t("greeting_morning"):h<18?t("greeting_afternoon"):t("greeting_evening")};
 
+  // ═══ SMART FEATURES ═══
+
+  // ── Feature 1: Auto pre-meeting brief (meetings within 24h) ──
+  const upcomingBriefs=useMemo(()=>{
+    const now=Date.now();const h24=24*60*60*1000;
+    return meetings.filter(m=>{const d=new Date(m.date).getTime();return d>now&&d-now<h24}).map(m=>{
+      const co=cos.find(c=>c.id===m.cid);const sigs=getSigs(m.cid);const lines=getLinesAll(sigs);
+      return{...m,co,sigs,lines,sigCount:sigs.length,critCount:sigs.filter(s=>(s.imp||0)>=scoreThresholds.critical).length};
+    });
+  },[meetings,cos,getSigs,getLinesAll,scoreThresholds]);
+
+  // ── Feature 2: Commercial window detection (renewal date in dossier + recent signals) ──
+  const commercialOpps=useMemo(()=>{
+    const opps=[];const now=new Date();
+    watched.forEach(co=>{
+      const dossier=getDossier(co.id);
+      if(!dossier?.renewal)return;
+      const renewalDate=new Date(dossier.renewal);
+      const daysUntil=Math.ceil((renewalDate-now)/(86400000));
+      if(daysUntil<0||daysUntil>90)return;
+      const sigs=getSigs(co.id);
+      const recentCrit=sigs.filter(s=>(s.imp||0)>=scoreThresholds.high);
+      if(recentCrit.length===0&&daysUntil>45)return;
+      const impactedLines=getLinesAll(recentCrit);
+      const urgency=daysUntil<=30?"critical":daysUntil<=60?"high":"medium";
+      opps.push({co,dossier,daysUntil,recentCrit,impactedLines,urgency,renewalDate});
+    });
+    return opps.sort((a,b)=>a.daysUntil-b.daysUntil);
+  },[watched,getDossier,getSigs,getLinesAll,scoreThresholds]);
+
+  // ── Feature 3: Inactivity alerts (companies with no interaction >45 days) ──
+  const inactivityAlerts=useMemo(()=>{
+    const now=Date.now();const THRESHOLD=45*86400000;
+    return watched.map(co=>{
+      const coNotes=getNotes(co.id);
+      const coMeetings=meetings.filter(m=>m.cid===co.id);
+      const lastBrief=getLastBriefDate(co.id);
+      const interactions=[
+        ...coNotes.map(n=>new Date(n.at).getTime()),
+        ...coMeetings.map(m=>new Date(m.createdAt||m.date).getTime()),
+        lastBrief?new Date(lastBrief).getTime():0
+      ].filter(Boolean);
+      const lastInteraction=interactions.length>0?Math.max(...interactions):0;
+      const daysSince=lastInteraction?Math.floor((now-lastInteraction)/86400000):999;
+      if(daysSince<THRESHOLD/86400000)return null;
+      return{co,daysSince,lastInteraction};
+    }).filter(Boolean).sort((a,b)=>b.daysSince-a.daysSince);
+  },[watched,getNotes,meetings,getLastBriefDate]);
+
+  // ── Feature 4: Weekly summary ──
+  const[showWeekly,setShowWeekly]=useState(false);
+  const weeklyData=useMemo(()=>{
+    const now=Date.now();const w7=7*86400000;
+    const recentSigs=allSignals.filter(s=>{
+      const co=cos.find(c=>c.id===s.cid);
+      if(!co?.prio)return false;
+      const sigDate=s.at?new Date(s.at).getTime():0;
+      return now-sigDate<w7;
+    });
+    const byCo={};recentSigs.forEach(s=>{
+      const co=cos.find(c=>c.id===s.cid);
+      const name=co?.name||s.company||"Unknown";
+      if(!byCo[name])byCo[name]={signals:[],crit:0};
+      byCo[name].signals.push(s);
+      if((s.imp||0)>=scoreThresholds.critical)byCo[name].crit++;
+    });
+    const byCat={};recentSigs.forEach(s=>{byCat[s.cat]=(byCat[s.cat]||0)+1});
+    const byLine={};recentSigs.forEach(s=>{getImpsAll(s.id).forEach(i=>{byLine[i.line]=(byLine[i.line]||0)+1})});
+    return{total:recentSigs.length,crit:recentSigs.filter(s=>(s.imp||0)>=scoreThresholds.critical).length,byCo,byCat,byLine,meetingsThisWeek:meetings.filter(m=>{const d=new Date(m.date).getTime();return d>now-w7&&d<now+w7}).length};
+  },[allSignals,cos,scoreThresholds,meetings,getImpsAll]);
+
+  const copyWeekly=()=>{
+    const lines=[];
+    lines.push(`RÉSUMÉ HEBDOMADAIRE — AIG FL INTELLIGENCE`);
+    lines.push(`Semaine du ${new Date(Date.now()-7*86400000).toLocaleDateString("fr-FR")} au ${new Date().toLocaleDateString("fr-FR")}`);
+    lines.push(``);
+    lines.push(`${weeklyData.total} signaux détectés dont ${weeklyData.crit} critique(s)`);
+    lines.push(`${weeklyData.meetingsThisWeek} réunion(s) cette semaine`);
+    lines.push(``);
+    lines.push(`SIGNAUX PAR ENTREPRISE :`);
+    Object.entries(weeklyData.byCo).sort((a,b)=>b[1].signals.length-a[1].signals.length).forEach(([name,data])=>{
+      lines.push(`  • ${name}: ${data.signals.length} signal(s)${data.crit>0?` (${data.crit} critique(s))`:""}`);
+    });
+    lines.push(``);
+    lines.push(`LIGNES FL IMPACTÉES :`);
+    Object.entries(weeklyData.byLine).sort((a,b)=>b[1]-a[1]).forEach(([l,n])=>{
+      lines.push(`  • ${lineLbl(l,lang)}: ${n} signal(s)`);
+    });
+    lines.push(``);
+    lines.push(`— AIG Financial Lines Intelligence`);
+    navigator.clipboard?.writeText(lines.join("\n"));
+    showT(t("copied_clipboard"));
+  };
+
+  // ── Feature 5: Email template generator ──
+  const[emailSignal,setEmailSignal]=useState(null);
+  const[emailType,setEmailType]=useState("broker");
+  const generateEmail=(sig,type)=>{
+    const co=cos.find(c=>c.id===sig.cid)||{name:sig.company||""};
+    const cat=getCat(sig.cat,lang);
+    const imps=getImpsAll(sig.id);
+    const dossier=getDossier(sig.cid);
+    if(type==="broker"){
+      return `Objet : ${co.name} — Signal FL à votre attention (${cat?.label||sig.cat})
+
+Bonjour${dossier?.broker?` ${dossier.broker}`:""},
+
+Je souhaitais attirer votre attention sur un signal récent concernant ${co.name} qui pourrait avoir des implications pour le programme Financial Lines :
+
+▸ ${tx(sig.title,lang)}
+▸ Source : ${tx(sig.src||sig.source,lang)||"Presse"} — ${sig.at?new Date(sig.at).toLocaleDateString("fr-FR"):""}
+▸ Niveau : ${scoreLbl(sig.imp||50,t)}
+▸ Lignes potentiellement impactées : ${imps.map(i=>lineLbl(i.line,lang)).join(", ")||"À évaluer"}
+
+${imps.length>0?`Analyse FL :\n${imps.map(i=>"• "+tx(i.why,lang)).filter(Boolean).join("\n")}\n`:""}
+Je vous propose d'en discuter lors de notre prochain échange afin d'évaluer les ajustements éventuels à envisager.
+
+Cordialement,
+Anne-Sophie Revel
+Senior Account Manager — Financial Lines
+AIG France`;
+    }else{
+      return `Objet : Point de vigilance FL — ${co.name}
+
+Bonjour${dossier?.rm?` ${dossier.rm}`:""},
+
+Dans le cadre de notre veille Financial Lines, nous avons identifié un signal qui concerne ${co.name} :
+
+▸ ${tx(sig.title,lang)}
+▸ Catégorie : ${cat?.label||sig.cat}
+▸ Niveau d'importance : ${scoreLbl(sig.imp||50,t)}
+
+${imps.length>0?`Implications potentielles :\n${imps.map(i=>"• "+lineLbl(i.line,lang)+": "+tx(i.why,lang)).filter(Boolean).join("\n")}\n`:""}
+${imps.length>0?`Angles de discussion proposés :\n${imps.map(i=>"• "+tx(i.angle,lang)).filter(Boolean).join("\n")}\n`:""}
+Nous restons à votre disposition pour en discuter.
+
+Cordialement,
+Anne-Sophie Revel
+Senior Account Manager — Financial Lines
+AIG France`;
+    }
+  };
+
+  // ── Feature 6: Monthly KPIs ──
+  const monthlyKpis=useMemo(()=>{
+    const now=Date.now();const m30=30*86400000;
+    return{
+      briefs:briefHistory.filter(b=>now-new Date(b.date).getTime()<m30).length,
+      meetings:meetings.filter(m=>now-new Date(m.createdAt||m.date).getTime()<m30).length,
+      signals:allSignals.filter(s=>{const d=s.at?new Date(s.at).getTime():0;return now-d<m30&&cos.find(c=>c.id===s.cid)?.prio}).length,
+      opps:commercialOpps.length
+    };
+  },[briefHistory,meetings,allSignals,cos,commercialOpps]);
+
+
+
   // ── External company search (Wikipedia) ──
   const[extRes,setExtRes]=useState([]);
   const[extLoading,setExtLoading]=useState(false);
@@ -1295,6 +1477,89 @@ function App(){
             </div>
           </div>
         </div>}
+
+
+        {/* ═══ SMART ALERTS SECTION ═══ */}
+        {(upcomingBriefs.length>0||commercialOpps.length>0||inactivityAlerts.length>0)&&<div className="fi fi2" style={{marginBottom:22}}>
+          <h3 className="lbl" style={{color:"var(--gold)",marginBottom:12}}>{t("smart_alerts")}</h3>
+
+          {/* Auto pre-meeting briefs */}
+          {upcomingBriefs.map(m=>{const lbl=mtgLabel(m);return(
+            <div key={m.id} className="card" style={{padding:"14px 18px",marginBottom:10,borderLeft:"3px solid #DC2626",cursor:"pointer"}} onClick={()=>{setBC(m.cid);setSB(true)}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <Logo name={m.co?.name} sz={22} fallback={m.co?.logo}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{m.co?.name}</span>
+                </div>
+                <span className="badge" style={{background:"rgba(220,38,38,.08)",color:"#991B1B"}}>{lbl.l}</span>
+              </div>
+              <p style={{fontSize:12,color:"var(--t2)",marginBottom:4}}>{t("auto_brief_sub")}</p>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                <span style={{fontSize:11,color:"var(--t4)"}}>{m.sigCount} {m.sigCount>1?t("signals_lc"):t("signal")} · {m.critCount} {t("critical_lbl").toLowerCase()}</span>
+              </div>
+            </div>
+          )})}
+
+          {/* Commercial windows */}
+          {commercialOpps.length>0&&<>{commercialOpps.map(opp=>{const urgCol=opp.urgency==="critical"?"#DC2626":opp.urgency==="high"?"#D97706":"#2563EB";const urgBg=opp.urgency==="critical"?"rgba(220,38,38,.08)":opp.urgency==="high"?"rgba(217,119,6,.08)":"rgba(37,99,235,.08)";return(
+            <div key={opp.co.id} className="card" style={{padding:"14px 18px",marginBottom:10,borderLeft:`3px solid ${urgCol}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <Logo name={opp.co.name} sz={22} fallback={opp.co.logo}/>
+                  <span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{opp.co.name}</span>
+                </div>
+                <span className="badge" style={{background:urgBg,color:urgCol}}>{t("renewal_window")} {opp.daysUntil}j</span>
+              </div>
+              <p style={{fontSize:12,color:"var(--t2)",marginBottom:6}}>{opp.recentCrit.length} {lang==="fr"?"signal(s) récent(s)":"recent signal(s)"} · {opp.impactedLines.map(l=>lineLbl(l,lang)).join(", ")||"—"}</p>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>{setBC(opp.co.id);setSB(true)}}>{t("generate_brief")}</button>
+                {opp.recentCrit[0]&&<button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>{setEmailSignal(opp.recentCrit[0]);setEmailType("broker")}}>{t("email_to_broker")}</button>}
+              </div>
+            </div>
+          )})</>}
+
+          {/* Inactivity alerts */}
+          {inactivityAlerts.slice(0,3).map(alert=>(
+            <div key={alert.co.id} className="card" style={{padding:"12px 18px",marginBottom:10,borderLeft:"3px solid #D97706"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <Logo name={alert.co.name} sz={22} fallback={alert.co.logo}/>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{alert.co.name}</span>
+                    <p style={{fontSize:11,color:"#92400E"}}>{t("no_interaction_since")} {alert.daysSince} {t("days")}</p>
+                  </div>
+                </div>
+                <button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:"rgba(217,119,6,.08)",color:"#92400E",border:"1px solid rgba(217,119,6,.15)"}} onClick={()=>{setMtgCo(alert.co.id);setSNM(true)}}>{t("plan_action")}</button>
+              </div>
+            </div>
+          ))}
+        </div>}
+
+        {/* ═══ MONTHLY KPIs ═══ */}
+        <div className="fi fi2" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:22}}>
+          {[
+            {v:monthlyKpis.briefs,l:t("briefs_generated"),c:"var(--gold)"},
+            {v:monthlyKpis.meetings,l:t("meetings_prepared"),c:"var(--gold2)"},
+            {v:monthlyKpis.signals,l:t("signals_processed"),c:"#0072CE"},
+            {v:monthlyKpis.opps,l:t("opps_detected"),c:"#16A34A"}
+          ].map(x=>(
+            <div key={x.l} className="cs" style={{padding:"10px 8px",textAlign:"center"}}>
+              <p style={{fontSize:20,fontWeight:700,color:x.c,lineHeight:1}}>{x.v}</p>
+              <p style={{fontSize:8,color:"var(--t4)",marginTop:4,lineHeight:1.2}}>{x.l}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ═══ WEEKLY SUMMARY CARD ═══ */}
+        <div className="card fi fi2" style={{padding:"14px 18px",marginBottom:22,cursor:"pointer"}} onClick={()=>setShowWeekly(true)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <p className="lbl" style={{color:"var(--gold)",marginBottom:4}}>{t("weekly_summary")}</p>
+              <p style={{fontSize:12,color:"var(--t3)"}}>{weeklyData.total} {t("signal_count")} · {weeklyData.crit} {t("critical_lbl").toLowerCase()}</p>
+            </div>
+            <I.chR style={{color:"var(--t5)"}}/>
+          </div>
+        </div>
 
         <div className="fi fi3" style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <h3 className="lbl" style={{color:"var(--t4)"}}>{t("priority_feed")}</h3>
@@ -1608,6 +1873,44 @@ function App(){
       :isRec?<button className="btn" style={{width:"100%",height:50,background:"rgba(220,38,38,.08)",color:"#991B1B",border:"1px solid rgba(239,68,68,.2)",borderRadius:"var(--rs)",fontSize:14,fontWeight:600}} onClick={stopRec}><I.stop/>{t("rec_stop")}</button>
       :transcript?<div style={{display:"flex",gap:10}}><button className="btn" style={{flex:1,height:46,background:"var(--bg3)",color:"var(--t3)",border:"1px solid var(--b2)",borderRadius:"var(--rs)"}} onClick={()=>{setTranscript("");startRec()}}><I.mic/>{lang==="fr"?"Recommencer":"Restart"}</button><button className="btn bp" style={{flex:1,height:46}} onClick={stopRec}><I.check/>{lang==="fr"?"Enregistrer le résumé":"Save summary"}</button></div>
       :<button className="btn bp" style={{width:"100%",height:50,fontSize:14}} onClick={startRec}><I.mic/>{t("rec_start")}</button>}
+    </div></div>}
+
+    {/* ═══ EMAIL TEMPLATE SHEET ═══ */}
+    {emailSignal&&<div className="bsbg" onClick={()=>setEmailSignal(null)}><div className="bsm" onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,paddingTop:8}}><h3 style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("email_template")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setEmailSignal(null)}><I.x/></button></div>
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
+        <button className={`chip ${emailType==="broker"?"on":""}`} onClick={()=>setEmailType("broker")}>{t("email_to_broker")}</button>
+        <button className={`chip ${emailType==="rm"?"on":""}`} onClick={()=>setEmailType("rm")}>{t("email_to_rm")}</button>
+      </div>
+      <div style={{background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:"var(--rs)",padding:16,maxHeight:320,overflowY:"auto",marginBottom:16}}>
+        <pre style={{fontSize:12,color:"var(--t2)",lineHeight:1.6,whiteSpace:"pre-wrap",fontFamily:"inherit"}}>{generateEmail(emailSignal,emailType)}</pre>
+      </div>
+      <button className="btn bp" style={{width:"100%",height:46}} onClick={()=>{navigator.clipboard?.writeText(generateEmail(emailSignal,emailType));showT(t("copied_clipboard"));setEmailSignal(null)}}><I.copy/>{t("copy_email")}</button>
+    </div></div>}
+    {/* ═══ WEEKLY SUMMARY SHEET ═══ */}
+    {showWeekly&&<div className="bsbg" onClick={()=>setShowWeekly(false)}><div className="bsm" onClick={e=>e.stopPropagation()}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}><h3 style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{t("weekly_summary")}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setShowWeekly(false)}><I.x/></button></div>
+      <p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{t("weekly_summary_sub")}</p>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}}>
+        {[{l:lang==="fr"?"Signaux":"Signals",v:weeklyData.total,c:"var(--gold)"},{l:lang==="fr"?"Critiques":"Critical",v:weeklyData.crit,c:"#991B1B"},{l:lang==="fr"?"Réunions":"Meetings",v:weeklyData.meetingsThisWeek,c:"#0072CE"}].map(x=><div key={x.l} className="cs" style={{textAlign:"center",padding:10}}><p style={{fontSize:20,fontWeight:700,color:x.c}}>{x.v}</p><p className="lbl" style={{color:"var(--t4)",marginTop:3,fontSize:9}}>{x.l}</p></div>)}
+      </div>
+      {Object.keys(weeklyData.byCo).length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{lang==="fr"?"Par entreprise":"By company"}</h4>
+      <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:16}}>{Object.entries(weeklyData.byCo).sort((a,b)=>b[1].signals.length-a[1].signals.length).slice(0,8).map(([name,data])=>(
+        <div key={name} className="cs" style={{padding:"8px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}><Logo name={name} sz={22} fallback={name[0]}/><span style={{fontSize:12,fontWeight:500,color:"var(--t1)"}}>{name}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:12,fontWeight:600,color:"var(--gold)"}}>{data.signals.length}</span>{data.crit>0&&<span className="badge" style={{background:"rgba(220,38,38,.08)",color:"#991B1B",fontSize:9,padding:"1px 5px"}}>{data.crit} crit.</span>}</div>
+        </div>
+      ))}</div></>}
+      {Object.keys(weeklyData.byLine).length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{lang==="fr"?"Lignes FL impactées":"FL lines impacted"}</h4>
+      <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:16}}>{Object.entries(weeklyData.byLine).sort((a,b)=>b[1]-a[1]).map(([l,n])=>(
+        <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}>
+          <span style={{fontSize:12,color:"var(--t2)"}}>{lineLbl(l,lang)}</span>
+          <span style={{fontSize:12,fontWeight:600,color:"var(--gold)"}}>{n}</span>
+        </div>
+      ))}</div></>}
+      <button className="btn bp" style={{width:"100%",height:46}} onClick={copyWeekly}><I.copy/>{t("copy_weekly")}</button>
     </div></div>}
     {toast&&<div className="toast">{toast}</div>}
   </>);
