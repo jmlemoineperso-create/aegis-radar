@@ -1116,43 +1116,29 @@ function App(){
     const imps=getImpsAll(sig.id);
     const dossier=getDossier(sig.cid);
     if(type==="broker"){
-      return `Objet : ${co.name} — Signal FL à votre attention (${cat?.label||sig.cat})
-
-Bonjour${dossier?.broker?` ${dossier.broker}`:""},
-
-Je souhaitais attirer votre attention sur un signal récent concernant ${co.name} qui pourrait avoir des implications pour le programme Financial Lines :
-
-▸ ${tx(sig.title,lang)}
-▸ Source : ${tx(sig.src||sig.source,lang)||"Presse"} — ${sig.at?new Date(sig.at).toLocaleDateString("fr-FR"):""}
-▸ Niveau : ${scoreLbl(sig.imp||50,t)}
-▸ Lignes potentiellement impactées : ${imps.map(i=>lineLbl(i.line,lang)).join(", ")||"À évaluer"}
-
-${imps.length>0?`Analyse FL :\n${imps.map(i=>"• "+tx(i.why,lang)).filter(Boolean).join("\n")}\n`:""}
-Je vous propose d'en discuter lors de notre prochain échange afin d'évaluer les ajustements éventuels à envisager.
-
-Cordialement,
-Anne-Sophie Revel
-Senior Account Manager — Financial Lines
-AIG France`;
+      var body="Objet : "+co.name+" — Signal FL à votre attention ("+(cat?.label||sig.cat)+")\n\n";
+      body+="Bonjour"+(dossier?.broker?" "+dossier.broker:"")+",\n\n";
+      body+="Je souhaitais attirer votre attention sur un signal récent concernant "+co.name+" qui pourrait avoir des implications pour le programme Financial Lines :\n\n";
+      body+="▸ "+tx(sig.title,lang)+"\n";
+      body+="▸ Source : "+(tx(sig.src||sig.source,lang)||"Presse")+" — "+(sig.at?new Date(sig.at).toLocaleDateString("fr-FR"):"")+"\n";
+      body+="▸ Niveau : "+scoreLbl(sig.imp||50,t)+"\n";
+      body+="▸ Lignes potentiellement impactées : "+(imps.map(function(i){return lineLbl(i.line,lang)}).join(", ")||"À évaluer")+"\n\n";
+      if(imps.length>0){body+="Analyse FL :\n"+imps.map(function(i){return "• "+tx(i.why,lang)}).filter(Boolean).join("\n")+"\n\n"}
+      body+="Je vous propose d'en discuter lors de notre prochain échange afin d'évaluer les ajustements éventuels à envisager.\n\n";
+      body+="Cordialement,\nAnne-Sophie Revel\nSenior Account Manager — Financial Lines\nAIG France";
+      return body;
     }else{
-      return `Objet : Point de vigilance FL — ${co.name}
-
-Bonjour${dossier?.rm?` ${dossier.rm}`:""},
-
-Dans le cadre de notre veille Financial Lines, nous avons identifié un signal qui concerne ${co.name} :
-
-▸ ${tx(sig.title,lang)}
-▸ Catégorie : ${cat?.label||sig.cat}
-▸ Niveau d'importance : ${scoreLbl(sig.imp||50,t)}
-
-${imps.length>0?`Implications potentielles :\n${imps.map(i=>"• "+lineLbl(i.line,lang)+": "+tx(i.why,lang)).filter(Boolean).join("\n")}\n`:""}
-${imps.length>0?`Angles de discussion proposés :\n${imps.map(i=>"• "+tx(i.angle,lang)).filter(Boolean).join("\n")}\n`:""}
-Nous restons à votre disposition pour en discuter.
-
-Cordialement,
-Anne-Sophie Revel
-Senior Account Manager — Financial Lines
-AIG France`;
+      var body2="Objet : Point de vigilance FL — "+co.name+"\n\n";
+      body2+="Bonjour"+(dossier?.rm?" "+dossier.rm:"")+",\n\n";
+      body2+="Dans le cadre de notre veille Financial Lines, nous avons identifié un signal qui concerne "+co.name+" :\n\n";
+      body2+="▸ "+tx(sig.title,lang)+"\n";
+      body2+="▸ Catégorie : "+(cat?.label||sig.cat)+"\n";
+      body2+="▸ Niveau d'importance : "+scoreLbl(sig.imp||50,t)+"\n\n";
+      if(imps.length>0){body2+="Implications potentielles :\n"+imps.map(function(i){return "• "+lineLbl(i.line,lang)+": "+tx(i.why,lang)}).filter(Boolean).join("\n")+"\n\n"}
+      if(imps.length>0){body2+="Angles de discussion proposés :\n"+imps.map(function(i){return "• "+tx(i.angle,lang)}).filter(Boolean).join("\n")+"\n\n"}
+      body2+="Nous restons à votre disposition pour en discuter.\n\n";
+      body2+="Cordialement,\nAnne-Sophie Revel\nSenior Account Manager — Financial Lines\nAIG France";
+      return body2;
     }
   };
 
@@ -1484,7 +1470,7 @@ AIG France`;
           <h3 className="lbl" style={{color:"var(--gold)",marginBottom:12}}>{t("smart_alerts")}</h3>
 
           {/* Auto pre-meeting briefs */}
-          {upcomingBriefs.map(m=>{const lbl=mtgLabel(m);return(
+          {upcomingBriefs.map(m=>{const lbl=mtgLabel(m);return (
             <div key={m.id} className="card" style={{padding:"14px 18px",marginBottom:10,borderLeft:"3px solid #DC2626",cursor:"pointer"}} onClick={()=>{setBC(m.cid);setSB(true)}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1501,7 +1487,7 @@ AIG France`;
           )})}
 
           {/* Commercial windows */}
-          {commercialOpps.length>0&&<>{commercialOpps.map(opp=>{const urgCol=opp.urgency==="critical"?"#DC2626":opp.urgency==="high"?"#D97706":"#2563EB";const urgBg=opp.urgency==="critical"?"rgba(220,38,38,.08)":opp.urgency==="high"?"rgba(217,119,6,.08)":"rgba(37,99,235,.08)";return(
+          {commercialOpps.length>0&&<>{commercialOpps.map(opp=>{const urgCol=opp.urgency==="critical"?"#DC2626":opp.urgency==="high"?"#D97706":"#2563EB";const urgBg=opp.urgency==="critical"?"rgba(220,38,38,.08)":opp.urgency==="high"?"rgba(217,119,6,.08)":"rgba(37,99,235,.08)";return (
             <div key={opp.co.id} className="card" style={{padding:"14px 18px",marginBottom:10,borderLeft:`3px solid ${urgCol}`}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                 <div style={{display:"flex",alignItems:"center",gap:8}}>
