@@ -634,8 +634,30 @@ function App(){
   const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
   const[editingDossier,setEditingDossier]=useState(null);
   const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:""});
+  const[dossierFiles,setDossierFiles]=useState(()=>lsGet("dossierFiles",{}));
+  const fileInputRef=useRef(null);
   const openDossier=(cid)=>{const d=clientDossiers[cid]||{broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:""};setDossierDraft(d);setEditingDossier(cid)};
   const saveDossier=()=>{if(!editingDossier)return;setClientDossiers(prev=>{const n={...prev,[editingDossier]:{...dossierDraft,updatedAt:new Date().toISOString()}};lsSet("clientDossiers",n);if(sbOk)sbFetch("client_dossiers","POST",{id:editingDossier,user_email:USER_EMAIL,company_id:editingDossier,data:n[editingDossier]}).catch(()=>{});return n});setEditingDossier(null);showT(lang==="fr"?"Dossier sauvegardé":"Dossier saved")};
+  const handleFileUpload=(e)=>{
+    const files=Array.from(e.target.files||[]);if(!files.length||!editingDossier)return;
+    const maxSize=5*1024*1024;
+    files.forEach(file=>{
+      if(file.size>maxSize){showT(lang==="fr"?"Fichier trop volumineux (max 5Mo)":"File too large (max 5MB)");return}
+      const reader=new FileReader();
+      reader.onload=(ev)=>{
+        const entry={id:"f"+Date.now()+Math.random().toString(36).slice(2,6),name:file.name,size:file.size,type:file.type,data:ev.target.result,uploadedAt:new Date().toISOString()};
+        setDossierFiles(prev=>{const n={...prev};if(!n[editingDossier])n[editingDossier]=[];n[editingDossier]=[entry,...n[editingDossier]];lsSet("dossierFiles",n);return n});
+        showT(lang==="fr"?file.name+" ajouté":"Added "+file.name);
+      };
+      reader.readAsDataURL(file);
+    });
+    if(e.target)e.target.value="";
+  };
+  const deleteFile=(cid,fid)=>{setDossierFiles(prev=>{const n={...prev};if(n[cid])n[cid]=n[cid].filter(f=>f.id!==fid);lsSet("dossierFiles",n);return n});showT(lang==="fr"?"Fichier supprimé":"File deleted")};
+  const downloadFile=(f)=>{const a=document.createElement("a");a.href=f.data;a.download=f.name;a.click()};
+  const fmtSize=(b)=>b<1024?b+"B":b<1048576?Math.round(b/1024)+"Ko":Math.round(b/1048576*10)/10+"Mo";
+  const fileIcon=(name)=>{const ext=(name||"").split(".").pop().toLowerCase();if(["pdf"].includes(ext))return "PDF";if(["xlsx","xls","csv"].includes(ext))return "XLS";if(["doc","docx"].includes(ext))return "DOC";if(["png","jpg","jpeg","gif"].includes(ext))return "IMG";if(["txt"].includes(ext))return "TXT";return "DOC"};
+  const fileIconColor=(name)=>{const ext=(name||"").split(".").pop().toLowerCase();if(["pdf"].includes(ext))return {bg:"#FEF2F2",tx:"#991B1B"};if(["xlsx","xls","csv"].includes(ext))return {bg:"#F0FDF4",tx:"#166534"};if(["doc","docx"].includes(ext))return {bg:"#EFF6FF",tx:"#1E40AF"};if(["png","jpg","jpeg","gif"].includes(ext))return {bg:"#FFFBEB",tx:"#92400E"};return {bg:"#F3F4F6",tx:"#374151"}};
   const getDossier=(cid)=>clientDossiers[cid]||null;
   const saveBrief=(cid,content)=>{const co=cos.find(c=>c.id===cid);setBriefHistory(prev=>{const n=[{id:`br${Date.now()}`,cid,company:co?.name||"",date:new Date().toISOString(),signalCount:getSigs(cid).length,lines:getLinesAll(getSigs(cid)),risk:co?.risk||50,preview:content.slice(0,200)},...prev].slice(0,100);lsSet("briefHistory",n);return n})};
   const getBriefHistory=(cid)=>briefHistory.filter(b=>b.cid===cid);
@@ -1305,7 +1327,7 @@ function App(){
       {angles.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("discussion_angles")}</h4><div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:20}}>{angles.map((a,i)=><div key={i} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{color:"var(--gold)",marginTop:1,flexShrink:0}}>▸</span><span style={{fontSize:12,color:"var(--t2)",lineHeight:1.5}}>{a}</span></div>)}</div></>}
       {/* Dossier client */}
       {dos&&(dos.broker||dos.rm||dos.renewal||dos.premium||dos.program||dos.sinistres||dos.context)&&<>
-        <h4 className="lbl" style={{color:"#A78BFA",marginBottom:10}}>📁 {lang==="fr"?"Dossier client":"Client file"}</h4>
+        <h4 className="lbl" style={{color:"#A78BFA",marginBottom:10}}>{lang==="fr"?"Dossier client":"Client file"}</h4>
         <div className="cs" style={{padding:"14px 16px",marginBottom:20}}>
           {(dos.broker||dos.rm)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.broker&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Courtier":"Broker"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.broker}</p></div>}{dos.rm&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>Risk Manager</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.rm}</p></div>}</div>}
           {(dos.renewal||dos.premium)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.renewal&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Renouvellement":"Renewal"}</p><p style={{fontSize:12,color:"#D97706",fontWeight:600}}>{new Date(dos.renewal).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}</p></div>}{dos.premium&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Prime":"Premium"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.premium}</p></div>}</div>}
@@ -1682,7 +1704,7 @@ function App(){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}{lb&&<span style={{color:"var(--t5)"}}> · Brief {fD(lb)}</span>}{ns>0&&<span style={{color:"#34D399",fontWeight:600}}> · 🆕 {ns}</span>}</p></div></div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <button className="btn" style={{padding:"5px 10px",fontSize:10,background:dos?"rgba(91,33,182,.08)":"var(--bg3)",color:dos?"#5B21B6":"var(--t5)",border:`1px solid ${dos?"rgba(139,92,246,.2)":"var(--b)"}`,borderRadius:6}} onClick={()=>openDossier(c.id)}>{dos?"📁":"+"} {lang==="fr"?"Dossier":"File"}</button>
+              <button className="btn" style={{padding:"5px 10px",fontSize:10,background:dos?"rgba(91,33,182,.08)":"var(--bg3)",color:dos?"#5B21B6":"var(--t5)",border:`1px solid ${dos?"rgba(139,92,246,.2)":"var(--b)"}`,borderRadius:6}} onClick={()=>openDossier(c.id)}>{dos?"/":"+"} {lang==="fr"?"Dossier":"File"}</button>
               <button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button>
             </div>
           </div>
@@ -1782,7 +1804,7 @@ function App(){
     {/* Client dossier modal */}
     {editingDossier&&<div className="bsbg" onClick={()=>setEditingDossier(null)}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}><h3 style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>📁 {lang==="fr"?"Dossier client":"Client file"}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setEditingDossier(null)}><I.x/></button></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}><h3 style={{fontSize:18,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Dossier client":"Client file"}</h3><button className="bi" style={{width:32,height:32}} onClick={()=>setEditingDossier(null)}><I.x/></button></div>
       {(()=>{const co=cos.find(c=>c.id===editingDossier);return co?<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:16,border:"1px solid var(--b)"}}><Logo name={co.name} sz={28} fallback={co.logo}/><div><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{co.name}</span><p style={{fontSize:10,color:"var(--t4)"}}>{tx(co.sector,lang)}</p></div></div>:null})()}
       <p style={{fontSize:10,color:"var(--t5)",marginBottom:14}}>{lang==="fr"?"Ces informations enrichiront les prochains briefs de réunion.":"This information will enrich future meeting briefs."}</p>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
@@ -1796,6 +1818,25 @@ function App(){
       <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Programme FL en place":"Current FL programme"}</label><textarea className="inp" value={dossierDraft.program} onChange={e=>setDossierDraft(p=>({...p,program:e.target.value}))} rows={2} placeholder={lang==="fr"?"D&O: 50M€ / Cyber: 10M€ / EPL: 25M€...":"D&O: €50M / Cyber: €10M / EPL: €25M..."}/></div>
       <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Sinistralité / historique":"Claims history"}</label><textarea className="inp" value={dossierDraft.sinistres} onChange={e=>setDossierDraft(p=>({...p,sinistres:e.target.value}))} rows={2} placeholder={lang==="fr"?"Sinistres notables, tendances, fréquence...":"Notable claims, trends, frequency..."}/></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Contexte / informations clés":"Context / key information"}</label><textarea className="inp" value={dossierDraft.context} onChange={e=>setDossierDraft(p=>({...p,context:e.target.value}))} rows={3} placeholder={lang==="fr"?"Informations stratégiques, enjeux particuliers, historique de la relation, points de vigilance...":"Strategic information, specific issues, relationship history, vigilance points..."}/></div>
+      {/* Documents */}
+      <div style={{marginBottom:16}}>
+        <label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8,fontSize:9}}>{lang==="fr"?"Documents joints":"Attached documents"}</label>
+        {(dossierFiles[editingDossier]||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+          {(dossierFiles[editingDossier]||[]).map(f=>{const ic=fileIconColor(f.name);return (
+            <div key={f.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"var(--bg3)",border:"1px solid var(--b)",borderRadius:6}}>
+              <div style={{width:32,height:32,borderRadius:4,background:ic.bg,color:ic.tx,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0}}>{fileIcon(f.name)}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:12,fontWeight:500,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</p>
+                <p style={{fontSize:10,color:"var(--t5)"}}>{fmtSize(f.size)} — {fD(f.uploadedAt)}</p>
+              </div>
+              <button style={{background:"none",border:"none",cursor:"pointer",padding:4}} onClick={()=>downloadFile(f)}><I.download style={{width:14,height:14,color:"var(--gold2)"}}/></button>
+              <button style={{background:"none",border:"none",cursor:"pointer",padding:4}} onClick={()=>deleteFile(editingDossier,f.id)}><I.x style={{width:12,height:12,color:"#991B1B"}}/></button>
+            </div>
+          )})}
+        </div>}
+        <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt,.png,.jpg,.jpeg,.pptx" multiple style={{display:"none"}} onChange={handleFileUpload}/>
+        <button className="btn" style={{width:"100%",padding:"12px",fontSize:12,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px dashed rgba(0,114,206,.2)",borderRadius:6,cursor:"pointer"}} onClick={()=>fileInputRef.current?.click()}>+ {lang==="fr"?"Ajouter un document (.pdf, .xlsx, .doc...)":"Add a document (.pdf, .xlsx, .doc...)"}</button>
+      </div>
       {clientDossiers[editingDossier]?.updatedAt&&<p style={{fontSize:9,color:"var(--t5)",marginBottom:10,fontStyle:"italic"}}>{lang==="fr"?"Dernière mise à jour":"Last updated"}: {fD(clientDossiers[editingDossier].updatedAt)}</p>}
       <button className="btn bp" style={{width:"100%",height:46}} onClick={saveDossier}>{lang==="fr"?"Sauvegarder le dossier":"Save dossier"}</button>
     </div></div>}
