@@ -549,7 +549,7 @@ function App(){
       }
       const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
       if(liveDb&&liveDb.length>0){
-        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
         const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
         setLiveSigs(deduped);
       }
@@ -564,7 +564,7 @@ function App(){
       try{
         const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
         if(liveDb&&liveDb.length>0){
-          const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+          const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
           const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
           setLiveSigs(prev=>{
             if(deduped.length===prev.length&&deduped[0]?.id===prev[0]?.id)return prev;
@@ -913,7 +913,7 @@ function App(){
     try{
       const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
       if(liveDb&&liveDb.length>0){
-        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
         const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
         const prevCount=liveSigs.length;
         setLiveSigs(deduped);
@@ -1301,7 +1301,7 @@ function App(){
       {co&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:18,border:"1px solid var(--b)"}}><Logo name={co.name} sz={28} fallback={co.logo}/><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{co.name}</span><span style={{fontSize:11,color:"var(--t4)",marginLeft:10}}>{tx(co.sector,lang)}</span></div>}
       <div className="dv"/>
       <div style={{marginBottom:22}}><h4 className="lbl" style={{color:"var(--t3)",marginBottom:10}}>{t("what_happened")}</h4><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.65}}>{tx(s.sum,lang)}</p></div>
-      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)"}}>{t("source_label")}</span>{srcUrl(s.src)?<a href={srcUrl(s.src)} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--gold)",fontWeight:500,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>{tx(s.src,lang)}<I.ext/></a>:<span style={{fontSize:11,color:"var(--gold)",fontWeight:500}}>{tx(s.src,lang)}</span>}</div>
+      <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)"}}>{t("source_label")}</span>{(s.url||srcUrl(s.src))?<a href={s.url||srcUrl(s.src)} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--gold2)",fontWeight:500,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>{tx(s.src,lang)}<I.ext/></a>:<span style={{fontSize:11,color:"var(--gold2)",fontWeight:500}}>{tx(s.src,lang)}</span>}</div>
       <div className="dv"/>
       <h4 className="lbl" style={{color:"var(--t3)",marginBottom:12}}>{t("lines_impacted")}</h4>
       {imps.map((im,idx)=><div key={`${im.line}-${idx}`} style={{marginBottom:idx<imps.length-1?12:22}}>
