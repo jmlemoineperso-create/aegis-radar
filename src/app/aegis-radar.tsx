@@ -711,6 +711,8 @@ function App(){
 
   // ── Voice recording ──
   const[showRec,setShowRec]=useState(false);
+  const[showPresentation,setShowPresentation]=useState(null);
+  const[brokerView,setBrokerView]=useState(false);
   const[isOffline,setIsOffline]=useState(false);
   useEffect(()=>{
     const on=()=>setIsOffline(false);const off=()=>setIsOffline(true);
@@ -1439,7 +1441,7 @@ function App(){
   // ── COMPANY PAGE ──
   const CompPage=({cid})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);if(!co)return null;return (
     <div style={{paddingBottom:100}}>
-      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4,color:"rgba(255,255,255,.8)"}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:14,height:14}}/>{t("generate_brief")}</button></div></div></div>
+      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4,color:"rgba(255,255,255,.8)"}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:14,height:14}}/>{t("generate_brief")}</button><button className="btn" style={{padding:"6px 14px",fontSize:12,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>setShowPresentation(co.id)}><I.ext style={{width:14,height:14}}/>{lang==="fr"?"Présenter":"Present"}</button></div></div></div>
       <div style={{padding:"24px 20px"}}>
         <p className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("company_overview")}</p>
         <div className="fi" style={{marginBottom:28}}>
@@ -1653,11 +1655,11 @@ function App(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <h3 className="lbl" style={{color:"var(--gold)"}}>{t("tracked")} ({watched.length})</h3>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}>{[{k:"risk",l:t("sort_risk")},{k:"alpha",l:t("sort_alpha")},{k:"signals",l:t("sort_signals")}].map(s=><button key={s.k} className="btn" style={{padding:"4px 10px",fontSize:10,background:wlSort===s.k?"var(--gbg)":"var(--bg3)",color:wlSort===s.k?"var(--gold)":"var(--t5)",borderRight:"1px solid var(--b)"}} onClick={()=>{setWlSort(s.k);lsSet("wlSort",s.k)}}>{s.l}</button>)}</div>
+            <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}>{[{k:"risk",l:t("sort_risk")},{k:"alpha",l:t("sort_alpha")},{k:"signals",l:t("sort_signals")},{k:"broker",l:lang==="fr"?"Courtier":"Broker"}].map(s=><button key={s.k} className="btn" style={{padding:"4px 10px",fontSize:10,background:wlSort===s.k?"var(--gbg)":"var(--bg3)",color:wlSort===s.k?"var(--gold)":"var(--t5)",borderRight:"1px solid var(--b)"}} onClick={()=>{setWlSort(s.k);lsSet("wlSort",s.k)}}>{s.l}</button>)}</div>
             <div style={{display:"flex",borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}><button className="btn" style={{padding:"4px 8px",background:wlView==="grid"?"var(--gbg)":"var(--bg3)",color:wlView==="grid"?"var(--gold)":"var(--t5)"}} onClick={()=>{setWlView("grid");lsSet("wlView","grid")}}>▦</button><button className="btn" style={{padding:"4px 8px",background:wlView==="list"?"var(--gbg)":"var(--bg3)",color:wlView==="list"?"var(--gold)":"var(--t5)",borderLeft:"1px solid var(--b)"}} onClick={()=>{setWlView("list");lsSet("wlView","list")}}>☰</button></div>
           </div>
         </div>
-        {(()=>{const sorted=[...watched].sort((a,b)=>{if(wlSort==="alpha")return a.name.localeCompare(b.name);if(wlSort==="signals")return getSigs(b.id).length-getSigs(a.id).length;return(b.risk||0)-(a.risk||0)});
+        {(()=>{const sorted=[...watched].sort((a,b)=>{if(wlSort==="alpha")return a.name.localeCompare(b.name);if(wlSort==="signals")return getSigs(b.id).length-getSigs(a.id).length;if(wlSort==="broker"){const ba=(getDossier(a.id)?.broker||"ZZZ").toLowerCase();const bb=(getDossier(b.id)?.broker||"ZZZ").toLowerCase();if(ba!==bb)return ba.localeCompare(bb);return a.name.localeCompare(b.name)}return(b.risk||0)-(a.risk||0)});
         return wlView==="grid"?
         <div className="co-grid" style={{marginBottom:28}}>{sorted.map((c,i)=>{const sc=getSigs(c.id).length;return (
           <div key={c.id} className={`card fi fi${Math.min(i+1,5)} prio-${c.prio}`} style={{padding:"16px 18px",position:"relative"}}>
@@ -1669,8 +1671,9 @@ function App(){
         </div>
         :<div style={{marginBottom:28}}>
         <div style={{display:"grid",gridTemplateColumns:"32px 1fr 80px 50px 50px 36px 22px",alignItems:"center",gap:8,padding:"6px 16px",borderBottom:"2px solid var(--b)"}}><span/><span className="lbl" style={{fontSize:8,color:"var(--t5)"}}>{lang==="fr"?"ENTREPRISE":"COMPANY"}</span><span className="lbl" style={{fontSize:8,color:"var(--t5)"}}>{lang==="fr"?"LIGNES":"LINES"}</span><span className="lbl" style={{fontSize:8,color:"var(--t5)",textAlign:"center"}}>{lang==="fr"?"SIG.":"SIG."}</span><span className="lbl" style={{fontSize:8,color:"var(--t5)",textAlign:"center"}}>NOTES</span><span className="lbl" style={{fontSize:8,color:"var(--t5)",textAlign:"center"}}>{lang==="fr"?"RISQ.":"RISK"}</span><span/></div>
-        {sorted.map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lines=getLinesAll(getSigs(c.id));return (
-          <div key={c.id} className={`fi fi${Math.min(i+1,5)}`} style={{padding:"10px 16px",borderBottom:"1px solid var(--b)",background:i%2===0?"transparent":"rgba(0,43,92,.03)",display:"grid",gridTemplateColumns:"32px 1fr 80px 50px 50px 36px 22px",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSC(c.id)}>
+        {(()=>{let lastBroker="";return sorted.map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lines=getLinesAll(getSigs(c.id));const dos=getDossier(c.id);const broker=dos?.broker||"";const showBrokerHeader=wlSort==="broker"&&broker!==lastBroker;if(wlSort==="broker")lastBroker=broker;return (<div key={c.id}>
+          {showBrokerHeader&&<div style={{padding:"10px 16px",background:"rgba(0,114,206,.04)",borderBottom:"2px solid var(--b)",marginTop:i>0?12:0}}><span style={{fontSize:12,fontWeight:700,color:"var(--gold)"}}>{broker||( lang==="fr"?"Sans courtier":"No broker")}</span><span style={{fontSize:10,color:"var(--t5)",marginLeft:8}}>{sorted.filter(x=>(getDossier(x.id)?.broker||"")===broker).length} {lang==="fr"?"entreprise(s)":"company(ies)"}</span></div>}
+          <div className={`fi fi${Math.min(i+1,5)}`} style={{padding:"10px 16px",borderBottom:"1px solid var(--b)",background:i%2===0?"transparent":"rgba(0,43,92,.03)",display:"grid",gridTemplateColumns:"32px 1fr 80px 50px 50px 36px 22px",alignItems:"center",gap:8,cursor:"pointer"}} onClick={()=>setSC(c.id)}>
               <Logo name={c.name} sz={28} fallback={c.logo}/>
               <div style={{minWidth:0}}>
                 <h4 style={{fontSize:12,fontWeight:600,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.name}</h4>
@@ -1681,7 +1684,7 @@ function App(){
               <div style={{textAlign:"center"}}><span style={{fontSize:11,color:nc>0?"var(--gold2)":"var(--t5)",fontWeight:nc>0?600:400}}>{nc}</span><p style={{fontSize:7,color:"var(--t5)",marginTop:1}}>{t("notes_lc")}</p></div>
               <SR s={c.risk} sz={32} sw={2}/>
               <button style={{width:20,height:20,borderRadius:5,background:"rgba(239,68,68,.08)",border:"1px solid rgba(220,38,38,.08)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={e=>{e.stopPropagation();togW(c.id)}}><I.x style={{width:9,height:9,color:"#DC2626"}}/></button>
-          </div>)})}
+          </div></div>)})})()}
         </div>;})()}{watched.length===0&&<div style={{textAlign:"center",padding:"48px 20px"}}><p style={{fontSize:14,color:"var(--t3)",fontWeight:500,marginBottom:4}}>{t("no_companies_yet")}</p><p style={{fontSize:13,color:"var(--t5)"}}>{t("no_companies_sub")}</p></div>}
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:10}}>{t("add_company")}</h3><input className="inp" style={{marginBottom:14}} placeholder={t("search_company")} value={addSrch} onChange={e=>{setAS(e.target.value);searchExternal(e.target.value)}}/>{(()=>{const localFiltered=cos.filter(c=>!c.prio).filter(c=>!addSrch||c.name.toLowerCase().includes(addSrch.toLowerCase())||(c.ticker||"").toLowerCase().includes(addSrch.toLowerCase())||tx(c.sector,lang).toLowerCase().includes(addSrch.toLowerCase()));return (<><div style={{display:"flex",flexDirection:"column",gap:10}}>{localFiltered.slice(0,10).map(c=>(<div key={c.id} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><button style={{flex:1,textAlign:"left",background:"none",border:"none",cursor:"pointer",minWidth:0,fontFamily:"inherit",color:"inherit"}} onClick={()=>setSC(c.id)}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t2)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)"}}>{tx(c.sector,lang)}</p></button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>togW(c.id)}><I.plus/>{t("add_to_watchlist")}</button></div>))}</div>{addSrch.length>=3&&<>{extLoading&&<p style={{fontSize:12,color:"var(--t4)",marginTop:14,textAlign:"center"}}>{t("searching")}</p>}{!extLoading&&extRes.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginTop:18,marginBottom:10}}>{t("ext_results")}</h4><div style={{display:"flex",flexDirection:"column",gap:10}}>{extRes.map((r,i)=>(<div key={i} className="card" style={{padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",borderColor:"rgba(0,114,206,.15)"}}><div style={{flex:1,minWidth:0}}><h4 style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{r.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{r.desc}</p></div><button className="btn bp" style={{padding:"6px 14px",fontSize:12,flexShrink:0,marginLeft:10}} onClick={()=>addExtCompany(r.name,r.desc)}><I.plus/>{lang==="fr"?"Ajouter":"Add"}</button></div>))}</div></>}{!extLoading&&extRes.length===0&&localFiltered.length===0&&addSrch.length>=3&&<p style={{fontSize:12,color:"var(--t4)",marginTop:14,textAlign:"center"}}>{t("no_ext_results")}</p>}</>}</>)})()}
       </div>
@@ -1985,6 +1988,55 @@ function App(){
       ))}</div></>}
       <button className="btn bp" style={{width:"100%",height:46}} onClick={copyWeekly}><I.copy/>{t("copy_weekly")}</button>
     </div></div>}
+    {/* ═══ PRESENTATION MODE ═══ */}
+    {showPresentation&&(()=>{const co=cos.find(c=>c.id===showPresentation);if(!co)return null;const sigs=getSigs(showPresentation);const lines=getLinesAll(sigs);const dos=getDossier(showPresentation);const imps=[...IMPACTS,...liveImpacts].filter(i=>sigs.some(s=>s.id===i.sid));return(
+    <div style={{position:"fixed",inset:0,background:"#fff",zIndex:500,overflow:"auto",padding:"40px 60px"}} onClick={e=>e.target===e.currentTarget&&setShowPresentation(null)}>
+      <button style={{position:"fixed",top:16,right:16,background:"#002B5C",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer",zIndex:501}} onClick={()=>setShowPresentation(null)}>{lang==="fr"?"Fermer":"Close"}</button>
+      <div style={{maxWidth:900,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:32}}>
+          <Logo name={co.name} sz={56} fallback={co.logo}/>
+          <div>
+            <h1 style={{fontSize:32,fontWeight:600,color:"#002B5C",marginBottom:4}}>{co.name}</h1>
+            <p style={{fontSize:16,color:"#5C6B7D"}}>{tx(co.sector,lang)} — {co.hq}</p>
+          </div>
+          <div style={{marginLeft:"auto",textAlign:"center"}}>
+            <div style={{fontSize:36,fontWeight:700,color:sC(co.risk)}}>{co.risk}</div>
+            <p style={{fontSize:11,color:"#7D8A9A",textTransform:"uppercase",letterSpacing:"0.1em"}}>Score risque</p>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:32}}>
+          <div style={{background:"#F3F5F7",borderRadius:8,padding:20,textAlign:"center"}}><p style={{fontSize:28,fontWeight:700,color:"#002B5C"}}>{sigs.length}</p><p style={{fontSize:12,color:"#7D8A9A"}}>{lang==="fr"?"Signaux actifs":"Active signals"}</p></div>
+          <div style={{background:"#F3F5F7",borderRadius:8,padding:20,textAlign:"center"}}><p style={{fontSize:28,fontWeight:700,color:"#DC2626"}}>{sigs.filter(s=>(s.imp||0)>=80).length}</p><p style={{fontSize:12,color:"#7D8A9A"}}>{lang==="fr"?"Critiques":"Critical"}</p></div>
+          <div style={{background:"#F3F5F7",borderRadius:8,padding:20,textAlign:"center"}}><p style={{fontSize:28,fontWeight:700,color:"#0072CE"}}>{lines.length}</p><p style={{fontSize:12,color:"#7D8A9A"}}>{lang==="fr"?"Lignes impactées":"Lines impacted"}</p></div>
+        </div>
+        {dos&&<div style={{background:"#F3F5F7",borderRadius:8,padding:20,marginBottom:32}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:"#002B5C",marginBottom:12}}>{lang==="fr"?"Dossier client":"Client file"}</h3>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,fontSize:13,color:"#3D4E63"}}>
+            {dos.broker&&<p><strong>{lang==="fr"?"Courtier":"Broker"}:</strong> {dos.broker}</p>}
+            {dos.rm&&<p><strong>Risk Manager:</strong> {dos.rm}</p>}
+            {dos.renewal&&<p><strong>{lang==="fr"?"Renouvellement":"Renewal"}:</strong> {dos.renewal}</p>}
+            {dos.premium&&<p><strong>{lang==="fr"?"Prime":"Premium"}:</strong> {dos.premium}</p>}
+          </div>
+          {dos.program&&<p style={{fontSize:13,color:"#3D4E63",marginTop:8}}><strong>{lang==="fr"?"Programme":"Programme"}:</strong> {dos.program}</p>}
+        </div>}
+        {lines.length>0&&<div style={{marginBottom:32}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:"#002B5C",marginBottom:12}}>{lang==="fr"?"Lignes impactées":"Impacted lines"}</h3>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{lines.map(l=><span key={l} style={{padding:"6px 14px",borderRadius:20,background:"rgba(0,114,206,.06)",color:"#002B5C",fontSize:13,fontWeight:500,border:"1px solid rgba(0,114,206,.15)"}}>{lineLbl(l,lang)}</span>)}</div>
+        </div>}
+        <h3 style={{fontSize:14,fontWeight:600,color:"#002B5C",marginBottom:12}}>{lang==="fr"?"Signaux prioritaires":"Priority signals"}</h3>
+        {sigs.slice(0,8).map((s,i)=>{const cat=getCat(s.cat,lang);return(
+          <div key={s.id||i} style={{padding:"14px 18px",borderLeft:"3px solid "+(sC(s.imp||50)),marginBottom:8,background:"#FAFBFC",borderRadius:"0 8px 8px 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+              <span style={{fontSize:14,fontWeight:600,color:"#263348"}}>{tx(s.title,lang)}</span>
+              <span style={{fontSize:11,fontWeight:700,color:sC(s.imp||50)}}>{scoreLbl(s.imp||50,t)}</span>
+            </div>
+            <p style={{fontSize:12,color:"#5C6B7D"}}>{tx(s.sum,lang)}</p>
+            <div style={{display:"flex",gap:8,marginTop:6}}><span style={{fontSize:10,color:"#7D8A9A"}}>{cat?.label}</span><span style={{fontSize:10,color:"#7D8A9A"}}>·</span><span style={{fontSize:10,color:"#7D8A9A"}}>{tx(s.src,lang)}</span><span style={{fontSize:10,color:"#7D8A9A"}}>·</span><span style={{fontSize:10,color:"#7D8A9A"}}>{fD(s.at)}</span></div>
+          </div>
+        )})}
+        <div style={{textAlign:"center",marginTop:40,color:"#A8B1BD",fontSize:11}}>&copy; 2026 AIG — Lines Intelligence</div>
+      </div>
+    </div>)})()}
     {toast&&<div className="toast">{toast}</div>}
   </>);
 }
