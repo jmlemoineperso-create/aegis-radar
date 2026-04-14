@@ -1018,26 +1018,43 @@ function App(){
     const cn=getNotes(cid);
     const lines=getLinesAll(sigs);
 
-    const prompt=`Tu es un expert senior en assurance grandes entreprises, spécialisé dans l'analyse de risques et le placement de programmes. Tu analyses l'entreprise ci-dessous pour un Account Manager AIG.
+    // ── Anonymization mapping ──
+    const anonMap={};const deAnonMap={};let idx=1;
+    const anon=(real,prefix)=>{if(!real||real==="N/A")return real;const key=real.trim();if(anonMap[key])return anonMap[key];const code=prefix+"-"+String.fromCharCode(64+idx);idx++;anonMap[key]=code;deAnonMap[code]=key;return code};
+    const anonCo=anon(co.name,"ENTREPRISE");
+    const anonBroker=dos?.broker?anon(dos.broker,"COURTIER"):null;
+    const anonRm=dos?.rm?anon(dos.rm,"CONTACT"):null;
+    const insurers=[...new Set((dos?.programLines||[]).flatMap(p=>(p.layers||[]).map(l=>l.insurer)).filter(Boolean))];
+    insurers.forEach((ins,i)=>anon(ins,"ASSUREUR"));
+    const contacts=(dos?.contacts||[]).filter(c=>c.name);
+    contacts.forEach(c=>anon(c.name,"PERSONNE"));
 
-ENTREPRISE: ${co.name}
+    // ── Build anonymized prompt ──
+    const anonProgram=(dos?.programLines||[]).map(p=>p.line+": "+(p.layers||[]).map(l=>(anonMap[l.insurer]||l.insurer)+" "+l.from+"-"+l.to+"M\u20ac ("+(l.share||100)+"%)").join(", ")).join("\n");
+    const anonSigs=sigs.slice(0,15).map(s=>"- ["+(s.imp||50)+"] "+tx(s.title,lang)+" ("+tx(s.src,lang)+", "+(s.at?new Date(s.at).toLocaleDateString("fr-FR"):"")+")" ).join("\n");
+    const anonNotes=cn.slice(0,5).map(n=>"- ["+n.tag+"] "+(typeof n.text==="object"?tx(n.text,lang):n.text)).join("\n");
+
+    const prompt=`Tu es un expert senior en assurance grandes entreprises. Tu analyses une entreprise pour un Account Manager.
+IMPORTANT: Les noms sont anonymisés. Utilise les codes fournis dans ta réponse.
+
+ENTREPRISE: ${anonCo}
 SECTEUR: ${tx(co.sector,lang)}
-SIÈGE: ${co.hq || "France"}
-CAPITALISATION: ${co.cap || "N/A"}
-EFFECTIFS: ${co.emp || "N/A"}
-SCORE DE RISQUE ACTUEL: ${co.risk || 50}/100
+SIÈGE: ${co.hq||"Europe"}
+CAPITALISATION: ${co.cap||"N/A"}
+EFFECTIFS: ${co.emp||"N/A"}
+SCORE DE RISQUE ACTUEL: ${co.risk||50}/100
 
 DOSSIER CLIENT:
-${dos ? `Courtier: ${dos.broker || "N/A"} | Risk Manager: ${dos.rm || "N/A"} | Renouvellement: ${dos.renewal || "N/A"} | Prime: ${dos.premium || "N/A"} | Programme: ${dos.program || "N/A"} | Sinistralité: ${dos.sinistres || "N/A"} | Contexte: ${dos.context || "N/A"}` : "Aucun dossier renseigné"}
-${dos?.programLines?.length > 0 ? "STRUCTURE PROGRAMME:\n" + dos.programLines.map(p => p.line + ": " + (p.layers || []).map(l => l.insurer + " " + l.from + "-" + l.to + "M€ (" + (l.share || 100) + "%)").join(", ")).join("\n") : ""}
+Courtier: ${anonBroker||"N/A"} | Risk Manager: ${anonRm||"N/A"} | Renouvellement: ${dos?.renewal||"N/A"} | Prime: ${dos?.premium||"N/A"} | Programme: ${dos?.program||"N/A"} | Sinistralité: ${dos?.sinistres||"N/A"} | Contexte: ${dos?.context||"N/A"}
+${anonProgram?"STRUCTURE PROGRAMME:\n"+anonProgram:""}
 
 SIGNAUX RÉCENTS (${sigs.length}):
-${sigs.slice(0, 15).map(s => "- [" + (s.imp || 50) + "] " + tx(s.title, lang) + " (" + tx(s.src, lang) + ", " + (s.at ? new Date(s.at).toLocaleDateString("fr-FR") : "") + ")").join("\n")}
+${anonSigs}
 
-LIGNES IMPACTÉES: ${lines.map(l => lineLbl(l, lang)).join(", ") || "Aucune"}
+LIGNES IMPACTÉES: ${lines.map(l=>lineLbl(l,lang)).join(", ")||"Aucune"}
 
 NOTES INTERNES (${cn.length}):
-${cn.slice(0, 5).map(n => "- [" + n.tag + "] " + (typeof n.text === "object" ? tx(n.text, lang) : n.text)).join("\n")}
+${anonNotes}
 
 Produis une ANALYSE STRATÉGIQUE STRUCTURÉE en JSON avec exactement cette structure:
 {
@@ -1055,20 +1072,23 @@ Produis une ANALYSE STRATÉGIQUE STRUCTURÉE en JSON avec exactement cette struc
 Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 2000,
-          messages: [{ role: "user", content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       const text = (data.content || []).map(c => c.text || "").join("");
       const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-      const parsed = JSON.parse(clean);
+
+      // ── De-anonymize: replace codes with real names ──
+      let result = clean;
+      for (const [code, real] of Object.entries(deAnonMap)) {
+        result = result.split(code).join(real);
+      }
+
+      const parsed = JSON.parse(result);
       setAnalysisResult(parsed);
       logActivity("analysis", co.name + " — Analyse stratégique");
     } catch (e) {
