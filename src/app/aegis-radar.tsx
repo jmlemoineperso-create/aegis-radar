@@ -2,8 +2,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef, createContext, useContext } from "react";
 
 // ── Supabase REST helper (no library needed) ──
-const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://uexaflnvlzatfizfyrtq.supabase.co";
+const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVleGFmbG52bHphdGZpemZ5cnRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0Mzc4NDcsImV4cCI6MjA5MTAxMzg0N30.ZH-WRExhivSVNUawPjP2N62BBIl4j8sAnbrE6G1u-AI";
 const sbOk = !!(SB_URL && SB_KEY);
 const sbFetch = async (table, method = "GET", body = null, query = "") => {
   if (!sbOk) return null;
@@ -373,7 +373,7 @@ const srcUrl=name=>{const n=typeof name==="object"?name.en:name;return SRC_URL[n
 const getSigsStatic=cid=>SIGNALS.filter(s=>s.cid===cid).sort((a,b)=>b.imp-a.imp);
 const getImps=sid=>IMPACTS.filter(i=>i.sid===sid);
 const getNotesStatic=cid=>NOTES.filter(n=>n.cid===cid).sort((a,b)=>new Date(b.at)-new Date(a.at));
-const getAllLines=sigs=>[...new Set(sigs.flatMap(s=>getImps(s.id).map(i=>i.line)))];
+const getAllLines=sigs=>[...new Set(sigs.flatMap(s=>getImps(s.id).flatMap(i=>(i.line||"").split("|").map(l=>l.trim()).filter(Boolean))))];
 
 // ── UTILS ──
 const getCat=(id,lang)=>{const c=CATS.find(x=>x.id===id);return c?{...c,label:c.label[lang]||c.label.en,s:c.s[lang]||c.s.en}:null};
@@ -1086,9 +1086,9 @@ function App(){
     const live=liveSigs.map(s=>({...s,impacts:undefined}));
     return[...SIGNALS,...live];
   },[liveSigs]);
-  const liveImpacts=useMemo(()=>liveSigs.flatMap(s=>(s._impacts||[]).map(i=>({sid:s.id,line:i.line,lvl:i.level,why:i.why,angle:i.angle,vig:[],hyp:[]}))),[liveSigs]);
+  const liveImpacts=useMemo(()=>liveSigs.flatMap(s=>(s._impacts||[]).flatMap(i=>{const lines=(i.line||"").split("|").map(l=>l.trim()).filter(Boolean);if(lines.length<=1)return[{sid:s.id,line:i.line||"",lvl:i.level,why:i.why,angle:i.angle,vig:[],hyp:[]}];return lines.map(l=>({sid:s.id,line:l,lvl:i.level,why:i.why,angle:i.angle,vig:[],hyp:[]}))})),[liveSigs]);
   const getImpsAll=useCallback(sid=>{const stat=IMPACTS.filter(i=>i.sid===sid);const live=liveImpacts.filter(i=>i.sid===sid);return[...stat,...live]},[liveImpacts]);
-  const getLinesAll=useCallback(sigs=>[...new Set(sigs.flatMap(s=>getImpsAll(s.id).map(i=>i.line)))],[getImpsAll]);
+  const getLinesAll=useCallback(sigs=>[...new Set(sigs.flatMap(s=>getImpsAll(s.id).flatMap(i=>(i.line||"").split("|").map(l=>l.trim()).filter(Boolean))))],[getImpsAll]);
 
   // getSigs and getNotes include live data
   const getSigs=useCallback(cid=>{
@@ -1210,7 +1210,7 @@ function App(){
       if((s.imp||0)>=scoreThresholds.critical)byCo[name].crit++;
     });
     const byCat={};recentSigs.forEach(s=>{byCat[s.cat]=(byCat[s.cat]||0)+1});
-    const byLine={};recentSigs.forEach(s=>{getImpsAll(s.id).forEach(i=>{byLine[i.line]=(byLine[i.line]||0)+1})});
+    const byLine={};recentSigs.forEach(s=>{getImpsAll(s.id).forEach(i=>{(i.line||"").split("|").map(l=>l.trim()).filter(Boolean).forEach(l=>{byLine[l]=(byLine[l]||0)+1})})});
     return{total:recentSigs.length,crit:recentSigs.filter(s=>(s.imp||0)>=scoreThresholds.critical).length,byCo,byCat,byLine,meetingsThisWeek:meetings.filter(m=>{const d=new Date(m.date).getTime();return d>now-w7&&d<now+w7}).length};
   },[allSignals,cos,scoreThresholds,meetings,getImpsAll]);
 
@@ -1590,7 +1590,7 @@ function App(){
             {/* Lines coverage */}
             <div className="cs" style={{padding:"12px 14px"}}>
               <p className="lbl" style={{color:"var(--t4)",marginBottom:8,fontSize:9}}>{t("portfolio_lines")}</p>
-              {(()=>{const allLines=wlSigs.flatMap(s=>getImpsAll(s.id).map(i=>i.line));const lineCounts={};allLines.forEach(l=>{lineCounts[l]=(lineCounts[l]||0)+1});const sorted=Object.entries(lineCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);return sorted.length>0?sorted.map(([l,n])=><div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              {(()=>{const allLines=wlSigs.flatMap(s=>getImpsAll(s.id).flatMap(i=>(i.line||"").split("|").map(l=>l.trim()).filter(Boolean)));const lineCounts={};allLines.forEach(l=>{lineCounts[l]=(lineCounts[l]||0)+1});const sorted=Object.entries(lineCounts).sort((a,b)=>b[1]-a[1]).slice(0,6);return sorted.length>0?sorted.map(([l,n])=><div key={l} style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                 <span style={{fontSize:11,color:"var(--t2)"}}>{lineLbl(l,lang)}</span>
                 <span style={{fontSize:10,fontWeight:600,color:"var(--gold)"}}>{n}</span>
               </div>):<p style={{fontSize:10,color:"var(--t5)",fontStyle:"italic"}}>{lang==="fr"?"Aucun signal":"No signals"}</p>})()}
