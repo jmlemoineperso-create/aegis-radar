@@ -506,7 +506,69 @@ function App(){
   const[loginEm,setLoginEm]=useState("");
   const[loginPw,setLoginPw]=useState("");
   const[loginErr,setLoginErr]=useState(false);
-  const tryLogin=()=>{if(loginEm.toLowerCase()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){setLoginErr(false);loadDB();setStep("select")}else{setLoginErr(true)}};
+  const[loginLoading,setLoginLoading]=useState(false);
+  const[authToken,setAuthToken]=useState(()=>lsGet("authToken",null));
+  const[authEmail,setAuthEmail]=useState(()=>lsGet("authEmail",""));
+
+  const tryLogin=async()=>{
+    if(!loginEm||!loginPw)return;
+    setLoginLoading(true);setLoginErr(false);
+    try{
+      // Try Supabase Auth sign-in
+      const res=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","apikey":SB_KEY},
+        body:JSON.stringify({email:loginEm.toLowerCase().trim(),password:loginPw})
+      });
+      if(res.ok){
+        const data=await res.json();
+        setAuthToken(data.access_token);
+        setAuthEmail(data.user?.email||loginEm.toLowerCase().trim());
+        lsSet("authToken",data.access_token);
+        lsSet("authEmail",data.user?.email||loginEm.toLowerCase().trim());
+        setLoginErr(false);loadDB(data.user?.email||loginEm.toLowerCase().trim());setStep("select");
+      }else{
+        // If Supabase Auth fails, try legacy login
+        if(loginEm.toLowerCase().trim()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){
+          setAuthEmail("asprevel@gmail.com");lsSet("authEmail","asprevel@gmail.com");
+          setLoginErr(false);loadDB("asprevel@gmail.com");setStep("select");
+        }else{
+          setLoginErr(true);
+        }
+      }
+    }catch(e){
+      // Offline fallback: legacy login
+      if(loginEm.toLowerCase().trim()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){
+        setAuthEmail("asprevel@gmail.com");lsSet("authEmail","asprevel@gmail.com");
+        setLoginErr(false);loadDB("asprevel@gmail.com");setStep("select");
+      }else{setLoginErr(true)}
+    }
+    setLoginLoading(false);
+  };
+
+  const trySignup=async()=>{
+    if(!loginEm||!loginPw||loginPw.length<6)return;
+    setLoginLoading(true);setLoginErr(false);
+    try{
+      const res=await fetch(`${SB_URL}/auth/v1/signup`,{
+        method:"POST",
+        headers:{"Content-Type":"application/json","apikey":SB_KEY},
+        body:JSON.stringify({email:loginEm.toLowerCase().trim(),password:loginPw})
+      });
+      if(res.ok){
+        showT(lang==="fr"?"Compte créé ! Connectez-vous.":"Account created! Sign in.");
+      }else{
+        const err=await res.json();
+        showT(err.msg||err.error_description||(lang==="fr"?"Erreur de création":"Signup error"));
+      }
+    }catch(e){showT(lang==="fr"?"Erreur réseau":"Network error")}
+    setLoginLoading(false);
+  };
+
+  const logout=()=>{
+    setAuthToken(null);setAuthEmail("");setStep("login");
+    lsSet("authToken",null);lsSet("authEmail","");
+  };
   const[cos,setCos]=useState(()=>{
     const savedPrios=lsGet("watchPrios",null);
     const savedExtras=lsGet("watchExtras",[]);
@@ -522,9 +584,10 @@ function App(){
   const[dbLoaded,setDbLoaded]=useState(false);
 
   // ── Supabase persistence ──
-  const USER_EMAIL="asprevel@gmail.com";
+  const USER_EMAIL=authEmail||"asprevel@gmail.com";
 
-  const loadDB=useCallback(async()=>{
+  const loadDB=useCallback(async(email)=>{
+    const ue=email||authEmail||"asprevel@gmail.com";
     if(!sbOk){setDbLoaded(true);return}
     try{
       const prefs=await sbFetch("user_prefs","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&limit=1`);
@@ -955,7 +1018,7 @@ function App(){
 
   // Auto-load DB if already logged in (page refresh)
   useEffect(()=>{
-    if(step==="app"&&!dbLoaded)loadDB();
+    if(step==="app"&&!dbLoaded)loadDB(authEmail);
   },[step,dbLoaded,loadDB]);
 
   // Seed risk history with base scores and auto-refresh on app start
@@ -1264,7 +1327,8 @@ function App(){
           <input className="inp" type="password" placeholder={t("password")} value={loginPw} onChange={e=>{setLoginPw(e.target.value);setLoginErr(false)}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} style={loginErr?{borderColor:"#DC2626"}:{}}/>
         </div>
         {loginErr&&<p style={{fontSize:12,color:"#991B1B",marginBottom:10}}>{t("login_err")}</p>}
-        <button className="btn bp" style={{width:"100%",height:46,borderRadius:6}} onClick={tryLogin}>{lang==="fr"?"Se connecter":"Sign in"}</button>
+        <button className="btn bp" style={{width:"100%",height:46,borderRadius:6,opacity:loginLoading?.6:1}} onClick={tryLogin} disabled={loginLoading}>{loginLoading?(lang==="fr"?"Connexion...":"Signing in..."):(lang==="fr"?"Se connecter":"Sign in")}</button>
+        <button style={{background:"none",border:"none",fontSize:12,color:"#0072CE",cursor:"pointer",marginTop:12,display:"block",width:"100%"}} onClick={trySignup}>{lang==="fr"?"Créer un compte":"Create account"}</button>
         <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:20}}>
           <button style={{background:"none",border:"none",fontSize:12,color:lang==="en"?"#002B5C":"#A8B1BD",fontWeight:lang==="en"?600:400,cursor:"pointer"}} onClick={()=>setLang("en")}>EN</button>
           <span style={{color:"#CDD3DA",fontSize:12}}>|</span>
@@ -1762,7 +1826,8 @@ function App(){
       <div className="hdr"><h2 style={{fontSize:18,fontWeight:700,color:"#fff"}}>{t("settings_title")}</h2></div>
       <div style={{padding:"24px 20px"}}>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("profile")}</h3>
-        <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"linear-gradient(135deg,var(--gold),rgba(0,114,206,.6))",color:"var(--bg)"}}>AS</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>Anne-Sophie</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines France</p></div></div></div>
+        <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"var(--gold)",color:"#fff"}}>{(authEmail||"AS").substring(0,2).toUpperCase()}</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{authEmail||"Anne-Sophie"}</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines France</p></div></div></div>
+        <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"#DC2626",background:"rgba(220,38,38,.04)",border:"1px solid rgba(220,38,38,.12)",borderRadius:8,cursor:"pointer",marginBottom:28}} onClick={logout}><I.logout style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Se déconnecter":"Sign out"}</button>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("language")}</h3>
         <div className="lang-sw" style={{marginBottom:28}}><button className={lang==="en"?"on":""} onClick={()=>{setLang("en");savePrefsDB({lang:"en"})}}>English</button><button className={lang==="fr"?"on":""} onClick={()=>{setLang("fr");savePrefsDB({lang:"fr"})}}>Français</button></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("preferred_lines")}</h3>
