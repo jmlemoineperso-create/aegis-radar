@@ -419,8 +419,8 @@ const css=`:root{--bg:#F3F5F7;--bg2:#FFFFFF;--bg3:#F3F5F7;--bg4:#E2E6EB;--b:#E2E
 .hdr{position:sticky;top:0;z-index:50;background:#002B5C;border-bottom:1px solid #001E42;padding:14px 20px;color:#fff}.hdr h2,.hdr h3,.hdr span,.hdr p{color:rgba(255,255,255,.85)}.hdr .lbl{color:rgba(255,255,255,.5)}.hdr .bi{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.8)}.hdr .bi:hover{background:rgba(255,255,255,.18)}.hdr .inp{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff}.hdr .inp::placeholder{color:rgba(255,255,255,.4)}.hdr .inp:focus{border-color:rgba(255,255,255,.3);box-shadow:none}.hdr .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}.hdr .chip.on{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)}.hdr .bg{color:rgba(255,255,255,.8)}.hdr .bp{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)}.hdr .bp:hover{background:rgba(255,255,255,.25)}
 .tbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--mw);display:flex;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid #E2E6EB;z-index:100;padding:0 0 env(safe-area-inset-bottom,6px)}
 .tbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0 6px;color:#A8B1BD;background:none;border:none;cursor:pointer;transition:color .2s;font-family:inherit}.tbar button.on{color:#002B5C}.tbar span{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
-.bsbg{position:fixed;inset:0;background:rgba(0,43,92,.25);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center}
-.bsm{width:100%;max-width:var(--mw);max-height:92vh;overflow-y:auto;background:#FFFFFF;border-top:1px solid #CDD3DA;border-radius:14px 14px 0 0;padding:8px 22px 28px;animation:su .3s cubic-bezier(.22,1,.36,1)}
+.bsbg{position:fixed;inset:0;background:rgba(0,43,92,.25);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:10px 0}
+.bsm{width:100%;max-width:var(--mw);max-height:85vh;overflow-y:auto;background:#FFFFFF;border-top:1px solid #CDD3DA;border-radius:14px 14px 0 0;padding:8px 22px 28px;animation:su .3s cubic-bezier(.22,1,.36,1)}
 .toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:#002B5C;color:#FFFFFF;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,43,92,.18);border:none;z-index:300;animation:fi .2s ease}
 .mono{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600;font-weight:600;font-size:14px;color:var(--t1);background:linear-gradient(135deg,var(--bg4),var(--bg3));border:1px solid var(--b2);flex-shrink:0}
 .sr{position:relative;display:flex;align-items:center;justify-content:center}.sr svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}.sr-v{font-weight:700;z-index:1}
@@ -937,8 +937,8 @@ function App(){
   const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
   const[editingDossier,setEditingDossier]=useState(null);
   const[brokerOpen,setBrokerOpen]=useState(false);
-  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]});
-  const defaultDossier={broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]};
+  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",rmLastName:"",rmFirstName:"",rmPhone:"",rmMobile:"",rmEmail:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]});
+  const defaultDossier={broker:"",rm:"",rmLastName:"",rmFirstName:"",rmPhone:"",rmMobile:"",rmEmail:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]};
   const[dossierFiles,setDossierFiles]=useState(()=>lsGet("dossierFiles",{}));
   const fileInputRef=useRef(null);
   const openDossier=(cid)=>{const d=clientDossiers[cid]||defaultDossier;setDossierDraft({...defaultDossier,...d});setEditingDossier(cid)};
@@ -1884,7 +1884,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       {dos&&(dos.broker||dos.rm||dos.renewal||dos.premium||dos.program||dos.sinistres||dos.context)&&<>
         <h4 className="lbl" style={{color:"#A78BFA",marginBottom:10}}>{lang==="fr"?"Dossier client":"Client file"}</h4>
         <div className="cs" style={{padding:"14px 16px",marginBottom:20}}>
-          {(dos.broker||dos.rm)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.broker&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Courtier":"Broker"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.broker}</p></div>}{dos.rm&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>Risk Manager</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.rm}</p></div>}</div>}
+          {(dos.broker||dos.rm)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.broker&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Courtier":"Broker"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.broker}</p></div>}{dos.rm&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>Risk Manager</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.rm}</p>{(dos.rmPhone||dos.rmMobile)&&<p style={{fontSize:10,color:"var(--t4)",marginTop:2}}>{dos.rmPhone&&<a href={"tel:"+dos.rmPhone} style={{color:"var(--t4)",textDecoration:"none"}}>{dos.rmPhone}</a>}{dos.rmPhone&&dos.rmMobile?" · ":""}{dos.rmMobile&&<a href={"tel:"+dos.rmMobile} style={{color:"var(--t4)",textDecoration:"none"}}>{dos.rmMobile}</a>}</p>}{dos.rmEmail&&<p style={{fontSize:10,marginTop:1}}><a href={"mailto:"+dos.rmEmail} style={{color:"var(--gold2)",textDecoration:"none"}}>{dos.rmEmail}</a></p>}</div>}</div>}
           {(dos.renewal||dos.premium)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.renewal&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Renouvellement":"Renewal"}</p><p style={{fontSize:12,color:"#D97706",fontWeight:600}}>{new Date(dos.renewal).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}</p></div>}{dos.premium&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Prime":"Premium"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.premium}</p></div>}</div>}
           {dos.program&&<div style={{marginBottom:8}}><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Programme FL":"FL Programme"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.program}</p></div>}
           {dos.sinistres&&<div style={{marginBottom:8}}><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Sinistralité":"Claims"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.sinistres}</p></div>}
@@ -2594,7 +2594,20 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
             {brokerFiltered.length===0&&<p style={{fontSize:11,color:"var(--t4)",padding:"8px 12px"}}>{lang==="fr"?"Courtier non listé — tapez le nom":"Broker not listed — type the name"}</p>}
           </div>}
         </>)})()}</div>
-        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Risk Manager":"Risk Manager"}</label><div style={{display:"flex",gap:6}}><input className="inp" style={{flex:1}} value={dossierDraft.rm} onChange={e=>setDossierDraft(p=>({...p,rm:e.target.value}))} placeholder={lang==="fr"?"Nom du RM...":"RM name..."}/><button style={{padding:"4px 8px",fontSize:9,color:"var(--gold2)",background:"rgba(0,114,206,.06)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>{const co=cos.find(c=>c.id===editingDossier);const q=encodeURIComponent('"Risk Manager" "'+((co?.name)||"")+'" site:linkedin.com OR site:amrae.fr');window.open("https://www.google.com/search?q="+q,"_blank")}}><I.search style={{width:10,height:10,marginRight:3}}/>{lang==="fr"?"Rechercher":"Search"}</button></div></div>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>Risk Manager</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmLastName||""} onChange={e=>setDossierDraft(p=>({...p,rmLastName:e.target.value,rm:(e.target.value+" "+(p.rmFirstName||"")).trim()}))} placeholder={lang==="fr"?"Nom":"Last name"}/>
+            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmFirstName||""} onChange={e=>setDossierDraft(p=>({...p,rmFirstName:e.target.value,rm:((p.rmLastName||"")+" "+e.target.value).trim()}))} placeholder={lang==="fr"?"Prénom":"First name"}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmPhone||""} onChange={e=>setDossierDraft(p=>({...p,rmPhone:e.target.value}))} placeholder={lang==="fr"?"Tél. direct":"Direct phone"}/>
+            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmMobile||""} onChange={e=>setDossierDraft(p=>({...p,rmMobile:e.target.value}))} placeholder={lang==="fr"?"Portable":"Mobile"}/>
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <input className="inp" style={{flex:1,fontSize:11}} value={dossierDraft.rmEmail||""} onChange={e=>setDossierDraft(p=>({...p,rmEmail:e.target.value}))} placeholder="Email"/>
+            <button style={{padding:"4px 8px",fontSize:9,color:"var(--gold2)",background:"rgba(0,114,206,.06)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>{const co=cos.find(c=>c.id===editingDossier);const q=encodeURIComponent('"Risk Manager" "'+((co?.name)||"")+'" site:linkedin.com OR site:amrae.fr');window.open("https://www.google.com/search?q="+q,"_blank")}}><I.search style={{width:10,height:10,marginRight:3}}/>{lang==="fr"?"Rechercher":"Search"}</button>
+          </div>
+        </div>
       </div>
 
       <div className="dv" style={{marginBottom:12}}/>
@@ -2651,7 +2664,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                 <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="0" value={l.from||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],from:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
                 <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="5" value={l.to||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],to:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
                 <input className="inp" type="number" style={{fontSize:12,padding:"6px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],share:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-                <button style={{width:20,height:20,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>\u00d7</button>
+                <button style={{width:20,height:20,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>×</button>
               </div>
             </div>)})})()}
           <button style={{fontSize:10,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px solid rgba(0,114,206,.1)",borderRadius:4,padding:"4px 12px",cursor:"pointer",marginTop:6}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];const lastTo=layers.length>0?layers[layers.length-1].to||0:0;layers.push({insurer:"",from:lastTo,to:lastTo,share:100});n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>+ {lang==="fr"?"Ajouter une tranche":"Add layer"}</button>
@@ -2699,6 +2712,48 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       </div>}
       <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><label className="lbl" style={{color:"var(--t4)"}}>{t("meeting_notes")}</label><button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:mtgDictating?"rgba(220,38,38,.12)":"rgba(0,114,206,.1)",color:mtgDictating?"#991B1B":"var(--gold)",border:`1px solid ${mtgDictating?"rgba(239,68,68,.3)":"rgba(0,114,206,.2)"}`}} onClick={mtgDictating?stopMtgDict:startMtgDict}>{mtgDictating?<><div style={{width:6,height:6,borderRadius:"50%",background:"#DC2626",animation:"pd 1s ease-in-out infinite",marginRight:4}}/>{lang==="fr"?"Arrêter":"Stop"}</>:<><I.mic style={{width:14,height:14}}/>{lang==="fr"?"Dicter":"Dictate"}</>}</button></div>{mtgDictating&&<p style={{fontSize:10,color:"#991B1B",marginBottom:6}}>{lang==="fr"?"Parlez, la note se rédige...":"Speak, the note is being written..."}</p>}<textarea className="inp" placeholder={lang==="fr"?"Points à aborder, contexte...":"Topics to discuss, context..."} value={mtgNotes} onChange={e=>setMtgNotes(e.target.value)} rows={3} style={{borderColor:mtgDictating?"rgba(239,68,68,.3)":"var(--b)"}}/></div>
       <button className="btn bp" style={{width:"100%",height:46}} onClick={addMeeting} disabled={!mtgCo||!mtgDate}>{t("save_note")}</button>
+
+      {mtgCo&&mtgDate&&(()=>{
+        const co=cos.find(c=>c.id===mtgCo);
+        const dos=getDossier(mtgCo);
+        const sigs=getSigs(mtgCo).slice(0,3);
+        // Collect all known emails
+        const emails=[];
+        if(dos?.rmEmail)emails.push({name:dos.rm||"RM",email:dos.rmEmail,role:"Risk Manager"});
+        if(dos?.contacts)(dos.contacts||[]).forEach(c=>{if(c.email)emails.push({name:c.name,email:c.email,role:c.title||""})});
+        // Build meeting description
+        const desc=`Réunion ${co?.name||""}\n\nContexte :\n${sigs.map(s=>"• "+tx(s.title,lang)).join("\n")||"Pas de signaux récents"}\n\n${mtgNotes?"Notes :\n"+mtgNotes+"\n\n":""}— AIG Lines Intelligence`;
+        const title=`${mtgType==="broker"?"Comité courtier":"Réunion"} — ${co?.name||""} — AIG Lines Intelligence`;
+        const startDate=new Date(mtgDate);
+        const endDate=new Date(startDate.getTime()+3600000);
+        const fmtOWA=(d)=>d.toISOString().replace(/[-:]/g,"").split(".")[0];
+        const outlookUrl=`https://outlook.office.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(desc)}&startdt=${fmtOWA(startDate)}&enddt=${fmtOWA(endDate)}${emails.length>0?"&to="+encodeURIComponent(emails.map(e=>e.email).join(";")):""}`;
+
+        return(<div style={{marginTop:12}}>
+          {emails.length>0&&<div style={{marginBottom:10}}>
+            <p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{lang==="fr"?"PARTICIPANTS SUGGÉRÉS":"SUGGESTED ATTENDEES"}</p>
+            {emails.map((e,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
+              <div style={{width:6,height:6,borderRadius:3,background:"var(--gold)",flexShrink:0}}/>
+              <span style={{fontSize:11,color:"var(--t2)",fontWeight:500}}>{e.name}</span>
+              <span style={{fontSize:10,color:"var(--t4)"}}>{e.role}</span>
+              <span style={{fontSize:10,color:"var(--gold2)",marginLeft:"auto"}}>{e.email}</span>
+            </div>)}
+          </div>}
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn" style={{flex:1,padding:"10px",fontSize:12,background:"#0072CE",color:"#fff",border:"none",borderRadius:6,fontWeight:600}} onClick={()=>{addMeeting();window.open(outlookUrl,"_blank")}}>
+              <span style={{marginRight:6}}>📅</span>{lang==="fr"?"Ouvrir dans Outlook":"Open in Outlook"}
+            </button>
+            <button className="btn" style={{padding:"10px 14px",fontSize:12,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6}} onClick={()=>{
+              const icsContent=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//AIG Lines Intelligence//FR","BEGIN:VEVENT","DTSTART:"+fmtOWA(startDate)+"Z","DTEND:"+fmtOWA(endDate)+"Z","SUMMARY:"+title,"DESCRIPTION:"+desc.replace(/\n/g,"\\n"),...emails.map(e=>"ATTENDEE;CN="+e.name+":mailto:"+e.email),"END:VEVENT","END:VCALENDAR"].join("\r\n");
+              const blob=new Blob([icsContent],{type:"text/calendar"});
+              const url=URL.createObjectURL(blob);
+              const a=document.createElement("a");a.href=url;a.download=`${co?.name||"meeting"}.ics`;a.click();
+              URL.revokeObjectURL(url);
+              addMeeting();
+            }}>.ics</button>
+          </div>
+        </div>)
+      })()}
     </div></div>}
     {showNewNote&&<div className="bsbg" onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
