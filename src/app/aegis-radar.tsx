@@ -934,8 +934,8 @@ function App(){
   const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
   const[editingDossier,setEditingDossier]=useState(null);
   const[brokerOpen,setBrokerOpen]=useState(false);
-  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[]});
-  const defaultDossier={broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[]};
+  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]});
+  const defaultDossier={broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]};
   const[dossierFiles,setDossierFiles]=useState(()=>lsGet("dossierFiles",{}));
   const fileInputRef=useRef(null);
   const openDossier=(cid)=>{const d=clientDossiers[cid]||defaultDossier;setDossierDraft({...defaultDossier,...d});setEditingDossier(cid)};
@@ -1925,6 +1925,24 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
           </div>}
           <button className="btn" style={{width:"100%",padding:"8px",fontSize:11,background:"var(--bg3)",color:"var(--gold)",border:"1px solid rgba(0,114,206,.2)",borderRadius:"var(--rs)",marginBottom:14}} onClick={()=>{setMtgCo(co.id);setSNM(true)}}><I.plus style={{width:12,height:12}}/>{lang==="fr"?"Planifier une réunion":"Schedule a meeting"}</button>
         </>)})()}
+
+        {/* ═══ CONTACTS CLÉS ═══ */}
+        {(()=>{const dos=getDossier(cid);const contacts=dos?.contacts||[];if(contacts.length===0)return null;return(
+          <><div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{lang==="fr"?"CONTACTS CLÉS":"KEY CONTACTS"}</h3>
+          <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,marginBottom:20}}>
+            {contacts.map((ct,i)=>(
+              <div key={i} className="card" style={{padding:12,minWidth:140,flexShrink:0,textAlign:"center"}}>
+                {ct.photo?<img src={ct.photo} style={{width:48,height:48,borderRadius:24,objectFit:"cover",border:"2px solid var(--b)",margin:"0 auto 8px",display:"block"}} alt=""/>
+                :<div style={{width:48,height:48,borderRadius:24,background:"var(--gold)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 8px",color:"#fff",fontSize:18,fontWeight:600}}>{(ct.name||"?")[0]?.toUpperCase()}</div>}
+                <p style={{fontSize:12,fontWeight:600,color:"var(--t1)",marginBottom:2}}>{ct.name}</p>
+                <p style={{fontSize:10,color:"var(--gold2)",marginBottom:4}}>{ct.title}</p>
+                {ct.email&&<a href={"mailto:"+ct.email} style={{fontSize:9,color:"var(--t4)",textDecoration:"none",display:"block"}}>{ct.email}</a>}
+                {ct.phone&&<a href={"tel:"+ct.phone} style={{fontSize:9,color:"var(--t4)",textDecoration:"none",display:"block",marginTop:2}}>{ct.phone}</a>}
+              </div>
+            ))}
+          </div></>
+        )})()}
+
         {/* ═══ PROGRAMME D'ASSURANCE (Tower Chart) ═══ */}
         {(()=>{const dos=getDossier(cid);const pl=dos?.programLines||[];if(pl.length===0)return(
           <><div className="dv"/><div className="card" style={{padding:18,marginBottom:20,textAlign:"center"}}>
@@ -2478,9 +2496,11 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
           {n:"Zurich Courtage",d:"zurich.fr"}
         ].sort((a,b)=>a.n.localeCompare(b.n));
         const brokerFiltered=BROKERS.filter(b=>!dossierDraft.broker||b.n.toLowerCase().includes((dossierDraft.broker||"").toLowerCase()));
+        const selectedBroker=BROKERS.find(b=>b.n===dossierDraft.broker);
         return(<>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <input className="inp" style={{flex:1}} value={dossierDraft.broker} onChange={e=>{setDossierDraft(p=>({...p,broker:e.target.value}));setBrokerOpen(true)}} onFocus={()=>setBrokerOpen(true)} placeholder={lang==="fr"?"Rechercher un courtier...":"Search broker..."}/>
+          <div style={{display:"flex",alignItems:"center",gap:8,position:"relative"}}>
+            {selectedBroker&&<img src={"https://www.google.com/s2/favicons?domain="+selectedBroker.d+"&sz=32"} alt="" style={{width:22,height:22,borderRadius:4,position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",zIndex:1,pointerEvents:"none"}} onError={e=>{e.target.style.display="none"}}/>}
+            <input className="inp" style={{flex:1,paddingLeft:selectedBroker?38:12}} value={dossierDraft.broker} onChange={e=>{setDossierDraft(p=>({...p,broker:e.target.value}));setBrokerOpen(true)}} onFocus={()=>setBrokerOpen(true)} placeholder={lang==="fr"?"Rechercher un courtier...":"Search broker..."}/>
             {dossierDraft.broker&&<button style={{background:"none",border:"none",fontSize:14,color:"var(--t5)",cursor:"pointer",padding:0}} onClick={()=>{setDossierDraft(p=>({...p,broker:""}));setBrokerOpen(true)}}>×</button>}
           </div>
           {brokerOpen&&<div style={{position:"absolute",zIndex:10,left:0,right:0,top:"100%",maxHeight:200,overflow:"auto",background:"#fff",border:"1px solid var(--b)",borderRadius:8,boxShadow:"0 4px 16px rgba(0,43,92,.1)",marginTop:4}}>
@@ -2493,8 +2513,28 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
             {brokerFiltered.length===0&&<p style={{fontSize:11,color:"var(--t4)",padding:"8px 12px"}}>{lang==="fr"?"Courtier non listé — tapez le nom":"Broker not listed — type the name"}</p>}
           </div>}
         </>)})()}</div>
-        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Risk Manager":"Risk Manager"}</label><input className="inp" value={dossierDraft.rm} onChange={e=>setDossierDraft(p=>({...p,rm:e.target.value}))} placeholder={lang==="fr"?"Nom du RM...":"RM name..."}/></div>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Risk Manager":"Risk Manager"}</label><div style={{display:"flex",gap:6}}><input className="inp" style={{flex:1}} value={dossierDraft.rm} onChange={e=>setDossierDraft(p=>({...p,rm:e.target.value}))} placeholder={lang==="fr"?"Nom du RM...":"RM name..."}/><button style={{padding:"4px 8px",fontSize:9,color:"var(--gold2)",background:"rgba(0,114,206,.06)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>{const co=cos.find(c=>c.id===editingDossier);const q=encodeURIComponent('"Risk Manager" "'+((co?.name)||"")+'" site:linkedin.com OR site:amrae.fr');window.open("https://www.google.com/search?q="+q,"_blank")}}><I.search style={{width:10,height:10,marginRight:3}}/>{lang==="fr"?"Rechercher":"Search"}</button></div></div>
       </div>
+
+      <div className="dv" style={{marginBottom:12}}/>
+      <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{lang==="fr"?"CONTACTS CLÉS":"KEY CONTACTS"}</h4>
+      {(dossierDraft.contacts||[]).map((ct,ci)=>(
+        <div key={ci} style={{display:"flex",gap:10,alignItems:"flex-start",padding:10,border:"1px solid var(--b)",borderRadius:8,marginBottom:8,background:"var(--bg3)"}}>
+          <div style={{flexShrink:0,position:"relative"}}>
+            {ct.photo?<img src={ct.photo} style={{width:48,height:48,borderRadius:8,objectFit:"cover",border:"1px solid var(--b)"}} alt=""/>:<div style={{width:48,height:48,borderRadius:8,background:"var(--b)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:16,color:"var(--t4)"}}>{(ct.name||"?")[0]?.toUpperCase()}</span></div>}
+            <label style={{position:"absolute",bottom:-4,right:-4,width:20,height:20,borderRadius:10,background:"var(--gold)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",border:"2px solid #fff"}}><span style={{fontSize:10,color:"#fff"}}>+</span><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files?.[0];if(!file||file.size>1024*1024)return;const reader=new FileReader();reader.onload=ev=>{const n=[...(dossierDraft.contacts||[])];n[ci]={...n[ci],photo:ev.target?.result};setDossierDraft(p=>({...p,contacts:n}))};reader.readAsDataURL(file)}}/></label>
+          </div>
+          <div style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
+            <input className="inp" style={{fontSize:11,padding:"4px 8px"}} placeholder={lang==="fr"?"Nom et prénom":"Full name"} value={ct.name||""} onChange={e=>{const n=[...(dossierDraft.contacts||[])];n[ci]={...n[ci],name:e.target.value};setDossierDraft(p=>({...p,contacts:n}))}}/>
+            <input className="inp" style={{fontSize:11,padding:"4px 8px"}} placeholder={lang==="fr"?"Titre / Fonction":"Title / Role"} value={ct.title||""} onChange={e=>{const n=[...(dossierDraft.contacts||[])];n[ci]={...n[ci],title:e.target.value};setDossierDraft(p=>({...p,contacts:n}))}}/>
+            <input className="inp" style={{fontSize:11,padding:"4px 8px"}} placeholder={lang==="fr"?"Email":"Email"} value={ct.email||""} onChange={e=>{const n=[...(dossierDraft.contacts||[])];n[ci]={...n[ci],email:e.target.value};setDossierDraft(p=>({...p,contacts:n}))}}/>
+            <input className="inp" style={{fontSize:11,padding:"4px 8px"}} placeholder={lang==="fr"?"Téléphone":"Phone"} value={ct.phone||""} onChange={e=>{const n=[...(dossierDraft.contacts||[])];n[ci]={...n[ci],phone:e.target.value};setDossierDraft(p=>({...p,contacts:n}))}}/>
+          </div>
+          <button style={{width:18,height:18,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:11,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,flexShrink:0}} onClick={()=>{const n=[...(dossierDraft.contacts||[])];n.splice(ci,1);setDossierDraft(p=>({...p,contacts:n}))}}>×</button>
+        </div>
+      ))}
+      <button className="btn" style={{padding:"6px 14px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,marginBottom:16}} onClick={()=>{const n=[...(dossierDraft.contacts||[])];n.push({name:"",title:"",email:"",phone:"",photo:null});setDossierDraft(p=>({...p,contacts:n}))}}>+ {lang==="fr"?"Ajouter un contact":"Add contact"}</button>
+
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
         <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Date de renouvellement":"Renewal date"}</label><input className="inp" type="date" value={dossierDraft.renewal} onChange={e=>setDossierDraft(p=>({...p,renewal:e.target.value}))}/></div>
         <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Prime estimée":"Estimated premium"}</label><input className="inp" value={dossierDraft.premium} onChange={e=>setDossierDraft(p=>({...p,premium:e.target.value}))} placeholder="ex: 850K€"/></div>
@@ -2516,22 +2556,23 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
             </select>
             <button style={{fontSize:10,color:"#991B1B",background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",borderRadius:4,padding:"2px 8px",cursor:"pointer"}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];n.splice(pi,1);setDossierDraft(p=>({...p,programLines:n}))}}>{lang==="fr"?"Supprimer":"Delete"}</button>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 50px 50px 36px 20px",gap:4,marginBottom:4,alignItems:"center"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 65px 65px 45px 20px",gap:6,marginBottom:6,alignItems:"center"}}>
             <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>{lang==="fr"?"ASSUREUR":"INSURER"}</span>
             <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>{lang==="fr"?"DE M€":"FROM M€"}</span>
             <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>{lang==="fr"?"À M€":"TO M€"}</span>
             <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>%</span>
             <span/>
           </div>
-          {(pl.layers||[]).map((l,li)=>(
-            <div key={li} style={{display:"grid",gridTemplateColumns:"1fr 50px 50px 36px 20px",gap:4,marginBottom:4,alignItems:"center"}}>
-              <input className="inp" style={{fontSize:11,padding:"5px 8px"}} placeholder="AIG, Zurich..." value={l.insurer||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],insurer:e.target.value};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-              <input className="inp" type="number" step="0.5" style={{fontSize:11,padding:"5px 6px",textAlign:"center"}} placeholder="0" value={l.from||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],from:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-              <input className="inp" type="number" step="0.5" style={{fontSize:11,padding:"5px 6px",textAlign:"center"}} placeholder="5" value={l.to||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],to:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-              <input className="inp" type="number" style={{fontSize:11,padding:"5px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],share:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-              <button style={{width:18,height:18,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:11,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>×</button>
-            </div>
-          ))}
+          {(()=>{const INSURERS=[{n:"AIG",d:"aig.com"},{n:"Allianz",d:"allianz.com"},{n:"Arch",d:"archinsurance.com"},{n:"Aviva",d:"aviva.com"},{n:"AXA XL",d:"axaxl.com"},{n:"Beazley",d:"beazley.com"},{n:"Berkshire",d:"berkshirehathaway.com"},{n:"Canopius",d:"canopius.com"},{n:"Chubb",d:"chubb.com"},{n:"CNA",d:"cna.com"},{n:"Coface",d:"coface.com"},{n:"Convex",d:"convexinsurance.com"},{n:"Euler Hermes",d:"allianz-trade.com"},{n:"Everest Re",d:"everestre.com"},{n:"Generali",d:"generali.com"},{n:"Hannover Re",d:"hannover-re.com"},{n:"HDI Global",d:"hdi.global"},{n:"Hiscox",d:"hiscox.com"},{n:"Liberty",d:"libertymutual.com"},{n:"Lloyd's",d:"lloyds.com"},{n:"Mapfre",d:"mapfre.com"},{n:"Markel",d:"markel.com"},{n:"MSIG",d:"msig-global.com"},{n:"Munich Re",d:"munichre.com"},{n:"QBE",d:"qbe.com"},{n:"SCOR",d:"scor.com"},{n:"Sompo",d:"sompo-intl.com"},{n:"Starr",d:"starrcompanies.com"},{n:"Swiss Re",d:"swissre.com"},{n:"Tokio Marine",d:"tokiomarinehd.com"},{n:"Travelers",d:"travelers.com"},{n:"Zurich",d:"zurich.com"}].sort((a,b)=>a.n.localeCompare(b.n));return(pl.layers||[]).map((l,li)=>{const selIns=INSURERS.find(ins=>ins.n===l.insurer);const insFiltered=INSURERS.filter(ins=>!l.insurer||ins.n.toLowerCase().includes((l.insurer||"").toLowerCase()));return(
+            <div key={li} style={{position:"relative",marginBottom:6}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 65px 65px 45px 20px",gap:6,alignItems:"center"}}>
+                <div style={{position:"relative"}}>{selIns&&<img src={"https://www.google.com/s2/favicons?domain="+selIns.d+"&sz=32"} alt="" style={{width:18,height:18,borderRadius:3,position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",zIndex:1,pointerEvents:"none"}} onError={e=>{e.target.style.display="none"}}/>}<input className="inp" style={{fontSize:12,padding:"6px 8px",paddingLeft:selIns?32:8}} placeholder="AIG, Zurich..." value={l.insurer||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],insurer:e.target.value,_insOpen:true};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}} onFocus={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],_insOpen:true};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}} onBlur={()=>setTimeout(()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];if(layers[li]){layers[li]={...layers[li],_insOpen:false};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}},200)}/>{l._insOpen&&<div style={{position:"absolute",zIndex:20,left:0,right:0,top:"100%",maxHeight:150,overflow:"auto",background:"#fff",border:"1px solid var(--b)",borderRadius:6,boxShadow:"0 4px 12px rgba(0,43,92,.1)",marginTop:2}}>{insFiltered.map(ins=>(<button key={ins.n} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"none",border:"none",borderBottom:"1px solid var(--b)",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}} onMouseDown={e=>{e.preventDefault();const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],insurer:ins.n,_insOpen:false};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}><img src={"https://www.google.com/s2/favicons?domain="+ins.d+"&sz=32"} alt="" style={{width:16,height:16,borderRadius:3,flexShrink:0}} onError={e=>{e.target.style.display="none"}}/><span style={{fontSize:11,color:"var(--t1)"}}>{ins.n}</span></button>))}</div>}</div>
+                <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="0" value={l.from||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],from:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+                <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="5" value={l.to||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],to:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+                <input className="inp" type="number" style={{fontSize:12,padding:"6px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],share:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+                <button style={{width:20,height:20,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>\u00d7</button>
+              </div>
+            </div>)})})()}
           <button style={{fontSize:10,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px solid rgba(0,114,206,.1)",borderRadius:4,padding:"4px 12px",cursor:"pointer",marginTop:6}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];const lastTo=layers.length>0?layers[layers.length-1].to||0:0;layers.push({insurer:"",from:lastTo,to:lastTo,share:100});n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>+ {lang==="fr"?"Ajouter une tranche":"Add layer"}</button>
         </div>
       ))}
