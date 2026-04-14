@@ -8,7 +8,10 @@ const sbOk = !!(SB_URL && SB_KEY);
 const sbFetch = async (table, method = "GET", body = null, query = "") => {
   if (!sbOk) return null;
   const url = `${SB_URL}/rest/v1/${table}${query}`;
-  const headers = { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json", "Prefer": method === "POST" ? "return=representation" : method === "PATCH" ? "return=representation" : "" };
+  const isUpsert = method === "POST" && query.includes("on_conflict");
+  const prefer = method === "POST" ? (isUpsert ? "return=representation,resolution=merge-duplicates" : "return=representation") : method === "PATCH" ? "return=representation" : "";
+  const headers = { "apikey": SB_KEY, "Authorization": `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
+  if (prefer) headers["Prefer"] = prefer;
   try {
     const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
     if (!res.ok) return null;
@@ -189,8 +192,10 @@ const T={
 };
 
 // ── localStorage helpers ──
-const lsGet=(k,def)=>{try{const v=localStorage.getItem("signalis_"+k);return v?JSON.parse(v):def}catch(e){return def}};
-const lsSet=(k,v)=>{try{localStorage.setItem("signalis_"+k,JSON.stringify(v))}catch(e){}};
+let _lsPrefix="signalis_";
+const lsGet=(k,def)=>{try{const v=localStorage.getItem(_lsPrefix+k);if(v)return JSON.parse(v);const old=localStorage.getItem("signalis_"+k);if(old)return JSON.parse(old);return def}catch(e){return def}};
+const lsSet=(k,v)=>{try{localStorage.setItem(_lsPrefix+k,JSON.stringify(v))}catch(e){}};
+const setUserPrefix=(email)=>{_lsPrefix="u_"+(email||"default").replace(/[^a-z0-9]/gi,"_")+"_";};
 
 const LangCtx=createContext({lang:"en",t:k=>k,setLang:()=>{}});
 const useLang=()=>useContext(LangCtx);
@@ -366,7 +371,7 @@ const NOTES=[
 ];
 
 // ── SOURCE URLS ──
-const SRC_URL={"Reuters":"https://reuters.com","The Guardian":"https://theguardian.com","Le Monde":"https://lemonde.fr","Bloomberg":"https://bloomberg.com","Handelsblatt":"https://handelsblatt.com","Der Spiegel":"https://spiegel.de","Financial Times":"https://ft.com","Süddeutsche Zeitung":"https://sueddeutsche.de","New York Times":"https://nytimes.com","Les Echos":"https://lesechos.fr","Vogue Business":"https://voguebusiness.com","La Repubblica":"https://repubblica.it","Il Sole 24 Ore":"https://ilsole24ore.com","Corriere della Sera":"https://corriere.it","STAT News":"https://statnews.com","BMJ":"https://bmj.com","TechCrunch":"https://techcrunch.com","Wall Street Journal":"https://wsj.com","The Information":"https://theinformation.com","Berlingske":"https://berlingske.dk","Shipping Watch":"https://shippingwatch.com","BBC News":"https://bbc.co.uk","The Times":"https://thetimes.co.uk","El País":"https://elpais.com","El Confidencial":"https://elconfidencial.com","Cinco Días":"https://cincodias.elpais.com","Mediapart":"https://mediapart.fr","Le Figaro":"https://lefigaro.fr","Wired":"https://wired.com","Energate":"https://energate-messenger.de"};
+const SRC_URL={"Reuters":"https://reuters.com","The Guardian":"https://theguardian.com","Le Monde":"https://lemonde.fr","Le Monde.fr":"https://lemonde.fr","Bloomberg":"https://bloomberg.com","Financial Times":"https://ft.com","New York Times":"https://nytimes.com","Les Echos":"https://lesechos.fr","Investir Les Echos":"https://investir.lesechos.fr","Le Figaro":"https://lefigaro.fr","Mediapart":"https://mediapart.fr","BFM":"https://bfmtv.com","BFM Bourse":"https://bfmbourse.com","Boursorama":"https://boursorama.com","La Tribune":"https://latribune.fr","Ouest-France":"https://ouest-france.fr","Yahoo Finance":"https://finance.yahoo.com","Yahoo Finance France":"https://fr.finance.yahoo.com","ABC Bourse":"https://abcbourse.com","Boursier.com":"https://boursier.com","Option Finance":"https://optionfinance.fr","Idéal Investisseur":"https://ideal-investisseur.fr","L'Agefi":"https://agefi.fr","Zonebourse":"https://zonebourse.com","Zonebourse Suisse":"https://zonebourse.com","marketscreener.com":"https://marketscreener.com","Investing.com":"https://investing.com","TradingView":"https://tradingview.com","Daf-Mag.fr":"https://daf-mag.fr","Le Journal des Entreprises":"https://lejournaldesentreprises.com","BODACC":"https://bodacc.fr","AMF":"https://amf-france.org","CNIL":"https://cnil.fr","TechCrunch":"https://techcrunch.com","Wall Street Journal":"https://wsj.com","BBC News":"https://bbc.co.uk","Wired":"https://wired.com","Il Sole 24 Ore":"https://ilsole24ore.com","Handelsblatt":"https://handelsblatt.com","El País":"https://elpais.com"};
 const srcUrl=name=>{const n=typeof name==="object"?name.en:name;return SRC_URL[n]||null};
 
 // ── SELECTORS ──
@@ -377,7 +382,7 @@ const getAllLines=sigs=>[...new Set(sigs.flatMap(s=>getImps(s.id).flatMap(i=>(i.
 
 // ── UTILS ──
 const getCat=(id,lang)=>{const c=CATS.find(x=>x.id===id);return c?{...c,label:c.label[lang]||c.label.en,s:c.s[lang]||c.s.en}:null};
-const fD=iso=>{const ms=Date.now()-new Date(iso).getTime(),m=Math.floor(ms/60000),h=Math.floor(ms/3600000),d=Math.floor(ms/86400000);if(m<1)return"Now";if(m<60)return`${m}m`;if(h<24)return`${h}h`;if(d<7)return`${d}d`;return new Date(iso).toLocaleDateString("en-GB",{day:"numeric",month:"short"})};
+const fD=(iso,lang2)=>{if(!iso)return"—";const d=new Date(iso);const now=new Date();const diffH=Math.floor((now.getTime()-d.getTime())/3600000);const isToday=d.toDateString()===now.toDateString();const yesterday=new Date(now);yesterday.setDate(yesterday.getDate()-1);const isYesterday=d.toDateString()===yesterday.toDateString();const time=d.toLocaleTimeString(lang2==="fr"?"fr-FR":"en-GB",{hour:"2-digit",minute:"2-digit"});if(isToday)return(lang2==="fr"?"Auj. ":"Today ")+time;if(isYesterday)return(lang2==="fr"?"Hier ":"Yest. ")+time;return d.toLocaleDateString(lang2==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"short"})+", "+time};
 const sC=s=>s>=80?"#DC2626":s>=60?"#D97706":s>=40?"#2563EB":"#16A34A";
 const sBg=s=>s>=80?"rgba(220,38,38,.08)":s>=60?"rgba(217,119,6,.08)":s>=40?"rgba(37,99,235,.08)":"rgba(16,185,129,.12)";
 const sT=s=>s>=80?"#991B1B":s>=60?"#92400E":s>=40?"#1E40AF":"#166534";
@@ -507,8 +512,8 @@ function App(){
   const[loginPw,setLoginPw]=useState("");
   const[loginErr,setLoginErr]=useState(false);
   const[loginLoading,setLoginLoading]=useState(false);
-  const[authToken,setAuthToken]=useState(()=>lsGet("authToken",null));
-  const[authEmail,setAuthEmail]=useState(()=>lsGet("authEmail",""));
+  const[authToken,setAuthToken]=useState(()=>{try{const v=localStorage.getItem("signalis_authToken");return v?JSON.parse(v):null}catch(e){return null}});
+  const[authEmail,setAuthEmail]=useState(()=>{try{const v=localStorage.getItem("signalis_authEmail");const email=v?JSON.parse(v):"";if(email)setUserPrefix(email);return email}catch(e){return""}});
 
   const tryLogin=async()=>{
     if(!loginEm||!loginPw)return;
@@ -522,15 +527,17 @@ function App(){
       });
       if(res.ok){
         const data=await res.json();
+        const email=data.user?.email||loginEm.toLowerCase().trim();
         setAuthToken(data.access_token);
-        setAuthEmail(data.user?.email||loginEm.toLowerCase().trim());
-        lsSet("authToken",data.access_token);
-        lsSet("authEmail",data.user?.email||loginEm.toLowerCase().trim());
-        setLoginErr(false);loadDB(data.user?.email||loginEm.toLowerCase().trim());setStep("select");
+        setAuthEmail(email);
+        setUserPrefix(email);
+        try{localStorage.setItem("signalis_authToken",JSON.stringify(data.access_token));localStorage.setItem("signalis_authEmail",JSON.stringify(email))}catch(e){}
+        setLoginErr(false);loadDB(email);setStep("select");
       }else{
         // If Supabase Auth fails, try legacy login
         if(loginEm.toLowerCase().trim()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){
-          setAuthEmail("asprevel@gmail.com");lsSet("authEmail","asprevel@gmail.com");
+          setAuthEmail("asprevel@gmail.com");setUserPrefix("asprevel@gmail.com");
+          try{localStorage.setItem("signalis_authEmail",JSON.stringify("asprevel@gmail.com"))}catch(e){};
           setLoginErr(false);loadDB("asprevel@gmail.com");setStep("select");
         }else{
           setLoginErr(true);
@@ -539,35 +546,254 @@ function App(){
     }catch(e){
       // Offline fallback: legacy login
       if(loginEm.toLowerCase().trim()==="asprevel@gmail.com"&&loginPw==="3Oct2005"){
-        setAuthEmail("asprevel@gmail.com");lsSet("authEmail","asprevel@gmail.com");
+        setAuthEmail("asprevel@gmail.com");setUserPrefix("asprevel@gmail.com");
+        try{localStorage.setItem("signalis_authEmail",JSON.stringify("asprevel@gmail.com"))}catch(e){};
         setLoginErr(false);loadDB("asprevel@gmail.com");setStep("select");
       }else{setLoginErr(true)}
     }
     setLoginLoading(false);
   };
 
-  const trySignup=async()=>{
-    if(!loginEm||!loginPw||loginPw.length<6)return;
-    setLoginLoading(true);setLoginErr(false);
+  const[accessRequested,setAccessRequested]=useState(false);
+  const[pendingRequests,setPendingRequests]=useState([]);
+  const[approvedPwd,setApprovedPwd]=useState(null);
+  const isAdmin=authEmail?.toLowerCase()==="jmlemoineperso@gmail.com";
+
+  // ── Activity logging ──
+  const logActivity=useCallback(async(action,detail="")=>{
+    if(!sbOk||!authEmail)return;
+    try{await sbFetch("user_activity","POST",{user_email:authEmail,action,detail:detail.substring(0,500),created_at:new Date().toISOString()})}catch(e){}
+  },[authEmail]);
+
+  // ── Tickets ──
+  const[showTicket,setShowTicket]=useState(false);
+  const[showExport,setShowExport]=useState(false);
+  const[showGuide,setShowGuide]=useState(false);
+  const[guideSection,setGuideSection]=useState(0);
+  const[expFormat,setExpFormat]=useState("csv");
+  const[expType,setExpType]=useState("signals");
+  const[expDateFrom,setExpDateFrom]=useState("");
+  const[expDateTo,setExpDateTo]=useState("");
+  const[expCompany,setExpCompany]=useState("");
+  const[expCat,setExpCat]=useState("");
+  const[expLine,setExpLine]=useState("");
+  const[ticketText,setTicketText]=useState("");
+  const[ticketImg,setTicketImg]=useState(null);
+  const[ticketSending,setTicketSending]=useState(false);
+  const[adminLogs,setAdminLogs]=useState([]);
+  const[adminTickets,setAdminTickets]=useState([]);
+
+  const submitTicket=async()=>{
+    if(!ticketText.trim())return;
+    setTicketSending(true);
+    try{
+      await sbFetch("tickets","POST",{
+        user_email:authEmail,
+        message:ticketText.trim(),
+        screenshot:ticketImg,
+        status:"open",
+        created_at:new Date().toISOString()
+      });
+      setTicketText("");setTicketImg(null);setShowTicket(false);
+      showT(lang==="fr"?"Ticket envoyé !":"Ticket sent!");
+      logActivity("ticket","Ticket soumis");
+    }catch(e){showT(lang==="fr"?"Erreur":"Error")}
+    setTicketSending(false);
+  };
+
+  const handleTicketImg=(e)=>{
+    const file=e.target.files?.[0];
+    if(!file)return;
+    if(file.size>2*1024*1024){showT(lang==="fr"?"Image trop lourde (max 2Mo)":"Image too large (max 2MB)");return}
+    const reader=new FileReader();
+    reader.onload=(ev)=>setTicketImg(ev.target?.result);
+    reader.readAsDataURL(file);
+  };
+
+  // ── Export data ──
+  const doExport=()=>{
+    let data=[];
+    const watched=cos.filter(c=>c.prio);
+    const allSigList=[...liveSigs];
+
+    // Filter signals
+    if(expType==="signals"||expType==="all"){
+      let sigs=[...allSigList];
+      if(expCompany)sigs=sigs.filter(s=>(s.company||"").toLowerCase().includes(expCompany.toLowerCase()));
+      if(expCat)sigs=sigs.filter(s=>s.cat===expCat);
+      if(expLine)sigs=sigs.filter(s=>(s._impacts||[]).some(i=>(i.line||"").includes(expLine)));
+      if(expDateFrom)sigs=sigs.filter(s=>new Date(s.at)>=new Date(expDateFrom));
+      if(expDateTo)sigs=sigs.filter(s=>new Date(s.at)<=new Date(expDateTo+"T23:59:59"));
+      data.push(...sigs.map(s=>({type:"Signal",date:s.at?new Date(s.at).toLocaleDateString("fr-FR"):"",company:s.company||"",title:tx(s.title,lang),summary:tx(s.sum,lang),source:tx(s.src,lang),category:getCat(s.cat,lang)?.label||s.cat||"",importance:s.imp||50,confidence:s.conf||50,lines:(s._impacts||[]).map(i=>lineLbl(i.line,lang)).join(", ")})));
+    }
+    if(expType==="notes"||expType==="all"){
+      let ns=[...notes];
+      if(expCompany)ns=ns.filter(n=>{const co=cos.find(c=>c.id===n.cid);return co&&co.name.toLowerCase().includes(expCompany.toLowerCase())});
+      if(expDateFrom)ns=ns.filter(n=>new Date(n.at)>=new Date(expDateFrom));
+      if(expDateTo)ns=ns.filter(n=>new Date(n.at)<=new Date(expDateTo+"T23:59:59"));
+      data.push(...ns.map(n=>{const co=cos.find(c=>c.id===n.cid);return{type:"Note",date:n.at?new Date(n.at).toLocaleDateString("fr-FR"):"",company:co?.name||"",title:typeof n.text==="object"?tx(n.text,lang):n.text,summary:"",source:"",category:n.tag||"",importance:"",confidence:"",lines:""}}));
+    }
+    if(expType==="watchlist"||expType==="all"){
+      let wl=[...watched];
+      if(expCompany)wl=wl.filter(c=>c.name.toLowerCase().includes(expCompany.toLowerCase()));
+      data.push(...wl.map(c=>{const dos=getDossier(c.id);return{type:"Watchlist",date:"",company:c.name,title:tx(c.sector,lang),summary:dos?.broker||"",source:dos?.rm||"",category:dos?.renewal||"",importance:c.risk||50,confidence:getSigs(c.id).length,lines:getLinesAll(getSigs(c.id)).map(l=>lineLbl(l,lang)).join(", ")}}));
+    }
+
+    if(data.length===0){showT(lang==="fr"?"Aucune donnée à exporter":"No data to export");return}
+
+    if(expFormat==="csv"){
+      const headers=["Type","Date","Entreprise","Titre","Résumé","Source","Catégorie","Importance","Confiance","Lignes"];
+      const rows=data.map(d=>headers.map(h=>{const map={Type:d.type,Date:d.date,Entreprise:d.company,Titre:d.title,Résumé:d.summary,Source:d.source,Catégorie:d.category,Importance:d.importance,Confiance:d.confidence,Lignes:d.lines};const v=String(map[h]||"");return'"'+v.replace(/"/g,'""')+'"'}).join(","));
+      const csv="\uFEFF"+headers.join(",")+"\n"+rows.join("\n");
+      const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download=`AIG_Lines_Intelligence_${expType}_${new Date().toISOString().split("T")[0]}.csv`;a.click();
+      URL.revokeObjectURL(url);
+    }else{
+      // PDF via print
+      const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>AIG Lines Intelligence — Export</title><style>body{font-family:Segoe UI,sans-serif;padding:40px;color:#263348}h1{color:#002B5C;font-size:20px;border-bottom:2px solid #002B5C;padding-bottom:8px}h2{color:#0072CE;font-size:14px;margin-top:20px}.meta{font-size:11px;color:#7D8A9A;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:10px}th{background:#002B5C;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #E2E6EB}tr:nth-child(even){background:#FAFBFC}.footer{margin-top:30px;text-align:center;font-size:10px;color:#A8B1BD}</style></head><body><h1>AIG — Lines Intelligence</h1><p class="meta">Export ${expType} — ${new Date().toLocaleDateString("fr-FR")}${expCompany?" — "+expCompany:""}${expCat?" — "+getCat(expCat,lang)?.label:""}${expDateFrom?" — Du "+expDateFrom:""}</p><table><thead><tr><th>Type</th><th>Date</th><th>Entreprise</th><th>Titre</th><th>Catégorie</th><th>Imp.</th><th>Lignes</th></tr></thead><tbody>${data.map(d=>"<tr><td>"+d.type+"</td><td>"+d.date+"</td><td>"+d.company+"</td><td>"+(d.title||"").substring(0,80)+"</td><td>"+d.category+"</td><td>"+d.importance+"</td><td>"+d.lines+"</td></tr>").join("")}</tbody></table><p class="footer">© 2026 AIG — Lines Intelligence · ${data.length} enregistrements</p></body></html>`;
+      const w=window.open("","_blank");if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),500)}
+    }
+    showT(lang==="fr"?`${data.length} enregistrements exportés`:`${data.length} records exported`);
+    logActivity("export",`${expType} ${expFormat} (${data.length})`);
+    setShowExport(false);
+  };
+
+  const loadAdminLogs=async()=>{
+    const logs=await sbFetch("user_activity","GET",null,"?order=created_at.desc&limit=50");
+    if(logs)setAdminLogs(logs);
+  };
+  const loadAdminTickets=async()=>{
+    const tix=await sbFetch("tickets","GET",null,"?order=created_at.desc&limit=30");
+    if(tix)setAdminTickets(tix);
+  };
+
+  // ── Admin ticket alarm (polls every 30s, plays alarm until dismissed) ──
+  const[ticketAlarm,setTicketAlarm]=useState(null);
+  const lastTicketCount=useRef(0);
+  const alarmAudioRef=useRef(null);
+
+  const playAlarm=useCallback(()=>{
+    try{
+      const ctx=new (window.AudioContext||window.webkitAudioContext)();
+      const playTone=()=>{
+        if(!alarmAudioRef.current)return;
+        const osc=ctx.createOscillator();
+        const gain=ctx.createGain();
+        osc.connect(gain);gain.connect(ctx.destination);
+        osc.type="square";
+        osc.frequency.setValueAtTime(880,ctx.currentTime);
+        osc.frequency.setValueAtTime(660,ctx.currentTime+0.15);
+        osc.frequency.setValueAtTime(880,ctx.currentTime+0.3);
+        gain.gain.setValueAtTime(0.3,ctx.currentTime);
+        gain.gain.setValueAtTime(0,ctx.currentTime+0.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime+0.5);
+        if(alarmAudioRef.current)setTimeout(playTone,800);
+      };
+      alarmAudioRef.current=ctx;
+      playTone();
+      // Vibrate pattern (if supported)
+      if(navigator.vibrate)navigator.vibrate([500,300,500,300,500,300,500,300,500]);
+    }catch(e){}
+  },[]);
+
+  const stopAlarm=useCallback(()=>{
+    if(alarmAudioRef.current){
+      try{alarmAudioRef.current.close()}catch(e){}
+      alarmAudioRef.current=null;
+    }
+    if(navigator.vibrate)navigator.vibrate(0);
+    setTicketAlarm(null);
+  },[]);
+
+  // Poll for new tickets (admin only, every 30s)
+  useEffect(()=>{
+    if(!isAdmin||step!=="app")return;
+    const poll=async()=>{
+      try{
+        const openTix=await sbFetch("tickets","GET",null,"?status=eq.open&order=created_at.desc&limit=5");
+        if(!openTix)return;
+        if(lastTicketCount.current>0&&openTix.length>lastTicketCount.current){
+          // New ticket detected!
+          const newest=openTix[0];
+          setTicketAlarm(newest);
+          playAlarm();
+          // Also push notification
+          if(typeof Notification!=="undefined"&&Notification.permission==="granted"){
+            new Notification("AIG Lines Intelligence — Ticket",{body:`${newest.user_email}: ${newest.message?.substring(0,100)}`,icon:"/icon-192.png",tag:"ticket-"+newest.id,requireInteraction:true});
+          }
+        }
+        lastTicketCount.current=openTix.length;
+      }catch(e){}
+    };
+    poll();
+    const interval=setInterval(poll,30000);
+    return()=>clearInterval(interval);
+  },[isAdmin,step,playAlarm]);
+  const closeTicket=async(id)=>{
+    await sbFetch("tickets","PATCH",{status:"closed"},`?id=eq.${id}`);
+    setAdminTickets(prev=>prev.map(t=>t.id===id?{...t,status:"closed"}:t));
+    showT(lang==="fr"?"Ticket fermé":"Ticket closed");
+  };
+
+  const loadPendingRequests=useCallback(async()=>{
+    if(!isAdmin||!sbOk)return;
+    const reqs=await sbFetch("access_requests","GET",null,"?status=eq.pending&order=requested_at.desc");
+    if(reqs)setPendingRequests(reqs);
+  },[isAdmin]);
+
+  const approveRequest=async(email)=>{
+    const pwd=Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,4).toUpperCase()+"!";
     try{
       const res=await fetch(`${SB_URL}/auth/v1/signup`,{
         method:"POST",
         headers:{"Content-Type":"application/json","apikey":SB_KEY},
-        body:JSON.stringify({email:loginEm.toLowerCase().trim(),password:loginPw})
+        body:JSON.stringify({email:email.toLowerCase().trim(),password:pwd})
       });
       if(res.ok){
-        showT(lang==="fr"?"Compte créé ! Connectez-vous.":"Account created! Sign in.");
+        await sbFetch("access_requests","PATCH",{status:"approved"},`?email=eq.${encodeURIComponent(email)}`);
+        setPendingRequests(prev=>prev.filter(r=>r.email!==email));
+        setApprovedPwd({email,pwd});
+        showT(lang==="fr"?`Compte créé pour ${email}`:`Account created for ${email}`);
       }else{
         const err=await res.json();
-        showT(err.msg||err.error_description||(lang==="fr"?"Erreur de création":"Signup error"));
+        showT(err.error_description||err.msg||(lang==="fr"?"Erreur":"Error"));
       }
     }catch(e){showT(lang==="fr"?"Erreur réseau":"Network error")}
+  };
+
+  const rejectRequest=async(email)=>{
+    await sbFetch("access_requests","PATCH",{status:"rejected"},`?email=eq.${encodeURIComponent(email)}`);
+    setPendingRequests(prev=>prev.filter(r=>r.email!==email));
+    showT(lang==="fr"?"Demande refusée":"Request rejected");
+  };
+  const requestAccess=async()=>{
+    if(!loginEm||!loginEm.includes("@"))return;
+    setLoginLoading(true);
+    try{
+      // Save request to Supabase
+      await sbFetch("access_requests","POST",{
+        email:loginEm.toLowerCase().trim(),
+        requested_at:new Date().toISOString(),
+        status:"pending"
+      });
+      // Open mailto to notify admin
+      const subject=encodeURIComponent("AIG Lines Intelligence — Demande d'accès");
+      const body=encodeURIComponent(`Nouvelle demande d'accès à AIG Lines Intelligence.\n\nEmail : ${loginEm}\nDate : ${new Date().toLocaleString("fr-FR")}\n\nPour autoriser cet utilisateur :\n1. Va sur https://supabase.com/dashboard → SIGNALIS → Authentication → Add user\n2. Email : ${loginEm}\n3. Mot de passe temporaire\n4. Auto Confirm → Save`);
+      window.open(`mailto:jmlemoineperso@gmail.com?subject=${subject}&body=${body}`,"_self");
+      setAccessRequested(true);
+      showT(lang==="fr"?"Demande envoyée !":"Request sent!");
+    }catch(e){
+      showT(lang==="fr"?"Erreur, réessayez":"Error, try again");
+    }
     setLoginLoading(false);
   };
 
   const logout=()=>{
     setAuthToken(null);setAuthEmail("");setStep("login");
-    lsSet("authToken",null);lsSet("authEmail","");
+    try{localStorage.removeItem("signalis_authToken");localStorage.removeItem("signalis_authEmail");localStorage.removeItem("signalis_step")}catch(e){}
+    _lsPrefix="signalis_";
   };
   const[cos,setCos]=useState(()=>{
     const savedPrios=lsGet("watchPrios",null);
@@ -610,9 +836,9 @@ function App(){
         const mapped=dbNotes.map(n=>({id:n.id,cid:n.company_id,text:n.content,tag:n.tag,at:n.created_at}));
         setNotes(prev=>[...mapped,...prev.filter(p=>!mapped.find(m=>m.id===p.id))]);
       }
-      const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
+      const liveDb=await sbFetch("live_signals","GET",null,`?order=fetched_at.desc&limit=500`);
       if(liveDb&&liveDb.length>0){
-        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,img:s.image_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
         const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
         setLiveSigs(deduped);
       }
@@ -625,9 +851,9 @@ function App(){
     if(!sbOk||!dbLoaded)return;
     const poll=async()=>{
       try{
-        const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
+        const liveDb=await sbFetch("live_signals","GET",null,`?order=fetched_at.desc&limit=500`);
         if(liveDb&&liveDb.length>0){
-          const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+          const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,img:s.image_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
           const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
           setLiveSigs(prev=>{
             if(deduped.length===prev.length&&deduped[0]?.id===prev[0]?.id)return prev;
@@ -707,11 +933,13 @@ function App(){
   const[briefHistory,setBriefHistory]=useState(()=>lsGet("briefHistory",[]));
   const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
   const[editingDossier,setEditingDossier]=useState(null);
-  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:""});
+  const[brokerOpen,setBrokerOpen]=useState(false);
+  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[]});
+  const defaultDossier={broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[]};
   const[dossierFiles,setDossierFiles]=useState(()=>lsGet("dossierFiles",{}));
   const fileInputRef=useRef(null);
-  const openDossier=(cid)=>{const d=clientDossiers[cid]||{broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:""};setDossierDraft(d);setEditingDossier(cid)};
-  const saveDossier=()=>{if(!editingDossier)return;setClientDossiers(prev=>{const n={...prev,[editingDossier]:{...dossierDraft,updatedAt:new Date().toISOString()}};lsSet("clientDossiers",n);if(sbOk)sbFetch("client_dossiers","POST",{id:editingDossier,user_email:USER_EMAIL,company_id:editingDossier,data:n[editingDossier]}).catch(()=>{});return n});setEditingDossier(null);showT(lang==="fr"?"Dossier sauvegardé":"Dossier saved")};
+  const openDossier=(cid)=>{const d=clientDossiers[cid]||defaultDossier;setDossierDraft({...defaultDossier,...d});setEditingDossier(cid)};
+  const saveDossier=()=>{if(!editingDossier)return;setClientDossiers(prev=>{const n={...prev,[editingDossier]:{...dossierDraft,updatedAt:new Date().toISOString()}};lsSet("clientDossiers",n);if(sbOk)sbFetch("client_dossiers","POST",{id:editingDossier,user_email:USER_EMAIL,company_id:editingDossier,data:n[editingDossier]}).catch(()=>{});return n});setEditingDossier(null);showT(lang==="fr"?"Dossier sauvegardé":"Dossier saved");logActivity("dossier_save","Dossier mis à jour")};
   const handleFileUpload=(e)=>{
     const files=Array.from(e.target.files||[]);if(!files.length||!editingDossier)return;
     const maxSize=5*1024*1024;
@@ -775,6 +1003,76 @@ function App(){
   // ── Voice recording ──
   const[showRec,setShowRec]=useState(false);
   const[showPresentation,setShowPresentation]=useState(null);
+  const[analysisResult,setAnalysisResult]=useState(null);
+  const[analysisLoading,setAnalysisLoading]=useState(false);
+  const[showAnalysis,setShowAnalysis]=useState(false);
+
+  const runAnalysis=async(cid)=>{
+    const co=cos.find(c=>c.id===cid);if(!co)return;
+    setAnalysisLoading(true);setShowAnalysis(true);setAnalysisResult(null);
+    const sigs=getSigs(cid);
+    const dos=getDossier(cid);
+    const cn=getNotes(cid);
+    const lines=getLinesAll(sigs);
+
+    const prompt=`Tu es un expert senior en assurance grandes entreprises, spécialisé dans l'analyse de risques et le placement de programmes. Tu analyses l'entreprise ci-dessous pour un Account Manager AIG.
+
+ENTREPRISE: ${co.name}
+SECTEUR: ${tx(co.sector,lang)}
+SIÈGE: ${co.hq || "France"}
+CAPITALISATION: ${co.cap || "N/A"}
+EFFECTIFS: ${co.emp || "N/A"}
+SCORE DE RISQUE ACTUEL: ${co.risk || 50}/100
+
+DOSSIER CLIENT:
+${dos ? `Courtier: ${dos.broker || "N/A"} | Risk Manager: ${dos.rm || "N/A"} | Renouvellement: ${dos.renewal || "N/A"} | Prime: ${dos.premium || "N/A"} | Programme: ${dos.program || "N/A"} | Sinistralité: ${dos.sinistres || "N/A"} | Contexte: ${dos.context || "N/A"}` : "Aucun dossier renseigné"}
+${dos?.programLines?.length > 0 ? "STRUCTURE PROGRAMME:\n" + dos.programLines.map(p => p.line + ": " + (p.layers || []).map(l => l.insurer + " " + l.from + "-" + l.to + "M€ (" + (l.share || 100) + "%)").join(", ")).join("\n") : ""}
+
+SIGNAUX RÉCENTS (${sigs.length}):
+${sigs.slice(0, 15).map(s => "- [" + (s.imp || 50) + "] " + tx(s.title, lang) + " (" + tx(s.src, lang) + ", " + (s.at ? new Date(s.at).toLocaleDateString("fr-FR") : "") + ")").join("\n")}
+
+LIGNES IMPACTÉES: ${lines.map(l => lineLbl(l, lang)).join(", ") || "Aucune"}
+
+NOTES INTERNES (${cn.length}):
+${cn.slice(0, 5).map(n => "- [" + n.tag + "] " + (typeof n.text === "object" ? tx(n.text, lang) : n.text)).join("\n")}
+
+Produis une ANALYSE STRATÉGIQUE STRUCTURÉE en JSON avec exactement cette structure:
+{
+  "past": {"title":"Rétrospective","period":"12 derniers mois","summary":"...(3-4 phrases)","key_events":["événement 1","événement 2","événement 3"],"risk_trajectory":"hausse|stable|baisse"},
+  "present": {"title":"Situation actuelle","summary":"...(3-4 phrases)","risk_level":"critique|élevé|moyen|faible","strengths":["point fort 1","point fort 2"],"concerns":["préoccupation 1","préoccupation 2"],"policy_adequacy":"...(évaluation du programme en place)"},
+  "scenarios":[
+    {"name":"Scénario optimiste","probability":25,"description":"...(2-3 phrases)","impact_risk":-15,"impact_lines":{"do":"stable","cyber":"baisse"},"recommendation":"..."},
+    {"name":"Scénario central","probability":50,"description":"...(2-3 phrases)","impact_risk":0,"impact_lines":{"do":"hausse modérée"},"recommendation":"..."},
+    {"name":"Scénario pessimiste","probability":25,"description":"...(2-3 phrases)","impact_risk":20,"impact_lines":{"do":"hausse forte","cyber":"hausse"},"recommendation":"..."}
+  ],
+  "actions":["action prioritaire 1","action prioritaire 2","action prioritaire 3"],
+  "commercial_angle":"...(angle pour le prochain rdv courtier/RM)"
+}
+
+Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          messages: [{ role: "user", content: prompt }]
+        })
+      });
+      if (!res.ok) throw new Error("API error");
+      const data = await res.json();
+      const text = (data.content || []).map(c => c.text || "").join("");
+      const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setAnalysisResult(parsed);
+      logActivity("analysis", co.name + " — Analyse stratégique");
+    } catch (e) {
+      setAnalysisResult({ error: lang === "fr" ? "Erreur d'analyse. Réessayez." : "Analysis error. Try again." });
+    }
+    setAnalysisLoading(false);
+  };
   const[brokerView,setBrokerView]=useState(false);
   const[isOffline,setIsOffline]=useState(false);
   useEffect(()=>{
@@ -927,7 +1225,7 @@ function App(){
     });
   },[saveWatchlistDB]);
   const addN=()=>{if(!nText.trim())return;if(noteDictating)stopNoteDict();const cleaned=nText.trim().replace(/\s+/g," ").replace(/ ([.,;:!?])/g,"$1");const sentences=cleaned.replace(/([.!?])\s+/g,"$1\n").split("\n").map(s=>s.trim()).filter(Boolean).map(s=>s.charAt(0).toUpperCase()+s.slice(1));const formatted=sentences.join(". ").replace(/\.\./g,".");const note={id:`n${Date.now()}`,cid:nComp||null,text:formatted,tag:nTag,at:new Date().toISOString()};setNotes(p=>[note,...p]);saveNoteDB(note);setNT("");setSNN(false);showT(t("note_saved"))};
-  const deleteN=(id)=>{setNotes(p=>p.filter(n=>n.id!==id));if(sbOk)sbFetch("notes","DELETE",null,`?id=eq.${encodeURIComponent(id)}`).catch(()=>{});showT(lang==="fr"?"Note supprimée":"Note deleted")};
+  const deleteN=(id)=>{setNotes(p=>p.filter(n=>n.id!==id));if(sbOk)sbFetch("notes","DELETE",null,`?id=eq.${encodeURIComponent(id)}`).catch(()=>{});showT(lang==="fr"?"Note supprimée":"Note deleted");logActivity("note_delete","Note supprimée")};
 
   // Meetings
   const addMeeting=()=>{if(mtgDictating)stopMtgDict();if(!mtgCo||!mtgDate)return;const co=cos.find(c=>c.id===mtgCo);const m={id:`mtg${Date.now()}`,cid:mtgCo,date:mtgDate,type:mtgType,notes:mtgNotes,createdAt:new Date().toISOString(),contact:mtgType==="autre"?{name:mtgContactName,phone:mtgContactPhone,email:mtgContactEmail,role:mtgContactRole}:null};if(mtgType==="autre"&&mtgContactName)saveContact(mtgContactName,mtgContactPhone,mtgContactEmail,mtgContactRole,co?.name||"");setMeetings(p=>{const n=[m,...p];lsSet("meetings",n);return n});setMtgCo("");setMtgDate("");setMtgType("broker");setMtgNotes("");setMtgCN("");setMtgCP("");setMtgCE("");setMtgCR("");setCSugg([]);setSNM(false);showT(t("meeting_saved"))};
@@ -935,7 +1233,7 @@ function App(){
   const exportICS=(mtg)=>{const co=cos.find(c=>c.id===mtg.cid);const name=co?.name||"Réunion";const d=new Date(mtg.date);const end=new Date(d.getTime()+3600000);const fmt=d=>d.toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");const summary=mtg.type==="broker"?"RDV Courtier":mtg.type==="rm"?"RDV RM":mtg.type==="autre"?`RDV ${mtg.contact?.name||""}`.trim():"Réunion interne";const desc=[mtg.notes,mtg.contact?`Contact: ${mtg.contact.name||""} ${mtg.contact.phone||""} ${mtg.contact.email||""}`.trim():null,"Préparé par AIG Lines Intelligence"].filter(Boolean).join("\\n");const ics=`BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//AIG-FL-Intelligence//FR\nBEGIN:VEVENT\nDTSTART:${fmt(d)}\nDTEND:${fmt(end)}\nSUMMARY:${summary} — ${name}\nDESCRIPTION:${desc}\nEND:VEVENT\nEND:VCALENDAR`;const blob=new Blob([ics],{type:"text/calendar"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`aigfl-${name.replace(/\s/g,"-")}.ics`;a.click();URL.revokeObjectURL(url)};
   const upcomingMtgs=meetings.filter(m=>new Date(m.date)>=new Date()).sort((a,b)=>new Date(a.date)-new Date(b.date));
   const pastMtgs=meetings.filter(m=>new Date(m.date)<new Date()).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const mtgLabel=(mtg)=>{const d=new Date(mtg.date);const now=new Date();const diff=Math.ceil((d-now)/(86400000));if(diff===0)return{l:t("today"),c:"#991B1B"};if(diff===1)return{l:t("tomorrow"),c:"#92400E"};if(diff>0)return{l:`${diff} ${t("days_left")}`,c:"#0072CE"};return{l:fD(mtg.date),c:"var(--t5)"}};
+  const mtgLabel=(mtg)=>{const d=new Date(mtg.date);const now=new Date();const diff=Math.ceil((d-now)/(86400000));if(diff===0)return{l:t("today"),c:"#991B1B"};if(diff===1)return{l:t("tomorrow"),c:"#92400E"};if(diff>0)return{l:`${diff} ${t("days_left")}`,c:"#0072CE"};return{l:fD(mtg.date,lang),c:"var(--t5)"}};
   useEffect(()=>{lsSet("meetings",meetings)},[meetings]);
 
   // ── Live refresh ──
@@ -976,9 +1274,9 @@ function App(){
     if(refreshing||!sbOk)return;
     setRefreshing(true);
     try{
-      const liveDb=await sbFetch("live_signals","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}&order=fetched_at.desc&limit=500`);
+      const liveDb=await sbFetch("live_signals","GET",null,`?order=fetched_at.desc&limit=500`);
       if(liveDb&&liveDb.length>0){
-        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
+        const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,img:s.image_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
         const seen=new Set();const deduped=mapped.filter(s=>{const t=(s.title?.en||"").toLowerCase().trim();if(!t||seen.has(t))return false;seen.add(t);return true});
         const prevCount=liveSigs.length;
         setLiveSigs(deduped);
@@ -992,7 +1290,7 @@ function App(){
             const co=cos.find(c=>c.id===crits[0].cid);
             new Notification("AIG FL Intelligence",{body:`${lang==="fr"?"Signal critique":"Critical signal"}: ${co?.name||""} — ${tx(crits[0].title,lang)}`,icon:"/icon-192.png",badge:"/icon-192.png",tag:"aigfl-"+crits[0].id});
           }
-          showT(lang==="fr"?`${deduped.length} signaux chargés (${newCount2} nouveaux)`:`${deduped.length} signals loaded (${newCount2} new)`);
+          showT(lang==="fr"?`${deduped.length} signaux chargés (${newCount2} nouveaux)`:`${deduped.length} signals loaded (${newCount2} new)`);logActivity("refresh",`${deduped.length} signals loaded`);
         }else{
           showT(lang==="fr"?`${deduped.length} signaux à jour`:`${deduped.length} signals up to date`);
         }
@@ -1007,14 +1305,87 @@ function App(){
     setRefreshing(false);
   },[cos,lang,refreshing,liveSigs.length,scoreThresholds]);
 
-  // Auto-refresh every hour
+  // ── Supabase Realtime (instant signal delivery) ──
+  const wsRef=useRef(null);
+  const heartbeatRef=useRef(null);
+  const wsReconnectRef=useRef(null);
+
+  const connectRealtime=useCallback(()=>{
+    if(!sbOk||wsRef.current)return;
+    try{
+      const wsUrl=SB_URL.replace("https://","wss://").replace("http://","ws://")+`/realtime/v1/websocket?apikey=${SB_KEY}&vsn=1.0.0`;
+      const ws=new WebSocket(wsUrl);
+      wsRef.current=ws;
+
+      ws.onopen=()=>{
+        // Join channel for live_signals table
+        ws.send(JSON.stringify({
+          topic:"realtime:public:live_signals",
+          event:"phx_join",
+          payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"INSERT",schema:"public",table:"live_signals"}]}},
+          ref:"1"
+        }));
+        // Heartbeat every 30s
+        heartbeatRef.current=setInterval(()=>{
+          if(ws.readyState===WebSocket.OPEN){
+            ws.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(Date.now())}));
+          }
+        },30000);
+      };
+
+      ws.onmessage=(ev)=>{
+        try{
+          const msg=JSON.parse(ev.data);
+          if(msg.event==="postgres_changes"&&msg.payload?.data){
+            const rec=msg.payload.data.record;
+            if(rec){
+              const newSig={id:rec.id,cid:rec.company_id,company:rec.company_name||"",title:{en:rec.title_en||"",fr:rec.title_fr||""},sum:{en:rec.summary_en||"",fr:rec.summary_fr||""},src:rec.source_name||"Web",url:rec.source_url||null,img:rec.image_url||null,at:rec.fetched_at,cat:rec.category||"governance",fact:rec.factuality||"needs_review",imp:rec.importance||50,conf:rec.confidence||50,live:true,_impacts:rec.impacts||[]};
+              setLiveSigs(prev=>{
+                const t=(newSig.title?.en||"").toLowerCase().trim();
+                if(prev.some(s=>(s.title?.en||"").toLowerCase().trim()===t))return prev;
+                return[newSig,...prev];
+              });
+              setNewCount(p=>{const n=p+1;try{navigator.setAppBadge&&navigator.setAppBadge(n)}catch(e){}return n});
+              // Notification for critical
+              if(rec.importance>=75&&typeof Notification!=="undefined"&&Notification.permission==="granted"){
+                new Notification("AIG Lines Intelligence",{body:`${rec.company_name}: ${rec.title_fr||rec.title_en}`,icon:"/icon-192.png",tag:"sig-"+rec.id});
+              }
+            }
+          }
+        }catch(e){}
+      };
+
+      ws.onclose=()=>{
+        wsRef.current=null;
+        if(heartbeatRef.current)clearInterval(heartbeatRef.current);
+        // Reconnect after 5s
+        wsReconnectRef.current=setTimeout(connectRealtime,5000);
+      };
+
+      ws.onerror=()=>{ws.close()};
+    }catch(e){}
+  },[]);
+
+  useEffect(()=>{
+    if(step==="app"&&sbOk){
+      connectRealtime();
+      return()=>{
+        if(wsRef.current)wsRef.current.close();
+        if(heartbeatRef.current)clearInterval(heartbeatRef.current);
+        if(wsReconnectRef.current)clearTimeout(wsReconnectRef.current);
+        wsRef.current=null;
+      };
+    }
+  },[step,connectRealtime]);
+
+  // Fallback polling (every 2 min if realtime fails)
   const refreshRef=useRef(null);
   useEffect(()=>{
     if(autoRefresh&&step==="app"){
-      refreshRef.current=setInterval(()=>refreshSignals(),refreshMin*60000);
+      refreshRef.current=setInterval(()=>refreshSignals(),120000);
       return ()=>clearInterval(refreshRef.current);
     }
-  },[autoRefresh,step,refreshSignals,refreshMin]);
+  },[autoRefresh,step,refreshSignals]);
 
   // Auto-load DB if already logged in (page refresh)
   useEffect(()=>{
@@ -1328,7 +1699,7 @@ function App(){
         </div>
         {loginErr&&<p style={{fontSize:12,color:"#991B1B",marginBottom:10}}>{t("login_err")}</p>}
         <button className="btn bp" style={{width:"100%",height:46,borderRadius:6,opacity:loginLoading?.6:1}} onClick={tryLogin} disabled={loginLoading}>{loginLoading?(lang==="fr"?"Connexion...":"Signing in..."):(lang==="fr"?"Se connecter":"Sign in")}</button>
-        <button style={{background:"none",border:"none",fontSize:12,color:"#0072CE",cursor:"pointer",marginTop:12,display:"block",width:"100%"}} onClick={trySignup}>{lang==="fr"?"Créer un compte":"Create account"}</button>
+        <button style={{background:"none",border:"none",fontSize:12,color:"#0072CE",cursor:"pointer",marginTop:12,display:"block",width:"100%"}} onClick={requestAccess} disabled={accessRequested||!loginEm}>{accessRequested?(lang==="fr"?"Demande envoyée ✓":"Request sent ✓"):(lang==="fr"?"Demander un accès":"Request access")}</button>
         <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:20}}>
           <button style={{background:"none",border:"none",fontSize:12,color:lang==="en"?"#002B5C":"#A8B1BD",fontWeight:lang==="en"?600:400,cursor:"pointer"}} onClick={()=>setLang("en")}>EN</button>
           <span style={{color:"#CDD3DA",fontSize:12}}>|</span>
@@ -1351,9 +1722,14 @@ function App(){
   const SigCard=({s,d=0})=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>c.id===s.cid)||cos.find(c=>s.company&&(c.name.toLowerCase()===s.company.toLowerCase()||s.company.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])));const imps=getImpsAll(s.id);return (
     <div className={`card fi ${d>0?`fi${Math.min(d,5)}`:""}`} style={{padding:"16px 18px",cursor:"pointer"}} onClick={()=>setSS(s)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>{cat?.icon}</span><span className="lbl" style={{color:cat?.c,fontSize:10}}>{cat?.label}</span></div><span className="badge" style={{background:sBg(s.imp),color:sT(s.imp)}}>{scoreLbl(s.imp,t)}</span></div>
-      <h3 style={{fontSize:14,fontWeight:600,color:"var(--t1)",lineHeight:1.4,marginBottom:8}}>{tx(s.title,lang)}</h3>
-      <p style={{fontSize:12,color:"var(--t3)",lineHeight:1.45,marginBottom:12,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{tx(s.sum,lang)}</p>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:6}}>{co&&<Logo name={co.name} sz={20} fallback={co.logo}/>}<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co?.name}</span><span style={{fontSize:10,color:"var(--t5)"}}>·</span>{(tx(s.src,lang)||"").includes(" | ")?<span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:"rgba(0,114,206,.06)",color:"var(--gold2)",fontWeight:600}}>{(tx(s.src,lang)||"").split(" | ").length} sources</span>:<span style={{fontSize:10,color:"var(--t5)"}}>{tx(s.src,lang)}</span>}</div><span style={{fontSize:10,color:"var(--t5)",display:"flex",alignItems:"center",gap:4}}><I.clock/>{fD(s.at)}</span></div>
+      <div style={{display:"flex",gap:12}}>
+        <div style={{flex:1,minWidth:0}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:"var(--t1)",lineHeight:1.4,marginBottom:8}}>{tx(s.title,lang)}</h3>
+          <p style={{fontSize:12,color:"var(--t3)",lineHeight:1.45,marginBottom:12,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{tx(s.sum,lang)}</p>
+        </div>
+        {s.img&&<div style={{width:80,height:60,flexShrink:0,borderRadius:6,overflow:"hidden",background:"var(--bg3)"}}><img src={s.img} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.parentElement.style.display="none"}}/></div>}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:6}}>{co&&<Logo name={co.name} sz={20} fallback={co.logo}/>}<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co?.name}</span><span style={{fontSize:10,color:"var(--t5)"}}>·</span>{(tx(s.src,lang)||"").includes(" | ")?<span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:"rgba(0,114,206,.06)",color:"var(--gold2)",fontWeight:600}}>{(tx(s.src,lang)||"").split(" | ").length} sources</span>:<span style={{fontSize:10,color:"var(--t5)"}}>{tx(s.src,lang)}</span>}</div><span style={{fontSize:10,color:"var(--t5)",display:"flex",alignItems:"center",gap:4}}><I.clock/>{fD(s.at,lang)}</span></div>
       {imps.length>0&&<div style={{display:"flex",gap:5,marginTop:10,flexWrap:"wrap"}}>{imps.map((im,idx)=><span key={`${im.line}-${idx}`} style={{fontSize:10,padding:"2px 8px",borderRadius:12,background:LVL_BG[im.lvl]||"rgba(37,99,235,.08)",color:LVL_T[im.lvl]||"#1E40AF",border:`1px solid ${(LVL_C[im.lvl]||"#3B82F6")}22`}}>{lineLbl(im.line,lang)} · {im.lvl||"—"}</span>)}</div>}
     </div>)};
 
@@ -1363,11 +1739,12 @@ function App(){
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingTop:8}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{cat?.icon}</span><span className="lbl" style={{color:cat?.c,fontSize:11}}>{cat?.label}</span></div><button className="bi" style={{width:32,height:32}} onClick={onClose}><I.x/></button></div>
       <h2 style={{fontSize:20,fontWeight:600,color:"var(--t1)",lineHeight:1.35,marginBottom:14}}>{tx(s.title,lang)}</h2>
-      <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}><span className="badge" style={{background:sBg(s.imp),color:sT(s.imp)}}>{scoreLbl(s.imp,t)} · {s.imp}</span><span className="ftag" style={{background:f.bg,color:f.c}}>{f.l}</span><span style={{fontSize:11,color:"var(--t4)",display:"flex",alignItems:"center",gap:4}}><I.clock/>{fD(s.at)}</span></div>
+      <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}><span className="badge" style={{background:sBg(s.imp),color:sT(s.imp)}}>{scoreLbl(s.imp,t)} · {s.imp}</span><span className="ftag" style={{background:f.bg,color:f.c}}>{f.l}</span><span style={{fontSize:11,color:"var(--t4)",display:"flex",alignItems:"center",gap:4}}><I.clock/>{fD(s.at,lang)}</span></div>
+      {s.img&&<div style={{marginBottom:16,borderRadius:8,overflow:"hidden",border:"1px solid var(--b)"}}><img src={s.img} alt="" style={{width:"100%",height:"auto",maxHeight:220,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none"}}/></div>}
       {co&&<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:18,border:"1px solid var(--b)"}}><Logo name={co.name} sz={28} fallback={co.logo}/><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{co.name}</span><span style={{fontSize:11,color:"var(--t4)",marginLeft:10}}>{tx(co.sector,lang)}</span></div>}
       <div className="dv"/>
       <div style={{marginBottom:22}}><h4 className="lbl" style={{color:"var(--t3)",marginBottom:10}}>{t("what_happened")}</h4><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.65}}>{tx(s.sum,lang)}</p></div>
-      <div style={{marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)",marginRight:6}}>{t("source_label")}</span><div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>{(tx(s.src,lang)||"").split(" | ").map((srcName,idx)=>{const url=idx===0?(s.url||srcUrl(srcName.trim())):srcUrl(srcName.trim());return url?<a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--gold2)",fontWeight:500,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",background:"rgba(0,114,206,.05)",borderRadius:4,border:"1px solid rgba(0,114,206,.1)"}}>{srcName.trim()}<I.ext/></a>:<span key={idx} style={{fontSize:11,color:"var(--gold2)",fontWeight:500,padding:"2px 8px",background:"rgba(0,114,206,.05)",borderRadius:4,border:"1px solid rgba(0,114,206,.1)"}}>{srcName.trim()}</span>})}</div></div>
+      <div style={{marginBottom:22}}><span style={{fontSize:11,color:"var(--t4)",marginRight:6}}>{t("source_label")}</span><div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>{(()=>{const srcNames=(tx(s.src,lang)||"").split(" | ");const srcUrls=(s.url||"").split(" | ");return srcNames.map((srcName,idx)=>{const url=srcUrls[idx]?.trim()||srcUrl(srcName.trim());return url?<a key={idx} href={url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"var(--gold2)",fontWeight:500,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",background:"rgba(0,114,206,.05)",borderRadius:4,border:"1px solid rgba(0,114,206,.1)"}}>{srcName.trim()}<I.ext/></a>:<span key={idx} style={{fontSize:11,color:"var(--gold2)",fontWeight:500,padding:"2px 8px",background:"rgba(0,114,206,.05)",borderRadius:4,border:"1px solid rgba(0,114,206,.1)"}}>{srcName.trim()}</span>})})()}</div></div>
       <div className="dv"/>
       <h4 className="lbl" style={{color:"var(--t3)",marginBottom:12}}>{t("lines_impacted")}</h4>
       {imps.map((im,idx)=><div key={`${im.line}-${idx}`} style={{marginBottom:idx<imps.length-1?12:22}}>
@@ -1380,6 +1757,7 @@ function App(){
         </div>
       </div>)}
       <div style={{display:"flex",gap:28,marginBottom:10}}><div><h4 className="lbl" style={{color:"var(--t4)",marginBottom:6}}>{t("importance")}</h4><SR s={s.imp||50} sz={50}/></div><div><h4 className="lbl" style={{color:"var(--t4)",marginBottom:6}}>{t("confidence")}</h4><SR s={s.conf||50} sz={50}/></div></div>
+      {(s.url||(()=>{const srcNames=(tx(s.src,lang)||"").split(" | ");return srcUrl(srcNames[0]?.trim())})())&&<a href={s.url?.split(" | ")[0]||srcUrl((tx(s.src,lang)||"").split(" | ")[0]?.trim())} target="_blank" rel="noopener noreferrer" style={{display:"block",width:"100%",padding:"12px",fontSize:13,fontWeight:600,color:"#fff",background:"var(--gold)",borderRadius:8,textAlign:"center",textDecoration:"none",marginTop:12}}>{lang==="fr"?"Lire l'article complet":"Read full article"}</a>}
     </div></div>)};
 
   // ── BRIEF ──
@@ -1410,12 +1788,12 @@ function App(){
 
       {/* Nouveaux signaux depuis le dernier brief */}
       {lastDate&&newSince.length>0&&<div style={{padding:"12px 14px",background:"rgba(52,211,153,.06)",borderRadius:"var(--rs)",border:"1px solid rgba(52,211,153,.15)",marginBottom:18}}>
-        <p style={{fontSize:11,fontWeight:700,color:"#16A34A",marginBottom:6}}>{lang==="fr"?`${newSince.length} nouveau(x) signal(aux) depuis le dernier brief`:`${newSince.length} new signal(s) since last brief`} <span style={{fontWeight:400,color:"var(--t5)"}}>({fD(lastDate)})</span></p>
+        <p style={{fontSize:11,fontWeight:700,color:"#16A34A",marginBottom:6}}>{lang==="fr"?`${newSince.length} nouveau(x) signal(aux) depuis le dernier brief`:`${newSince.length} new signal(s) since last brief`} <span style={{fontWeight:400,color:"var(--t5)"}}>({fD(lastDate,lang)})</span></p>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>{newSince.slice(0,3).map((s,i)=><div key={i} style={{display:"flex",gap:6,alignItems:"center"}}><span className="badge" style={{background:sBg(s.imp||50),color:sT(s.imp||50),fontSize:9,padding:"1px 5px"}}>{s.imp||50}</span><span style={{fontSize:11,color:"var(--t2)"}}>{tx(s.title,lang)}</span></div>)}{newSince.length>3&&<p style={{fontSize:10,color:"var(--t5)",marginTop:2}}>+ {newSince.length-3} {lang==="fr"?"autre(s)":"more"}</p>}
         </div>
       </div>}
       {lastDate&&newSince.length===0&&<div style={{padding:"10px 14px",background:"rgba(96,165,250,.06)",borderRadius:"var(--rs)",border:"1px solid rgba(96,165,250,.12)",marginBottom:18}}>
-        <p style={{fontSize:11,color:"#1E40AF"}}>✓ {lang==="fr"?"Aucun nouveau signal depuis le dernier brief":"No new signals since last brief"} ({fD(lastDate)})</p>
+        <p style={{fontSize:11,color:"#1E40AF"}}>✓ {lang==="fr"?"Aucun nouveau signal depuis le dernier brief":"No new signals since last brief"} ({fD(lastDate,lang)})</p>
       </div>}
 
       {/* Brief history toggle */}
@@ -1423,7 +1801,7 @@ function App(){
         <span>{lang==="fr"?`${history.length} briefs précédents`:`${history.length} previous briefs`}</span><I.chR style={{width:12,height:12,transform:showBriefHist?"rotate(90deg)":"none",transition:"transform .2s"}}/>
       </button>}
       {showBriefHist&&<div style={{marginBottom:18,maxHeight:200,overflow:"auto"}}>{history.slice(1).map((b,i)=><div key={b.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderBottom:"1px solid var(--b)",opacity:.7+(i===0?.3:0)}}>
-        <div><p style={{fontSize:11,color:"var(--t2)"}}>{fD(b.date)}</p><p style={{fontSize:9,color:"var(--t5)"}}>{b.signalCount} {lang==="fr"?"signaux":"signals"} · {lang==="fr"?"Score":"Score"} {b.risk}</p></div>
+        <div><p style={{fontSize:11,color:"var(--t2)"}}>{fD(b.date,lang)}</p><p style={{fontSize:9,color:"var(--t5)"}}>{b.signalCount} {lang==="fr"?"signaux":"signals"} · {lang==="fr"?"Score":"Score"} {b.risk}</p></div>
         <div style={{display:"flex",gap:3}}>{(b.lines||[]).slice(0,3).map(l=><span key={l} style={{fontSize:7,padding:"1px 5px",borderRadius:5,background:"rgba(96,165,250,.1)",color:"#1E40AF"}}>{lineLbl(l,lang)}</span>)}</div>
       </div>)}</div>}
 
@@ -1505,7 +1883,7 @@ function App(){
   // ── COMPANY PAGE ──
   const CompPage=({cid})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);if(!co)return null;return (
     <div style={{paddingBottom:100}}>
-      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4,color:"rgba(255,255,255,.8)"}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:14,height:14}}/>{t("generate_brief")}</button><button className="btn" style={{padding:"6px 14px",fontSize:12,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>setShowPresentation(co.id)}><I.ext style={{width:14,height:14}}/>{lang==="fr"?"Présenter":"Present"}</button></div></div></div>
+      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4,color:"rgba(255,255,255,.8)"}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:14,height:14}}/>{t("generate_brief")}</button><button className="btn" style={{padding:"6px 14px",fontSize:12,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>setShowPresentation(co.id)}><I.ext style={{width:14,height:14}}/>{lang==="fr"?"Présenter":"Present"}</button><button className="btn" style={{padding:"6px 14px",fontSize:12,background:"rgba(22,163,74,.06)",color:"#166534",border:"1px solid rgba(22,163,74,.2)"}} onClick={()=>runAnalysis(co.id)}>{lang==="fr"?"Analyse IA":"AI Analysis"}</button></div></div></div>
       <div style={{padding:"24px 20px"}}>
         <p className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("company_overview")}</p>
         <div className="fi" style={{marginBottom:28}}>
@@ -1547,13 +1925,93 @@ function App(){
           </div>}
           <button className="btn" style={{width:"100%",padding:"8px",fontSize:11,background:"var(--bg3)",color:"var(--gold)",border:"1px solid rgba(0,114,206,.2)",borderRadius:"var(--rs)",marginBottom:14}} onClick={()=>{setMtgCo(co.id);setSNM(true)}}><I.plus style={{width:12,height:12}}/>{lang==="fr"?"Planifier une réunion":"Schedule a meeting"}</button>
         </>)})()}
+        {/* ═══ PROGRAMME D'ASSURANCE (Tower Chart) ═══ */}
+        {(()=>{const dos=getDossier(cid);const pl=dos?.programLines||[];if(pl.length===0)return(
+          <><div className="dv"/><div className="card" style={{padding:18,marginBottom:20,textAlign:"center"}}>
+            <h3 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{lang==="fr"?"PROGRAMME D'ASSURANCE":"INSURANCE PROGRAMME"}</h3>
+            <p style={{fontSize:12,color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"Aucune structure de programme renseignée":"No programme structure entered"}</p>
+            <button className="btn" style={{padding:"6px 14px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>openDossier(cid)}>{lang==="fr"?"Configurer le programme":"Configure programme"}</button>
+          </div></>);
+          // All amounts in M€
+          const maxCap=Math.max(...pl.map(p=>(p.layers||[]).reduce((a,l)=>Math.max(a,l.to||0),0)),1);
+          const chartH=220;
+          const INSURER_COLORS={"AIG":"#002B5C","Zurich":"#0072CE","Allianz":"#003781","AXA":"#00008F","Chubb":"#8B0000","MSIG":"#E4002B","Tokio Marine":"#DC143C","Generali":"#C8102E","Swiss Re":"#4A4A4A","Munich Re":"#0066B3","Hannover Re":"#009639","SCOR":"#003DA5","Berkshire":"#4B0082","Lloyd's":"#1A1A1A","HDI":"#0099CC","QBE":"#FF6600","Liberty":"#004B87","Markel":"#6B21A8","Beazley":"#065F46","Hiscox":"#92400E"};
+          const getColor=(name,idx)=>{if(!name)return["#A8B1BD","#7D8A9A","#5C6B7D","#3D4E63"][idx%4];const upper=(name||"").toUpperCase();for(const[k,v] of Object.entries(INSURER_COLORS)){if(upper.includes(k.toUpperCase()))return v}return["#0072CE","#D97706","#16A34A","#7C3AED","#DC2626","#0891B2","#4338CA","#B45309"][idx%8]};
+          // Y-axis ticks
+          const ticks=[];const step=maxCap<=10?2:maxCap<=50?10:maxCap<=100?20:maxCap<=500?100:Math.ceil(maxCap/5/100)*100;
+          for(let v=0;v<=maxCap;v+=step)ticks.push(v);if(ticks[ticks.length-1]<maxCap)ticks.push(Math.ceil(maxCap));
+          const yMax=ticks[ticks.length-1]||maxCap;
+          return(<><div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{lang==="fr"?"PROGRAMME D'ASSURANCE":"INSURANCE PROGRAMME"}</h3>
+          <div className="card" style={{padding:20,marginBottom:20,overflow:"auto"}}>
+            <div style={{display:"flex",minWidth:pl.length*60+40}}>
+              {/* Y-axis */}
+              <div style={{width:36,flexShrink:0,height:chartH,position:"relative"}}>
+                {ticks.map(v=><span key={v} style={{position:"absolute",bottom:(v/yMax)*chartH-5,right:4,fontSize:8,color:"var(--t5)",whiteSpace:"nowrap"}}>{v}{v>0?"M":""}</span>)}
+                <span style={{position:"absolute",top:-16,left:0,fontSize:8,color:"var(--t5)"}}>M€</span>
+              </div>
+              {/* Columns */}
+              <div style={{flex:1,display:"flex",gap:8}}>
+                {pl.map((p,pi)=>{const layers=[...(p.layers||[])].sort((a,b)=>(a.from||0)-(b.from||0));const colMax=layers.reduce((a,l)=>Math.max(a,l.to||0),0);return(
+                  <div key={pi} style={{flex:1,minWidth:50}}>
+                    {/* Tower */}
+                    <div style={{height:chartH,display:"flex",flexDirection:"column-reverse",position:"relative",borderLeft:"1px solid var(--b)",borderBottom:"1px solid var(--b)"}}>
+                      {/* Grid lines */}
+                      {ticks.map(v=>v>0&&<div key={v} style={{position:"absolute",bottom:(v/yMax)*100+"%",left:0,right:0,borderTop:"1px dashed rgba(0,43,92,.08)"}}/>)}
+                      {/* Layers */}
+                      {layers.map((l,li)=>{
+                        const hPct=Math.max(((l.to-l.from)/yMax)*100,2);
+                        const hPx=Math.max((l.to-l.from)/yMax*chartH,8);
+                        const isAig=(l.insurer||"").toUpperCase().includes("AIG");
+                        const bg=getColor(l.insurer,li);
+                        return(
+                        <div key={li} style={{height:hPct+"%",minHeight:8,background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"none",boxSizing:"border-box",borderRadius:li===layers.length-1?"4px 4px 0 0":"0",cursor:"default",position:"relative",transition:"all .2s"}} title={l.insurer+" : "+l.from+"M → "+l.to+"M"+(l.share?" ("+l.share+"%)":"")}>
+                          {hPx>28&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500,lineHeight:1}}>{l.insurer||"?"}</span>}
+                          {hPx>42&&<span style={{fontSize:7,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.from}→{l.to}M</span>}
+                          {hPx>56&&l.share&&l.share<100&&<span style={{fontSize:7,color:"rgba(255,255,255,.6)",lineHeight:1}}>{l.share}%</span>}
+                          {hPx<=28&&hPx>12&&<span style={{fontSize:6,color:"#fff",fontWeight:isAig?700:400}}>{l.insurer?.substring(0,5)||"?"}</span>}
+                        </div>)
+                      })}
+                    </div>
+                    {/* Line label */}
+                    <div style={{textAlign:"center",marginTop:6}}>
+                      <span style={{fontSize:9,fontWeight:600,color:"var(--t2)"}}>{lineLbl(p.line,lang)}</span>
+                      <p style={{fontSize:7,color:"var(--t5)",marginTop:1}}>{colMax}M€</p>
+                    </div>
+                  </div>
+                )})}
+              </div>
+            </div>
+            {/* Legend */}
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:16,justifyContent:"center",borderTop:"1px solid var(--b)",paddingTop:12}}>
+              {[...new Set(pl.flatMap(p=>(p.layers||[]).map(l=>l.insurer)))].filter(Boolean).map((ins,i)=>{const isAig=ins.toUpperCase().includes("AIG");return(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:4,background:isAig?"rgba(0,43,92,.06)":"transparent"}}>
+                  <div style={{width:10,height:10,borderRadius:2,background:getColor(ins,i)}}/>
+                  <span style={{fontSize:9,color:"var(--t2)",fontWeight:isAig?600:400}}>{ins}</span>
+                </div>
+              )})}
+            </div>
+            <button className="btn" style={{padding:"6px 14px",fontSize:10,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:16,display:"block",margin:"14px auto 0"}} onClick={()=>openDossier(cid)}>{lang==="fr"?"Modifier le programme":"Edit programme"}</button>
+          </div></>)})()}
+
         <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("latest_signals")}</h3>
         <div className="sig-grid" style={{marginBottom:28}}>{sigs.map((s,i)=><SigCard key={s.id} s={s} d={i+1}/>)}{sigs.length===0&&<p style={{fontSize:13,color:"var(--t4)"}}>{t("no_signals_yet")}</p>}</div>
         <div className="dv"/><h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("fl_relevance")}</h3>
         {lines.length>0?<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:28}}>{lines.map(l=><span key={l} className="chip on">{lineLbl(l,lang)}</span>)}</div>:<p style={{fontSize:12,color:"var(--t4)",marginBottom:28}}>{t("no_line_data")}</p>}
         <div className="dv"/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><h3 className="lbl" style={{color:"var(--gold)"}}>{t("notes_title")}</h3><div style={{display:"flex",gap:6}}><button className="bi" style={{width:30,height:30,background:"rgba(220,38,38,.08)",borderColor:"rgba(239,68,68,.2)",color:"#991B1B"}} onClick={()=>{setRecCid(co.id);setShowRec(true);setTranscript("")}}><I.mic/></button><button className="bi" style={{width:30,height:30}} onClick={()=>{setNC(co.id);setSNN(true)}}><I.plus/></button></div></div>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>{cn.map(n=>{const cfg=NOTE_C[n.tag]||NOTE_C.observation;return (<div key={n.id} className="card" style={{padding:"14px 16px",position:"relative"}}><button style={{position:"absolute",top:6,right:6,width:20,height:20,borderRadius:5,background:"rgba(239,68,68,.08)",border:"1px solid rgba(220,38,38,.08)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteN(n.id)}><I.x style={{width:10,height:10,color:"#DC2626"}}/></button><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingRight:24}}><span className="ftag" style={{background:cfg.bg,color:cfg.c}}>{noteTagLbl(n.tag,t)}</span><span style={{fontSize:10,color:"var(--t5)"}}>{fD(n.at)}</span></div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.55}}>{tx(n.text,lang)}</p></div>)})}{cn.length===0&&<p style={{fontSize:12,color:"var(--t4)"}}>{t("no_notes_sub")}</p>}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>{cn.map(n=>{const cfg=NOTE_C[n.tag]||NOTE_C.observation;return (<div key={n.id} className="card" style={{padding:"14px 16px",position:"relative"}}><button style={{position:"absolute",top:6,right:6,width:20,height:20,borderRadius:5,background:"rgba(239,68,68,.08)",border:"1px solid rgba(220,38,38,.08)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteN(n.id)}><I.x style={{width:10,height:10,color:"#DC2626"}}/></button><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingRight:24}}><span className="ftag" style={{background:cfg.bg,color:cfg.c}}>{noteTagLbl(n.tag,t)}</span><span style={{fontSize:10,color:"var(--t5)"}}>{fD(n.at,lang)}</span></div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.55}}>{tx(n.text,lang)}</p></div>)})}{cn.length===0&&<p style={{fontSize:12,color:"var(--t4)"}}>{t("no_notes_sub")}</p>}</div>
+
+        {/* ═══ ENRICHIR LA BASE ═══ */}
+        <div className="dv"/>
+        <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{lang==="fr"?"ENRICHIR LA BASE":"ENRICH DATABASE"}</h3>
+        <div className="card" style={{padding:18,marginBottom:20}}>
+          <p style={{fontSize:12,color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"Ajoutez des informations pour améliorer l'analyse de cette entreprise. Documents, rapports, notes de réunion, informations marché...":"Add information to improve analysis. Documents, reports, meeting notes, market intelligence..."}</p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button className="btn" style={{padding:"8px 14px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",flex:1}} onClick={()=>openDossier(co.id)}><I.note style={{width:12,height:12,marginRight:4}}/>{lang==="fr"?"Dossier client":"Client file"}</button>
+            <button className="btn" style={{padding:"8px 14px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",flex:1}} onClick={()=>{setNC(co.id);setSNN(true)}}><I.plus style={{width:12,height:12,marginRight:4}}/>{lang==="fr"?"Ajouter une note":"Add note"}</button>
+            <label className="btn" style={{padding:"8px 14px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",flex:1,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><I.ext style={{width:12,height:12,marginRight:4}}/>{lang==="fr"?"Importer un fichier":"Upload file"}<input type="file" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt,.png,.jpg,.jpeg,.pptx" style={{display:"none"}} onChange={e=>{if(editingDossier){handleFileUpload(e)}else{openDossier(co.id);setTimeout(()=>{const inp=document.querySelector('input[type=file]');if(inp)inp.click()},300)}}}/></label>
+          </div>
+        </div>
       </div>
     </div>)};
 
@@ -1705,7 +2163,7 @@ function App(){
                   </div>
                 </div>
               </div>
-              <span style={{fontSize:10,color:"var(--t5)",flexShrink:0,marginLeft:8}}>{s.at?fD(s.at):"—"}</span>
+              <span style={{fontSize:10,color:"var(--t5)",flexShrink:0,marginLeft:8}}>{s.at?fD(s.at,lang):"—"}</span>
             </div>
           </div>)})}
           {wlSigs.length===0&&<div style={{textAlign:"center",padding:"56px 20px"}}><p style={{fontSize:15,color:"var(--t3)",marginBottom:4,fontWeight:500}}>{search||activeCat?t("no_signals_match"):t("no_signals_yet")}</p></div>}
@@ -1762,7 +2220,7 @@ function App(){
     if(tab==="notes")return (<div style={{paddingBottom:100}}>
       <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{fontSize:18,fontWeight:700,color:"#fff"}}>{t("notes_title")}</h2><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>setSNN(true)}><I.plus/>{t("new_note")}</button></div></div>
       <div style={{padding:"18px 20px"}}><div className="hsb" style={{display:"flex",gap:6,marginBottom:18,overflowX:"auto"}}>{[null,"observation","hypothesis","action","question","decision"].map(tg=><button key={tg??"all"} className={`chip ${noteFilter===tg?"on":""}`} onClick={()=>setNF(tg)}>{tg?noteTagLbl(tg,t):t("all")}</button>)}</div>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>{(noteFilter?notes.filter(n=>n.tag===noteFilter):notes).map((n,i)=>{const cfg=NOTE_C[n.tag]||NOTE_C.observation;const co=n.cid?cos.find(c=>c.id===n.cid):null;return (<div key={n.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",position:"relative"}}><button style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:6,background:"rgba(239,68,68,.08)",border:"1px solid rgba(220,38,38,.08)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteN(n.id)}><I.x style={{width:12,height:12,color:"#DC2626"}}/></button><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingRight:28}}><div style={{display:"flex",alignItems:"center",gap:8}}><span className="ftag" style={{background:cfg.bg,color:cfg.c}}>{noteTagLbl(n.tag,t)}</span>{co&&<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co.name}</span>}</div><span style={{fontSize:10,color:"var(--t5)"}}>{fD(n.at)}</span></div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>{typeof n.text==="object"?tx(n.text,lang):n.text}</p></div>)})}{notes.length===0&&<div style={{textAlign:"center",padding:"60px 20px"}}><p style={{fontSize:15,color:"var(--t3)",fontWeight:500,marginBottom:4}}>{t("no_notes_yet")}</p><p style={{fontSize:13,color:"var(--t5)",marginBottom:20}}>{t("no_notes_sub")}</p><button className="btn bp" onClick={()=>setSNN(true)}><I.plus/>{t("add_first_note")}</button></div>}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>{(noteFilter?notes.filter(n=>n.tag===noteFilter):notes).map((n,i)=>{const cfg=NOTE_C[n.tag]||NOTE_C.observation;const co=n.cid?cos.find(c=>c.id===n.cid):null;return (<div key={n.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px",position:"relative"}}><button style={{position:"absolute",top:8,right:8,width:22,height:22,borderRadius:6,background:"rgba(239,68,68,.08)",border:"1px solid rgba(220,38,38,.08)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteN(n.id)}><I.x style={{width:12,height:12,color:"#DC2626"}}/></button><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,paddingRight:28}}><div style={{display:"flex",alignItems:"center",gap:8}}><span className="ftag" style={{background:cfg.bg,color:cfg.c}}>{noteTagLbl(n.tag,t)}</span>{co&&<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co.name}</span>}</div><span style={{fontSize:10,color:"var(--t5)"}}>{fD(n.at,lang)}</span></div><p style={{fontSize:13,color:"var(--t2)",lineHeight:1.6}}>{typeof n.text==="object"?tx(n.text,lang):n.text}</p></div>)})}{notes.length===0&&<div style={{textAlign:"center",padding:"60px 20px"}}><p style={{fontSize:15,color:"var(--t3)",fontWeight:500,marginBottom:4}}>{t("no_notes_yet")}</p><p style={{fontSize:13,color:"var(--t5)",marginBottom:20}}>{t("no_notes_sub")}</p><button className="btn bp" onClick={()=>setSNN(true)}><I.plus/>{t("add_first_note")}</button></div>}</div>
       </div>
     </div>);
 
@@ -1801,7 +2259,7 @@ function App(){
         {pastMtgs.length>0&&<><h3 className="lbl" style={{color:"var(--t5)",marginBottom:10}}>{t("past_meetings")} ({pastMtgs.length})</h3>
         <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:24}}>{pastMtgs.slice(0,5).map(mtg=>{const co=cos.find(c=>c.id===mtg.cid);return (
           <div key={mtg.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 14px",borderBottom:"1px solid var(--b)",opacity:.6}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>{co&&<Logo name={co.name} sz={22} fallback={co.logo}/>}<span style={{fontSize:12,color:"var(--t3)"}}>{co?.name||"—"}</span><span style={{fontSize:10,color:"var(--t5)"}}>{fD(mtg.date)}</span></div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>{co&&<Logo name={co.name} sz={22} fallback={co.logo}/>}<span style={{fontSize:12,color:"var(--t3)"}}>{co?.name||"—"}</span><span style={{fontSize:10,color:"var(--t5)"}}>{fD(mtg.date,lang)}</span></div>
             <button style={{width:18,height:18,borderRadius:4,background:"rgba(239,68,68,.06)",border:"1px solid rgba(220,38,38,.08)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}} onClick={()=>deleteMeeting(mtg.id)}><I.x style={{width:9,height:9,color:"#DC2626"}}/></button>
           </div>)})}</div></>}
 
@@ -1812,7 +2270,7 @@ function App(){
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("brief_title")} — {t("generate")}</h3>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>{[...watched].sort((a,b)=>a.name.localeCompare(b.name)).map((c,i)=>{const sc=getSigs(c.id).length;const nc=getNotes(c.id).length;const lb=getLastBriefDate(c.id);const ns=getNewSignalsSinceLastBrief(c.id).length;const bh=getBriefHistory(c.id).length;const dos=getDossier(c.id);return (<div key={c.id} className={`card fi fi${Math.min(i+1,5)}`} style={{padding:"16px 18px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}{lb&&<span style={{color:"var(--t5)"}}> · Brief {fD(lb)}</span>}{ns>0&&<span style={{color:"#16A34A",fontWeight:600}}> · {ns}</span>}</p></div></div>
+            <div style={{display:"flex",alignItems:"center",gap:12,flex:1,cursor:"pointer"}} onClick={()=>setSC(c.id)}><Logo name={c.name} sz={24} fallback={c.logo}/><div><h4 style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.name}</h4><p style={{fontSize:11,color:"var(--t4)",marginTop:2}}>{sc} {sc>1?t("signals_lc"):t("signal")} · {nc} {nc>1?t("notes_lc"):t("note_lc")}{lb&&<span style={{color:"var(--t5)"}}> · Brief {fD(lb,lang)}</span>}{ns>0&&<span style={{color:"#16A34A",fontWeight:600}}> · {ns}</span>}</p></div></div>
             <div style={{display:"flex",alignItems:"center",gap:6}}>
               <button className="btn" style={{padding:"5px 10px",fontSize:10,background:dos?"rgba(91,33,182,.08)":"var(--bg3)",color:dos?"#5B21B6":"var(--t5)",border:`1px solid ${dos?"rgba(139,92,246,.2)":"var(--b)"}`,borderRadius:6}} onClick={()=>openDossier(c.id)}>{dos?"/":"+"} {lang==="fr"?"Dossier":"File"}</button>
               <button className="btn bp" style={{padding:"7px 16px",fontSize:12}} onClick={()=>{setBC(c.id);setSB(true);setCopied(false)}}>{t("generate")}</button>
@@ -1827,7 +2285,86 @@ function App(){
       <div style={{padding:"24px 20px"}}>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("profile")}</h3>
         <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"var(--gold)",color:"#fff"}}>{(authEmail||"AS").substring(0,2).toUpperCase()}</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{authEmail||"Anne-Sophie"}</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines France</p></div></div></div>
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"AIDE":"HELP"}</h3>
+        <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"var(--gold)",background:"rgba(0,43,92,.04)",border:"1px solid rgba(0,43,92,.12)",borderRadius:8,cursor:"pointer",marginBottom:28}} onClick={()=>{setShowGuide(true);setGuideSection(0)}}><I.search style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Guide d'utilisation":"User guide"}</button>
+
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"EXPORT & DONNÉES":"EXPORT & DATA"}</h3>
+        <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px solid rgba(0,114,206,.12)",borderRadius:8,cursor:"pointer",marginBottom:28}} onClick={()=>setShowExport(true)}><I.ext style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Exporter mes données":"Export my data"}</button>
+
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"SUPPORT":"SUPPORT"}</h3>
+        <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px solid rgba(0,114,206,.12)",borderRadius:8,cursor:"pointer",marginBottom:12}} onClick={()=>setShowTicket(true)}><I.note style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Signaler un problème":"Report an issue"}</button>
+
         <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"#DC2626",background:"rgba(220,38,38,.04)",border:"1px solid rgba(220,38,38,.12)",borderRadius:8,cursor:"pointer",marginBottom:28}} onClick={logout}><I.logout style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Se déconnecter":"Sign out"}</button>
+
+        {isAdmin&&<>
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"ADMINISTRATION":"ADMINISTRATION"}</h3>
+        <div className="card" style={{padding:18,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h4 style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Demandes d'accès":"Access requests"}</h4>
+            <button className="btn" style={{padding:"4px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:16}} onClick={loadPendingRequests}>{lang==="fr"?"Actualiser":"Refresh"}</button>
+          </div>
+          {pendingRequests.length===0&&<p style={{fontSize:12,color:"var(--t4)"}}>{lang==="fr"?"Aucune demande en attente":"No pending requests"}</p>}
+          {pendingRequests.map((r,i)=>(
+            <div key={r.id||i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<pendingRequests.length-1?"1px solid var(--b)":"none"}}>
+              <div>
+                <p style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{r.email}</p>
+                <p style={{fontSize:10,color:"var(--t5)"}}>{r.requested_at?new Date(r.requested_at).toLocaleString("fr-FR"):""}</p>
+              </div>
+              <div style={{display:"flex",gap:6}}>
+                <button className="btn bp" style={{padding:"4px 12px",fontSize:11}} onClick={()=>approveRequest(r.email)}>{lang==="fr"?"Approuver":"Approve"}</button>
+                <button className="btn" style={{padding:"4px 12px",fontSize:11,color:"#991B1B",background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)"}} onClick={()=>rejectRequest(r.email)}>{lang==="fr"?"Refuser":"Reject"}</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {approvedPwd&&<div className="card" style={{padding:18,marginBottom:28,borderColor:"rgba(22,163,74,.3)",background:"rgba(22,163,74,.03)"}}>
+          <p style={{fontSize:13,fontWeight:600,color:"#166534",marginBottom:8}}>{lang==="fr"?"Compte créé !":"Account created!"}</p>
+          <p style={{fontSize:12,color:"var(--t2)",marginBottom:4}}>{lang==="fr"?"Email":"Email"} : <strong>{approvedPwd.email}</strong></p>
+          <p style={{fontSize:12,color:"var(--t2)",marginBottom:8}}>{lang==="fr"?"Mot de passe":"Password"} : <strong>{approvedPwd.pwd}</strong></p>
+          <p style={{fontSize:11,color:"var(--t4)"}}>{lang==="fr"?"Communiquez ces identifiants à l'utilisateur.":"Share these credentials with the user."}</p>
+          <button className="btn" style={{marginTop:8,padding:"4px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:16}} onClick={()=>{navigator.clipboard?.writeText(`Email: ${approvedPwd.email}\nMot de passe: ${approvedPwd.pwd}\nURL: https://aegis-radar-uj5k.vercel.app`);showT(lang==="fr"?"Copié !":"Copied!")}}>{lang==="fr"?"Copier les identifiants":"Copy credentials"}</button>
+        </div>}
+
+        <div className="card" style={{padding:18,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h4 style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Tickets support":"Support tickets"}</h4>
+            <button className="btn" style={{padding:"4px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:16}} onClick={loadAdminTickets}>{lang==="fr"?"Actualiser":"Refresh"}</button>
+          </div>
+          {adminTickets.length===0&&<p style={{fontSize:12,color:"var(--t4)"}}>{lang==="fr"?"Aucun ticket":"No tickets"}</p>}
+          {adminTickets.map((t,i)=>(
+            <div key={t.id||i} style={{padding:"12px 0",borderBottom:i<adminTickets.length-1?"1px solid var(--b)":"none"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:12,fontWeight:500,color:"var(--t1)"}}>{t.user_email}</span>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <span style={{fontSize:9,padding:"2px 8px",borderRadius:8,background:t.status==="open"?"rgba(220,38,38,.08)":"rgba(22,163,74,.08)",color:t.status==="open"?"#991B1B":"#166534"}}>{t.status==="open"?(lang==="fr"?"Ouvert":"Open"):(lang==="fr"?"Fermé":"Closed")}</span>
+                  {t.status==="open"&&<button className="btn" style={{padding:"2px 8px",fontSize:10,color:"#166534",background:"rgba(22,163,74,.06)",border:"1px solid rgba(22,163,74,.15)"}} onClick={()=>closeTicket(t.id)}>{lang==="fr"?"Fermer":"Close"}</button>}
+                </div>
+              </div>
+              <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.4,marginBottom:4}}>{t.message}</p>
+              {t.screenshot&&<img src={t.screenshot} style={{maxWidth:"100%",maxHeight:200,borderRadius:6,border:"1px solid var(--b)",marginTop:6}} alt="screenshot"/>}
+              <p style={{fontSize:10,color:"var(--t5)",marginTop:4}}>{t.created_at?new Date(t.created_at).toLocaleString("fr-FR"):""}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="card" style={{padding:18,marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h4 style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Logs d'activité":"Activity logs"}</h4>
+            <button className="btn" style={{padding:"4px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:16}} onClick={loadAdminLogs}>{lang==="fr"?"Actualiser":"Refresh"}</button>
+          </div>
+          {adminLogs.length===0&&<p style={{fontSize:12,color:"var(--t4)"}}>{lang==="fr"?"Cliquez Actualiser":"Click Refresh"}</p>}
+          <div style={{maxHeight:300,overflow:"auto"}}>
+          {adminLogs.map((l,i)=>(
+            <div key={l.id||i} style={{display:"flex",gap:8,alignItems:"flex-start",padding:"6px 0",borderBottom:"1px solid var(--b)"}}>
+              <span style={{fontSize:10,color:"var(--t5)",whiteSpace:"nowrap",minWidth:110}}>{l.created_at?new Date(l.created_at).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}</span>
+              <span style={{fontSize:10,fontWeight:500,color:"var(--gold2)",minWidth:80}}>{l.user_email?.split("@")[0]}</span>
+              <span style={{fontSize:9,padding:"1px 6px",borderRadius:8,background:"rgba(0,114,206,.06)",color:"var(--gold)",whiteSpace:"nowrap"}}>{l.action}</span>
+              <span style={{fontSize:10,color:"var(--t3)",flex:1}}>{l.detail}</span>
+            </div>
+          ))}
+          </div>
+        </div>
+        </>}
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("language")}</h3>
         <div className="lang-sw" style={{marginBottom:28}}><button className={lang==="en"?"on":""} onClick={()=>{setLang("en");savePrefsDB({lang:"en"})}}>English</button><button className={lang==="fr"?"on":""} onClick={()=>{setLang("fr");savePrefsDB({lang:"fr"})}}>Français</button></div>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("preferred_lines")}</h3>
@@ -1919,7 +2456,43 @@ function App(){
       {(()=>{const co=cos.find(c=>c.id===editingDossier);return co?<div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--bg3)",borderRadius:"var(--rs)",marginBottom:16,border:"1px solid var(--b)"}}><Logo name={co.name} sz={28} fallback={co.logo}/><div><span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{co.name}</span><p style={{fontSize:10,color:"var(--t4)"}}>{tx(co.sector,lang)}</p></div></div>:null})()}
       <p style={{fontSize:10,color:"var(--t5)",marginBottom:14}}>{lang==="fr"?"Ces informations enrichiront les prochains briefs de réunion.":"This information will enrich future meeting briefs."}</p>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Courtier référent":"Lead broker"}</label><input className="inp" value={dossierDraft.broker} onChange={e=>setDossierDraft(p=>({...p,broker:e.target.value}))} placeholder={lang==="fr"?"Nom du courtier...":"Broker name..."}/></div>
+        <div style={{position:"relative"}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Courtier référent":"Lead broker"}</label>
+        {(()=>{const BROKERS=[
+          {n:"Aon",d:"aon.com"},{n:"April",d:"april.fr"},{n:"Artémis Courtage",d:"artemis-courtage.com"},{n:"Assurances Crédit Mutuel",d:"creditmutuel.fr"},
+          {n:"Bessé",d:"bfrenchgroupe.com"},{n:"BMS Group",d:"bmsgroup.com"},{n:"Brown & Brown",d:"bbinsurance.com"},
+          {n:"CAC Grands Risques",d:"cac-group.com"},{n:"CAMCA",d:"camca.fr"},{n:"Coface",d:"coface.com"},{n:"Delvaux",d:"delvaux-assurances.fr"},{n:"Diot-Siaci",d:"dfranceiot-siaci.com"},
+          {n:"Eurobrokers",d:"eurobrokers.fr"},{n:"Filhet-Allard",d:"filhetallard.com"},
+          {n:"Gallagher",d:"ajg.com"},{n:"Gras Savoye",d:"grassavoye.com"},{n:"Grassi",d:"grassi.fr"},
+          {n:"Henner",d:"henner.com"},{n:"Howden",d:"howdengroup.com"},{n:"Hub International",d:"hubinternational.com"},
+          {n:"Kereis",d:"kereis-group.com"},{n:"Kyu Associés",d:"kyu.fr"},
+          {n:"Lockton",d:"lockton.com"},{n:"Lyonel Vidal",d:"lyonelvidal.com"},
+          {n:"Magnacarta",d:"magnacarta.fr"},{n:"Marsh",d:"marsh.com"},{n:"McGill",d:"mcgill-associes.fr"},{n:"Miller",d:"miller-insurance.com"},{n:"Monceau Assurances",d:"monceau.com"},
+          {n:"Neoassur",d:"neoassur.com"},{n:"Nord Europe Assurances",d:"nea-courtage.com"},
+          {n:"Odealim",d:"odealim.com"},
+          {n:"Périclès",d:"pericles-groupe.com"},{n:"Pretium",d:"pretium.fr"},
+          {n:"Riskattitude",d:"riskattitude.com"},{n:"Roederer",d:"roederer.fr"},
+          {n:"SATEC",d:"satec.fr"},{n:"Servyr",d:"servyr.com"},{n:"Siaci Saint Honoré",d:"sifranceaci.com"},{n:"SPB",d:"spb.eu"},
+          {n:"Thélem Assurances",d:"thelem-assurances.fr"},{n:"Tokio Marine HCC",d:"tmhcc.com"},
+          {n:"Verlingue",d:"verlingue.fr"},{n:"Verspieren",d:"verspieren.com"},
+          {n:"Willis Towers Watson",d:"wtwco.com"},
+          {n:"Zurich Courtage",d:"zurich.fr"}
+        ].sort((a,b)=>a.n.localeCompare(b.n));
+        const brokerFiltered=BROKERS.filter(b=>!dossierDraft.broker||b.n.toLowerCase().includes((dossierDraft.broker||"").toLowerCase()));
+        return(<>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <input className="inp" style={{flex:1}} value={dossierDraft.broker} onChange={e=>{setDossierDraft(p=>({...p,broker:e.target.value}));setBrokerOpen(true)}} onFocus={()=>setBrokerOpen(true)} placeholder={lang==="fr"?"Rechercher un courtier...":"Search broker..."}/>
+            {dossierDraft.broker&&<button style={{background:"none",border:"none",fontSize:14,color:"var(--t5)",cursor:"pointer",padding:0}} onClick={()=>{setDossierDraft(p=>({...p,broker:""}));setBrokerOpen(true)}}>×</button>}
+          </div>
+          {brokerOpen&&<div style={{position:"absolute",zIndex:10,left:0,right:0,top:"100%",maxHeight:200,overflow:"auto",background:"#fff",border:"1px solid var(--b)",borderRadius:8,boxShadow:"0 4px 16px rgba(0,43,92,.1)",marginTop:4}}>
+            {brokerFiltered.map(b=>(
+              <button key={b.n} style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"none",border:"none",borderBottom:"1px solid var(--b)",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}} onClick={()=>{setDossierDraft(p=>({...p,broker:b.n}));setBrokerOpen(false)}}>
+                <img src={"https://www.google.com/s2/favicons?domain="+b.d+"&sz=32"} alt="" style={{width:20,height:20,borderRadius:4,flexShrink:0}} onError={e=>{e.target.style.display="none"}}/>
+                <span style={{fontSize:12,color:"var(--t1)"}}>{b.n}</span>
+              </button>
+            ))}
+            {brokerFiltered.length===0&&<p style={{fontSize:11,color:"var(--t4)",padding:"8px 12px"}}>{lang==="fr"?"Courtier non listé — tapez le nom":"Broker not listed — type the name"}</p>}
+          </div>}
+        </>)})()}</div>
         <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Risk Manager":"Risk Manager"}</label><input className="inp" value={dossierDraft.rm} onChange={e=>setDossierDraft(p=>({...p,rm:e.target.value}))} placeholder={lang==="fr"?"Nom du RM...":"RM name..."}/></div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
@@ -1929,6 +2502,40 @@ function App(){
       <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Programme FL en place":"Current FL programme"}</label><textarea className="inp" value={dossierDraft.program} onChange={e=>setDossierDraft(p=>({...p,program:e.target.value}))} rows={2} placeholder={lang==="fr"?"D&O: 50M€ / Cyber: 10M€ / EPL: 25M€...":"D&O: €50M / Cyber: €10M / EPL: €25M..."}/></div>
       <div style={{marginBottom:12}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Sinistralité / historique":"Claims history"}</label><textarea className="inp" value={dossierDraft.sinistres} onChange={e=>setDossierDraft(p=>({...p,sinistres:e.target.value}))} rows={2} placeholder={lang==="fr"?"Sinistres notables, tendances, fréquence...":"Notable claims, trends, frequency..."}/></div>
       <div style={{marginBottom:16}}><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Contexte / informations clés":"Context / key information"}</label><textarea className="inp" value={dossierDraft.context} onChange={e=>setDossierDraft(p=>({...p,context:e.target.value}))} rows={3} placeholder={lang==="fr"?"Informations stratégiques, enjeux particuliers, historique de la relation, points de vigilance...":"Strategic information, specific issues, relationship history, vigilance points..."}/></div>
+
+      <div className="dv" style={{marginBottom:16}}/>
+      <h4 className="lbl" style={{color:"var(--gold)",marginBottom:12}}>{lang==="fr"?"STRUCTURE DU PROGRAMME":"PROGRAMME STRUCTURE"}</h4>
+      <p style={{fontSize:10,color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"Ajoutez les lignes souscrites avec les tranches et assureurs. Montants en M€.":"Add subscribed lines with layers and insurers. Amounts in M€."}</p>
+
+      {(dossierDraft.programLines||[]).map((pl,pi)=>(
+        <div key={pi} style={{border:"1px solid var(--b)",borderRadius:8,padding:12,marginBottom:10,background:"var(--bg3)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <select style={{fontSize:12,padding:"4px 8px",borderRadius:4,border:"1px solid var(--b)",background:"#fff",color:"var(--t1)"}} value={pl.line} onChange={e=>{const n=[...(dossierDraft.programLines||[])];n[pi]={...n[pi],line:e.target.value};setDossierDraft(p=>({...p,programLines:n}))}}>
+              <option value="">{lang==="fr"?"Sélectionner...":"Select..."}</option>
+              {Object.keys(LINES).map(k=><option key={k} value={k}>{lineLbl(k,lang)}</option>)}
+            </select>
+            <button style={{fontSize:10,color:"#991B1B",background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",borderRadius:4,padding:"2px 8px",cursor:"pointer"}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];n.splice(pi,1);setDossierDraft(p=>({...p,programLines:n}))}}>{lang==="fr"?"Supprimer":"Delete"}</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 50px 50px 36px 20px",gap:4,marginBottom:4,alignItems:"center"}}>
+            <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>{lang==="fr"?"ASSUREUR":"INSURER"}</span>
+            <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>{lang==="fr"?"DE M€":"FROM M€"}</span>
+            <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>{lang==="fr"?"À M€":"TO M€"}</span>
+            <span style={{fontSize:8,color:"var(--t5)",fontWeight:600}}>%</span>
+            <span/>
+          </div>
+          {(pl.layers||[]).map((l,li)=>(
+            <div key={li} style={{display:"grid",gridTemplateColumns:"1fr 50px 50px 36px 20px",gap:4,marginBottom:4,alignItems:"center"}}>
+              <input className="inp" style={{fontSize:11,padding:"5px 8px"}} placeholder="AIG, Zurich..." value={l.insurer||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],insurer:e.target.value};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+              <input className="inp" type="number" step="0.5" style={{fontSize:11,padding:"5px 6px",textAlign:"center"}} placeholder="0" value={l.from||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],from:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+              <input className="inp" type="number" step="0.5" style={{fontSize:11,padding:"5px 6px",textAlign:"center"}} placeholder="5" value={l.to||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],to:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+              <input className="inp" type="number" style={{fontSize:11,padding:"5px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],share:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+              <button style={{width:18,height:18,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:11,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>×</button>
+            </div>
+          ))}
+          <button style={{fontSize:10,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px solid rgba(0,114,206,.1)",borderRadius:4,padding:"4px 12px",cursor:"pointer",marginTop:6}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];const lastTo=layers.length>0?layers[layers.length-1].to||0:0;layers.push({insurer:"",from:lastTo,to:lastTo,share:100});n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>+ {lang==="fr"?"Ajouter une tranche":"Add layer"}</button>
+        </div>
+      ))}
+      <button className="btn" style={{padding:"6px 14px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,marginBottom:16}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];n.push({line:"",layers:[{insurer:"AIG",from:0,to:0,share:100}]});setDossierDraft(p=>({...p,programLines:n}))}}>+ {lang==="fr"?"Ajouter une ligne":"Add line"}</button>
       {/* Documents */}
       <div style={{marginBottom:16}}>
         <label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:8,fontSize:9}}>{lang==="fr"?"Documents joints":"Attached documents"}</label>
@@ -1938,7 +2545,7 @@ function App(){
               <div style={{width:32,height:32,borderRadius:4,background:ic.bg,color:ic.tx,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0}}>{fileIcon(f.name)}</div>
               <div style={{flex:1,minWidth:0}}>
                 <p style={{fontSize:12,fontWeight:500,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</p>
-                <p style={{fontSize:10,color:"var(--t5)"}}>{fmtSize(f.size)} — {fD(f.uploadedAt)}</p>
+                <p style={{fontSize:10,color:"var(--t5)"}}>{fmtSize(f.size)} — {fD(f.uploadedAt,lang)}</p>
               </div>
               <button style={{background:"none",border:"none",cursor:"pointer",padding:4}} onClick={()=>downloadFile(f)}><I.download style={{width:14,height:14,color:"var(--gold2)"}}/></button>
               <button style={{background:"none",border:"none",cursor:"pointer",padding:4}} onClick={()=>deleteFile(editingDossier,f.id)}><I.x style={{width:12,height:12,color:"#991B1B"}}/></button>
@@ -1948,7 +2555,7 @@ function App(){
         <input ref={fileInputRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.doc,.docx,.txt,.png,.jpg,.jpeg,.pptx" multiple style={{display:"none"}} onChange={handleFileUpload}/>
         <button className="btn" style={{width:"100%",padding:"12px",fontSize:12,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px dashed rgba(0,114,206,.2)",borderRadius:6,cursor:"pointer"}} onClick={()=>fileInputRef.current?.click()}>+ {lang==="fr"?"Ajouter un document (.pdf, .xlsx, .doc...)":"Add a document (.pdf, .xlsx, .doc...)"}</button>
       </div>
-      {clientDossiers[editingDossier]?.updatedAt&&<p style={{fontSize:9,color:"var(--t5)",marginBottom:10,fontStyle:"italic"}}>{lang==="fr"?"Dernière mise à jour":"Last updated"}: {fD(clientDossiers[editingDossier].updatedAt)}</p>}
+      {clientDossiers[editingDossier]?.updatedAt&&<p style={{fontSize:9,color:"var(--t5)",marginBottom:10,fontStyle:"italic"}}>{lang==="fr"?"Dernière mise à jour":"Last updated"}: {fD(clientDossiers[editingDossier].updatedAt,lang)}</p>}
       <button className="btn bp" style={{width:"100%",height:46}} onClick={saveDossier}>{lang==="fr"?"Sauvegarder le dossier":"Save dossier"}</button>
     </div></div>}
     {/* New meeting modal */}
@@ -1992,7 +2599,7 @@ function App(){
       {watched.length>0&&<><h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("risk_overview")}</h4><div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>{watched.slice(0,8).map(co=>{const coSigs=liveSigs.filter(s=>{const n=s.company||"";return n.toLowerCase()===co.name.toLowerCase()||n.toLowerCase().includes(co.name.toLowerCase().split(" ")[0])});return (<div key={co.id} className="cs" style={{padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:0}}><Logo name={co.name} sz={26} fallback={co.logo}/><div style={{minWidth:0}}><p style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{co.name}</p><p style={{fontSize:10,color:"var(--t4)",marginTop:1}}>{coSigs.length} {coSigs.length>1?t("signals_lc"):t("signal")}</p></div></div><SR s={co.risk} sz={32} sw={2}/></div>)})}</div></>}
       {/* Recent signals timeline */}
       <h4 className="lbl" style={{color:"var(--gold)",marginBottom:10}}>{t("recent_activity")}</h4>
-      {liveSigs.length>0?<div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>{liveSigs.slice(0,10).map((s,idx)=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>{const n=s.company||"";return c.name.toLowerCase()===n.toLowerCase()||n.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])});return (<div key={s.id||idx} className="card" style={{padding:"12px 16px",cursor:"pointer"}} onClick={()=>{setSS(s);setSD(false)}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{display:"flex",alignItems:"center",gap:6}}>{co&&<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co.name}</span>}{!co&&s.company&&<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{s.company}</span>}</div><span className="badge" style={{background:sBg(s.imp||50),color:sT(s.imp||50)}}>{scoreLbl(s.imp||50,t)}</span></div><p style={{fontSize:12,color:"var(--t1)",lineHeight:1.4}}>{tx(s.title,lang)||s.company||"—"}</p><p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{tx(s.src||s.source,lang)||"Yahoo Finance"} · {s.at?fD(s.at):"—"}</p></div>)})}</div>:<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:13,color:"var(--t4)",marginBottom:8}}>{t("no_activity")}</p><button className="btn bp" style={{padding:"8px 18px",fontSize:12}} onClick={()=>{setSD(false);refreshSignals()}}><I.refresh/>{lang==="fr"?"Lancer la veille":"Start monitoring"}</button></div>}
+      {liveSigs.length>0?<div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>{liveSigs.slice(0,10).map((s,idx)=>{const cat=getCat(s.cat,lang);const co=cos.find(c=>{const n=s.company||"";return c.name.toLowerCase()===n.toLowerCase()||n.toLowerCase().includes(c.name.toLowerCase().split(" ")[0])});return (<div key={s.id||idx} className="card" style={{padding:"12px 16px",cursor:"pointer"}} onClick={()=>{setSS(s);setSD(false)}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{display:"flex",alignItems:"center",gap:6}}>{co&&<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{co.name}</span>}{!co&&s.company&&<span style={{fontSize:11,fontWeight:500,color:"var(--gold2)"}}>{s.company}</span>}</div><span className="badge" style={{background:sBg(s.imp||50),color:sT(s.imp||50)}}>{scoreLbl(s.imp||50,t)}</span></div><p style={{fontSize:12,color:"var(--t1)",lineHeight:1.4}}>{tx(s.title,lang)||s.company||"—"}</p><p style={{fontSize:10,color:"var(--t5)",marginTop:6}}>{tx(s.src||s.source,lang)||"Yahoo Finance"} · {s.at?fD(s.at,lang):"—"}</p></div>)})}</div>:<div style={{textAlign:"center",padding:"32px 16px"}}><p style={{fontSize:13,color:"var(--t4)",marginBottom:8}}>{t("no_activity")}</p><button className="btn bp" style={{padding:"8px 18px",fontSize:12}} onClick={()=>{setSD(false);refreshSignals()}}><I.refresh/>{lang==="fr"?"Lancer la veille":"Start monitoring"}</button></div>}
       {/* Copy digest */}
       {liveSigs.length>0&&<button className="btn bp" style={{width:"100%",height:46}} onClick={()=>{const header=`${t("digest_full_title").toUpperCase()}\n${fFull()}\n\n`;const stats=`${watched.length} ${t("companies_monitored")} · ${liveSigs.length} ${t("signal_count")}\n\n`;const sigs=liveSigs.slice(0,15).map(s=>`• [${s.imp}] ${s.company||""}: ${tx(s.title,lang)}`).join("\n");const full=`${header}${stats}${t("recent_activity").toUpperCase()}\n${sigs}\n\n— AIG Lines Intelligence`;navigator.clipboard?.writeText(full);showT(t("copied_clipboard"))}}><I.copy/>{t("copy_digest")}</button>}
     </div></div>}
@@ -2053,6 +2660,226 @@ function App(){
       ))}</div></>}
       <button className="btn bp" style={{width:"100%",height:46}} onClick={copyWeekly}><I.copy/>{t("copy_weekly")}</button>
     </div></div>}
+    {/* ═══ GUIDE D'UTILISATION ═══ */}
+    {showGuide&&(()=>{const sections=lang==="fr"?[
+      {title:"Bienvenue",content:"AIG Lines Intelligence est votre outil de veille et d'intelligence stratégique. Il surveille en temps réel l'actualité de vos entreprises et identifie les signaux pertinents pour toutes les lignes d'assurance.",tips:["L'app se met à jour automatiquement toutes les 15 minutes","Les signaux apparaissent instantanément dès qu'ils sont détectés","Vous pouvez installer l'app sur votre téléphone comme une app native"]},
+      {title:"Tableau de bord",content:"Votre cockpit exécutif. En un coup d'œil, visualisez l'état de votre portefeuille : nombre de signaux, entreprises actives, signaux critiques, répartition des risques.",tips:["La synthèse du jour résume l'activité en une phrase","Les 5 entreprises les plus exposées sont mises en avant","Cliquez sur la synthèse pour voir le digest détaillé","Filtrez par catégorie (Gouvernance, Cyber, M&A...) avec les chips"]},
+      {title:"Watchlist",content:"Votre portefeuille d'entreprises surveillées. 117 entreprises sont pré-chargées (CAC 40, SBF 120, européennes). Vous pouvez en ajouter ou en retirer à tout moment.",tips:["Triez par Risque, A→Z, Signaux ou Courtier","La vue Courtier regroupe les entreprises par broker","Utilisez la barre de recherche pour ajouter une entreprise","Chaque entreprise affiche son nombre de signaux et son score de risque"]},
+      {title:"Fiche entreprise",content:"Le dossier complet de chaque entreprise : score de risque avec évolution 30 jours, signaux récents, lignes impactées, programme d'assurance, dossier client, notes.",tips:["'Générer le brief' crée un résumé de réunion en un clic","'Présenter' ouvre un mode plein écran projetable en réunion","'Analyse IA' lance une analyse stratégique complète avec 3 scénarios","Le programme d'assurance visualise les tranches et assureurs en graphique"]},
+      {title:"Signaux",content:"Chaque signal représente un événement détecté (article de presse, annonce BODACC, sanction AMF/CNIL, alerte boursière). Il est catégorisé, scoré et relié aux lignes d'assurance impactées.",tips:["Le badge indique l'importance : Critique (rouge), Élevé (orange), Moyen (bleu), Faible (vert)","Cliquez sur la source pour lire l'article original","Quand plusieurs médias couvrent le même sujet, les sources sont regroupées","Les dates affichent l'heure de publication de l'article"]},
+      {title:"Notes",content:"Prenez des notes sur chaque entreprise ou de façon globale. Chaque note a un tag : Observation, Hypothèse, Action, Question, Décision.",tips:["Utilisez le micro pour dicter vos notes","Les notes enrichissent automatiquement les briefs de réunion","Filtrez par tag pour retrouver rapidement vos actions ou hypothèses"]},
+      {title:"Brief de réunion",content:"Générez un brief en un clic pour préparer vos rendez-vous. Il inclut les signaux récents, les lignes impactées, les angles de discussion, et vos notes.",tips:["Le brief est copié automatiquement dans le presse-papier","Vous pouvez aussi l'exporter en PDF","L'historique des briefs est conservé dans l'onglet Brief","Planifiez des réunions directement avec export calendrier (.ics)"]},
+      {title:"Dossier client",content:"Pour chaque entreprise, renseignez le courtier référent, le risk manager, la date de renouvellement, la prime, le programme en place, la sinistralité et le contexte.",tips:["Sélectionnez le courtier dans la liste déroulante (46 cabinets)","Configurez la structure du programme (tranches, assureurs, montants en M€)","Le graphique du programme se met à jour automatiquement","Importez des documents (PDF, Excel, Word) dans le dossier"]},
+      {title:"Analyse IA",content:"L'analyse stratégique utilise Claude (IA) pour croiser les signaux, le dossier client et le contexte économique. Elle produit une vue Passé / Présent / Projections.",tips:["3 scénarios sont proposés : optimiste, central, pessimiste","Chaque scénario indique la probabilité et l'impact sur le score de risque","Les actions prioritaires sont numérotées","L'angle commercial vous prépare pour le prochain rendez-vous"]},
+      {title:"Paramètres",content:"Personnalisez votre expérience : langue, lignes préférées, fréquence de rafraîchissement, seuils de scoring. Exportez vos données en CSV ou PDF.",tips:["Sélectionnez les lignes que vous suivez dans 'Lignes préférées'","'Exporter mes données' permet de filtrer par date, entreprise, catégorie","'Signaler un problème' envoie un ticket avec capture écran à l'administrateur"]}
+    ]:[
+      {title:"Welcome",content:"AIG Lines Intelligence is your strategic intelligence tool. It monitors news in real-time for your companies and identifies relevant signals for all insurance lines.",tips:["The app updates automatically every 15 minutes","Signals appear instantly when detected","You can install the app on your phone as a native app"]},
+      {title:"Dashboard",content:"Your executive cockpit. See your portfolio status at a glance: signal count, active companies, critical signals, risk distribution.",tips:["Daily synthesis summarizes activity in one sentence","Top 5 most exposed companies are highlighted","Click the synthesis to see the detailed digest","Filter by category using the chips"]},
+      {title:"Watchlist",content:"Your monitored company portfolio. 117 companies are pre-loaded. Add or remove at any time.",tips:["Sort by Risk, A→Z, Signals or Broker","Broker view groups companies by broker","Use search to add a company"]},
+      {title:"Company Profile",content:"Complete company file: risk score with 30-day evolution, recent signals, impacted lines, insurance programme, client file, notes.",tips:["'Generate brief' creates a meeting summary in one click","'Present' opens fullscreen mode for meetings","'AI Analysis' runs a complete strategic analysis with 3 scenarios"]},
+      {title:"Signals",content:"Each signal is a detected event (news article, BODACC announcement, AMF/CNIL sanction, stock alert). Categorized, scored and linked to impacted insurance lines.",tips:["Click on the source to read the original article","Multiple sources covering the same topic are grouped","Dates show the article publication time"]},
+      {title:"Notes",content:"Take notes on each company or globally. Each note has a tag: Observation, Hypothesis, Action, Question, Decision.",tips:["Use the microphone to dictate notes","Notes automatically enrich meeting briefs"]},
+      {title:"Meeting Brief",content:"Generate a brief in one click. Includes recent signals, impacted lines, discussion angles, and your notes.",tips:["Brief is automatically copied to clipboard","Export to PDF available","Schedule meetings with calendar export (.ics)"]},
+      {title:"Client File",content:"For each company, enter the broker, risk manager, renewal date, premium, programme, claims history and context.",tips:["Select broker from dropdown (46 firms)","Configure programme structure (layers, insurers, amounts in M€)"]},
+      {title:"AI Analysis",content:"Strategic analysis using Claude AI. Crosses signals, client file and economic context. Produces Past / Present / Projections view.",tips:["3 scenarios: optimistic, base case, pessimistic","Each scenario shows probability and risk score impact"]},
+      {title:"Settings",content:"Customize: language, preferred lines, refresh frequency, scoring thresholds. Export data in CSV or PDF.",tips:["Select your lines in 'Preferred lines'","'Report an issue' sends a ticket with screenshot to admin"]}
+    ];const s=sections[guideSection]||sections[0];const total=sections.length;return(
+    <div style={{position:"fixed",inset:0,background:"#fff",zIndex:500,overflow:"auto",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"#002B5C",padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{border:"1.5px solid rgba(255,255,255,.8)",padding:"1px 6px",fontSize:11,fontWeight:700,color:"#fff",borderRadius:2}}>AIG</span>
+          <span style={{fontSize:14,color:"rgba(255,255,255,.85)"}}>{lang==="fr"?"Guide d'utilisation":"User guide"}</span>
+        </div>
+        <button style={{background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.15)",borderRadius:6,padding:"4px 12px",fontSize:12,color:"#fff",cursor:"pointer"}} onClick={()=>setShowGuide(false)}>{lang==="fr"?"Fermer":"Close"}</button>
+      </div>
+
+      <div style={{flex:1,overflow:"auto",padding:"24px 20px",maxWidth:480,margin:"0 auto",width:"100%"}}>
+        <div style={{display:"flex",gap:4,marginBottom:20}}>
+          {sections.map((_,i)=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=guideSection?"#002B5C":"#E2E6EB",cursor:"pointer"}} onClick={()=>setGuideSection(i)}/>)}
+        </div>
+
+        <p style={{fontSize:10,color:"#7D8A9A",marginBottom:6}}>{guideSection+1} / {total}</p>
+        <h2 style={{fontSize:22,fontWeight:600,color:"#002B5C",marginBottom:16}}>{s.title}</h2>
+
+        <div style={{background:"#FAFBFC",borderRadius:8,padding:16,marginBottom:20,border:"1px solid #E2E6EB",minHeight:120,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <p style={{fontSize:12,color:"#A8B1BD",fontStyle:"italic"}}>{lang==="fr"?"Capture écran à venir":"Screenshot coming soon"}</p>
+        </div>
+
+        <p style={{fontSize:14,color:"#3D4E63",lineHeight:1.6,marginBottom:20}}>{s.content}</p>
+
+        <div style={{background:"rgba(0,114,206,.03)",borderRadius:8,padding:14,border:"1px solid rgba(0,114,206,.1)"}}>
+          <p style={{fontSize:9,fontWeight:600,color:"#0072CE",marginBottom:8,letterSpacing:"0.1em"}}>{lang==="fr"?"ASTUCES":"TIPS"}</p>
+          {s.tips.map((tip,i)=><div key={i} style={{display:"flex",gap:8,marginBottom:6}}><span style={{color:"#0072CE",fontSize:12,flexShrink:0}}>•</span><p style={{fontSize:12,color:"#3D4E63",lineHeight:1.45}}>{tip}</p></div>)}
+        </div>
+      </div>
+
+      <div style={{padding:"12px 20px",borderTop:"1px solid #E2E6EB",display:"flex",justifyContent:"space-between",flexShrink:0}}>
+        <button className="btn" style={{padding:"8px 20px",fontSize:13,background:guideSection>0?"rgba(0,43,92,.06)":"transparent",color:guideSection>0?"#002B5C":"#A8B1BD",border:"1px solid "+(guideSection>0?"rgba(0,43,92,.12)":"transparent"),borderRadius:6}} onClick={()=>setGuideSection(Math.max(0,guideSection-1))} disabled={guideSection===0}>{lang==="fr"?"Précédent":"Previous"}</button>
+        {guideSection<total-1?<button className="btn bp" style={{padding:"8px 20px",fontSize:13}} onClick={()=>setGuideSection(guideSection+1)}>{lang==="fr"?"Suivant":"Next"}</button>
+        :<button className="btn bp" style={{padding:"8px 20px",fontSize:13}} onClick={()=>setShowGuide(false)}>{lang==="fr"?"Commencer":"Get started"}</button>}
+      </div>
+    </div>)})()}
+
+    {/* ═══ ANALYSE STRATÉGIQUE ═══ */}
+    {showAnalysis&&<div className="bsbg" onClick={()=>{setShowAnalysis(false);setAnalysisResult(null)}}><div className="bsm" onClick={e=>e.stopPropagation()} style={{maxWidth:500,maxHeight:"90vh",overflow:"auto"}}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingTop:8}}>
+        <h3 style={{fontSize:16,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Analyse stratégique IA":"AI Strategic Analysis"}</h3>
+        <button className="bi" style={{width:32,height:32}} onClick={()=>{setShowAnalysis(false);setAnalysisResult(null)}}><I.x/></button>
+      </div>
+
+      {analysisLoading&&<div style={{textAlign:"center",padding:"60px 20px"}}>
+        <div style={{width:40,height:40,border:"3px solid var(--b)",borderTopColor:"var(--gold)",borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 16px"}}/>
+        <p style={{fontSize:14,color:"var(--t2)",fontWeight:500,marginBottom:4}}>{lang==="fr"?"Analyse en cours...":"Analyzing..."}</p>
+        <p style={{fontSize:12,color:"var(--t4)"}}>{lang==="fr"?"Claude analyse les signaux, le dossier client et le contexte économique":"Claude is analyzing signals, client file and economic context"}</p>
+      </div>}
+
+      {analysisResult&&analysisResult.error&&<div style={{textAlign:"center",padding:"40px 20px"}}>
+        <p style={{fontSize:14,color:"#991B1B"}}>{analysisResult.error}</p>
+        <button className="btn bp" style={{marginTop:12,padding:"8px 20px",fontSize:12}} onClick={()=>{const cid=selComp;if(cid)runAnalysis(cid)}}>{lang==="fr"?"Réessayer":"Retry"}</button>
+      </div>}
+
+      {analysisResult&&!analysisResult.error&&<div>
+        {/* PASSÉ */}
+        {analysisResult.past&&<div style={{marginBottom:20}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <div style={{width:28,height:28,borderRadius:6,background:"rgba(0,114,206,.08)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:14}}>&#8592;</span></div>
+            <div><h4 style={{fontSize:13,fontWeight:600,color:"var(--gold)"}}>{analysisResult.past.title||"Rétrospective"}</h4><span style={{fontSize:10,color:"var(--t5)"}}>{analysisResult.past.period}</span></div>
+            <span style={{marginLeft:"auto",fontSize:10,padding:"2px 8px",borderRadius:8,background:analysisResult.past.risk_trajectory==="hausse"?"rgba(220,38,38,.08)":analysisResult.past.risk_trajectory==="baisse"?"rgba(22,163,74,.08)":"rgba(0,114,206,.08)",color:analysisResult.past.risk_trajectory==="hausse"?"#991B1B":analysisResult.past.risk_trajectory==="baisse"?"#166534":"#1E40AF"}}>{analysisResult.past.risk_trajectory==="hausse"?"Risque en hausse":analysisResult.past.risk_trajectory==="baisse"?"Risque en baisse":"Risque stable"}</span>
+          </div>
+          <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:8}}>{analysisResult.past.summary}</p>
+          {analysisResult.past.key_events?.map((e,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:3}}><span style={{color:"var(--gold)",fontSize:11,flexShrink:0}}>•</span><span style={{fontSize:11,color:"var(--t3)"}}>{e}</span></div>)}
+        </div>}
+
+        {/* PRÉSENT */}
+        {analysisResult.present&&<div style={{marginBottom:20,background:"rgba(0,43,92,.02)",borderRadius:8,padding:14,border:"1px solid var(--b)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+            <div style={{width:28,height:28,borderRadius:6,background:"var(--gold)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:12,color:"#fff",fontWeight:700}}>!</span></div>
+            <h4 style={{fontSize:13,fontWeight:600,color:"var(--gold)"}}>{analysisResult.present.title||"Situation actuelle"}</h4>
+            <span style={{marginLeft:"auto",fontSize:10,padding:"2px 8px",borderRadius:8,fontWeight:600,background:analysisResult.present.risk_level==="critique"?"rgba(220,38,38,.1)":analysisResult.present.risk_level==="élevé"?"rgba(217,119,6,.1)":analysisResult.present.risk_level==="faible"?"rgba(22,163,74,.1)":"rgba(37,99,235,.1)",color:analysisResult.present.risk_level==="critique"?"#991B1B":analysisResult.present.risk_level==="élevé"?"#92400E":analysisResult.present.risk_level==="faible"?"#166534":"#1E40AF"}}>{analysisResult.present.risk_level}</span>
+          </div>
+          <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:10}}>{analysisResult.present.summary}</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            <div><p style={{fontSize:9,fontWeight:600,color:"#166534",marginBottom:4}}>{lang==="fr"?"FORCES":"STRENGTHS"}</p>{analysisResult.present.strengths?.map((s,i)=><p key={i} style={{fontSize:10,color:"#166534",marginBottom:2}}>+ {s}</p>)}</div>
+            <div><p style={{fontSize:9,fontWeight:600,color:"#991B1B",marginBottom:4}}>{lang==="fr"?"PRÉOCCUPATIONS":"CONCERNS"}</p>{analysisResult.present.concerns?.map((c,i)=><p key={i} style={{fontSize:10,color:"#991B1B",marginBottom:2}}>- {c}</p>)}</div>
+          </div>
+          {analysisResult.present.policy_adequacy&&<div style={{marginTop:10,padding:"8px 10px",background:"rgba(0,114,206,.04)",borderRadius:6}}><p style={{fontSize:9,fontWeight:600,color:"var(--gold)",marginBottom:3}}>{lang==="fr"?"ADÉQUATION DU PROGRAMME":"POLICY ADEQUACY"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.4}}>{analysisResult.present.policy_adequacy}</p></div>}
+        </div>}
+
+        {/* SCÉNARIOS */}
+        {analysisResult.scenarios&&<div style={{marginBottom:20}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+            <div style={{width:28,height:28,borderRadius:6,background:"rgba(124,58,237,.08)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:14}}>&#8594;</span></div>
+            <h4 style={{fontSize:13,fontWeight:600,color:"var(--gold)"}}>{lang==="fr"?"Projections":"Projections"}</h4>
+          </div>
+          {analysisResult.scenarios.map((sc,i)=>{const colors=[{bg:"rgba(22,163,74,.05)",border:"rgba(22,163,74,.2)",title:"#166534"},{bg:"rgba(37,99,235,.05)",border:"rgba(37,99,235,.2)",title:"#1E40AF"},{bg:"rgba(220,38,38,.05)",border:"rgba(220,38,38,.2)",title:"#991B1B"}];const c=colors[i]||colors[1];return(
+            <div key={i} style={{border:"1px solid "+c.border,borderRadius:8,padding:12,marginBottom:8,background:c.bg}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <h5 style={{fontSize:12,fontWeight:600,color:c.title}}>{sc.name}</h5>
+                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                  <span style={{fontSize:10,color:"var(--t4)"}}>{sc.probability}%</span>
+                  <div style={{width:40,height:6,borderRadius:3,background:"var(--b)"}}><div style={{width:sc.probability+"%",height:"100%",borderRadius:3,background:c.title}}/></div>
+                  {sc.impact_risk!==0&&<span style={{fontSize:10,fontWeight:600,color:sc.impact_risk>0?"#991B1B":"#166534"}}>{sc.impact_risk>0?"+":""}{sc.impact_risk} pts</span>}
+                </div>
+              </div>
+              <p style={{fontSize:11,color:"var(--t2)",lineHeight:1.4,marginBottom:6}}>{sc.description}</p>
+              {sc.impact_lines&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:4}}>{Object.entries(sc.impact_lines).map(([l,v])=><span key={l} style={{fontSize:8,padding:"1px 6px",borderRadius:6,background:"rgba(0,43,92,.06)",color:"var(--t3)"}}>{lineLbl(l,lang)}: {v}</span>)}</div>}
+              <p style={{fontSize:10,color:c.title,fontStyle:"italic"}}>{sc.recommendation}</p>
+            </div>
+          )})}
+        </div>}
+
+        {/* ACTIONS */}
+        {analysisResult.actions&&<div style={{marginBottom:16}}>
+          <p style={{fontSize:9,fontWeight:600,color:"var(--gold)",marginBottom:6}}>{lang==="fr"?"ACTIONS PRIORITAIRES":"PRIORITY ACTIONS"}</p>
+          {analysisResult.actions.map((a,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:4}}><span style={{color:"var(--gold)",fontWeight:700,fontSize:12,flexShrink:0}}>{i+1}.</span><span style={{fontSize:11,color:"var(--t2)"}}>{a}</span></div>)}
+        </div>}
+
+        {/* ANGLE COMMERCIAL */}
+        {analysisResult.commercial_angle&&<div style={{background:"rgba(0,43,92,.04)",borderRadius:8,padding:12,borderLeft:"3px solid var(--gold)"}}>
+          <p style={{fontSize:9,fontWeight:600,color:"var(--gold)",marginBottom:4}}>{lang==="fr"?"ANGLE COMMERCIAL":"COMMERCIAL ANGLE"}</p>
+          <p style={{fontSize:12,color:"var(--t1)",lineHeight:1.5}}>{analysisResult.commercial_angle}</p>
+        </div>}
+
+        <button className="btn" style={{width:"100%",marginTop:16,padding:"8px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>{const text="ANALYSE STRATÉGIQUE — "+(cos.find(c=>c.id===selComp)?.name||"")+"\n\n"+JSON.stringify(analysisResult,null,2);navigator.clipboard?.writeText(text);showT(lang==="fr"?"Analyse copiée":"Analysis copied")}}>{lang==="fr"?"Copier l'analyse":"Copy analysis"}</button>
+      </div>}
+    </div></div>}
+
+    {/* ═══ EXPORT MODAL ═══ */}
+    {showExport&&<div className="bsbg" onClick={()=>setShowExport(false)}><div className="bsm" onClick={e=>e.stopPropagation()} style={{maxWidth:440}}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingTop:8}}>
+        <h3 style={{fontSize:16,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Exporter mes données":"Export my data"}</h3>
+        <button className="bi" style={{width:32,height:32}} onClick={()=>setShowExport(false)}><I.x/></button>
+      </div>
+
+      <label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"TYPE DE DONNÉES":"DATA TYPE"}</label>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+        {[{k:"signals",l:lang==="fr"?"Signaux":"Signals"},{k:"notes",l:"Notes"},{k:"watchlist",l:"Watchlist"},{k:"all",l:lang==="fr"?"Tout":"All"}].map(o=>
+          <button key={o.k} className={"chip "+(expType===o.k?"on":"")} onClick={()=>setExpType(o.k)}>{o.l}</button>
+        )}
+      </div>
+
+      <label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"FORMAT":"FORMAT"}</label>
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {[{k:"csv",l:"CSV (Excel)"},{k:"pdf",l:"PDF"}].map(o=>
+          <button key={o.k} className={"chip "+(expFormat===o.k?"on":"")} onClick={()=>setExpFormat(o.k)}>{o.l}</button>
+        )}
+      </div>
+
+      <label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"FILTRES (optionnels)":"FILTERS (optional)"}</label>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+        <div><label style={{fontSize:9,color:"var(--t5)"}}>{lang==="fr"?"Du":"From"}</label><input className="inp" type="date" value={expDateFrom} onChange={e=>setExpDateFrom(e.target.value)} style={{fontSize:11}}/></div>
+        <div><label style={{fontSize:9,color:"var(--t5)"}}>{lang==="fr"?"Au":"To"}</label><input className="inp" type="date" value={expDateTo} onChange={e=>setExpDateTo(e.target.value)} style={{fontSize:11}}/></div>
+      </div>
+      <input className="inp" style={{marginBottom:8,fontSize:11}} placeholder={lang==="fr"?"Filtrer par entreprise...":"Filter by company..."} value={expCompany} onChange={e=>setExpCompany(e.target.value)}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+        <select className="inp" style={{fontSize:11}} value={expCat} onChange={e=>setExpCat(e.target.value)}>
+          <option value="">{lang==="fr"?"Toutes catégories":"All categories"}</option>
+          {CATS.map(c=><option key={c.id} value={c.id}>{getCat(c.id,lang)?.label}</option>)}
+        </select>
+        <select className="inp" style={{fontSize:11}} value={expLine} onChange={e=>setExpLine(e.target.value)}>
+          <option value="">{lang==="fr"?"Toutes lignes":"All lines"}</option>
+          {Object.keys(LINES).map(k=><option key={k} value={k}>{lineLbl(k,lang)}</option>)}
+        </select>
+      </div>
+
+      <button className="btn bp" style={{width:"100%",height:42}} onClick={doExport}>
+        {lang==="fr"?"Exporter":"Export"} ({expFormat.toUpperCase()})
+      </button>
+    </div></div>}
+
+    {/* ═══ TICKET ALARM OVERLAY ═══ */}
+    {ticketAlarm&&<div style={{position:"fixed",inset:0,background:"rgba(153,27,27,.95)",zIndex:600,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:40}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:80,height:80,borderRadius:"50%",background:"rgba(255,255,255,.15)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:24,animation:"pd 1s ease-in-out infinite"}}>
+        <I.bell style={{width:40,height:40,color:"#fff"}}/>
+      </div>
+      <h2 style={{fontSize:22,fontWeight:700,color:"#fff",marginBottom:8,textAlign:"center"}}>{lang==="fr"?"NOUVEAU TICKET":"NEW TICKET"}</h2>
+      <p style={{fontSize:14,color:"rgba(255,255,255,.8)",marginBottom:6,textAlign:"center"}}>{ticketAlarm.user_email}</p>
+      <p style={{fontSize:16,color:"#fff",marginBottom:24,textAlign:"center",maxWidth:320,lineHeight:1.5}}>{ticketAlarm.message?.substring(0,200)}</p>
+      {ticketAlarm.screenshot&&<img src={ticketAlarm.screenshot} style={{maxWidth:"80%",maxHeight:200,borderRadius:8,border:"2px solid rgba(255,255,255,.3)",marginBottom:24}} alt="screenshot"/>}
+      <button style={{padding:"16px 48px",fontSize:16,fontWeight:700,color:"#991B1B",background:"#fff",border:"none",borderRadius:12,cursor:"pointer",boxShadow:"0 4px 20px rgba(0,0,0,.3)"}} onClick={stopAlarm}>{lang==="fr"?"J'AI VU — Couper l'alarme":"DISMISS — Stop alarm"}</button>
+    </div>}
+    {/* ═══ TICKET MODAL ═══ */}
+    {showTicket&&<div className="bsbg" onClick={()=>setShowTicket(false)}><div className="bsm" onClick={e=>e.stopPropagation()} style={{maxWidth:420}}>
+      <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingTop:8}}>
+        <h3 style={{fontSize:16,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Signaler un problème":"Report an issue"}</h3>
+        <button className="bi" style={{width:32,height:32}} onClick={()=>setShowTicket(false)}><I.x/></button>
+      </div>
+      <textarea className="inp" placeholder={lang==="fr"?"Décrivez le problème rencontré...":"Describe the issue..."} value={ticketText} onChange={e=>setTicketText(e.target.value)} rows={4} style={{marginBottom:12}}/>
+      <div style={{marginBottom:16}}>
+        <label style={{fontSize:12,color:"var(--t4)",display:"block",marginBottom:6}}>{lang==="fr"?"Capture écran (optionnel)":"Screenshot (optional)"}</label>
+        <input type="file" accept="image/*" onChange={handleTicketImg} style={{fontSize:12,color:"var(--t3)"}}/>
+        {ticketImg&&<div style={{marginTop:8,position:"relative"}}>
+          <img src={ticketImg} style={{maxWidth:"100%",maxHeight:150,borderRadius:6,border:"1px solid var(--b)"}} alt="preview"/>
+          <button style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:10,background:"rgba(0,0,0,.5)",border:"none",color:"#fff",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setTicketImg(null)}>×</button>
+        </div>}
+      </div>
+      <button className="btn bp" style={{width:"100%",height:42,opacity:ticketSending?.6:1}} onClick={submitTicket} disabled={ticketSending||!ticketText.trim()}>
+        {ticketSending?(lang==="fr"?"Envoi...":"Sending..."):(lang==="fr"?"Envoyer le ticket":"Send ticket")}
+      </button>
+    </div></div>}
     {/* ═══ PRESENTATION MODE ═══ */}
     {showPresentation&&(()=>{const co=cos.find(c=>c.id===showPresentation);if(!co)return null;const sigs=getSigs(showPresentation);const lines=getLinesAll(sigs);const dos=getDossier(showPresentation);const imps=[...IMPACTS,...liveImpacts].filter(i=>sigs.some(s=>s.id===i.sid));return(
     <div style={{position:"fixed",inset:0,background:"#fff",zIndex:500,overflow:"auto",padding:"40px 60px"}} onClick={e=>e.target===e.currentTarget&&setShowPresentation(null)}>
@@ -2096,7 +2923,7 @@ function App(){
               <span style={{fontSize:11,fontWeight:700,color:sC(s.imp||50)}}>{scoreLbl(s.imp||50,t)}</span>
             </div>
             <p style={{fontSize:12,color:"#5C6B7D"}}>{tx(s.sum,lang)}</p>
-            <div style={{display:"flex",gap:8,marginTop:6}}><span style={{fontSize:10,color:"#7D8A9A"}}>{cat?.label}</span><span style={{fontSize:10,color:"#7D8A9A"}}>·</span><span style={{fontSize:10,color:"#7D8A9A"}}>{tx(s.src,lang)}</span><span style={{fontSize:10,color:"#7D8A9A"}}>·</span><span style={{fontSize:10,color:"#7D8A9A"}}>{fD(s.at)}</span></div>
+            <div style={{display:"flex",gap:8,marginTop:6}}><span style={{fontSize:10,color:"#7D8A9A"}}>{cat?.label}</span><span style={{fontSize:10,color:"#7D8A9A"}}>·</span><span style={{fontSize:10,color:"#7D8A9A"}}>{tx(s.src,lang)}</span><span style={{fontSize:10,color:"#7D8A9A"}}>·</span><span style={{fontSize:10,color:"#7D8A9A"}}>{fD(s.at,lang)}</span></div>
           </div>
         )})}
         <div style={{textAlign:"center",marginTop:40,color:"#A8B1BD",fontSize:11}}>&copy; 2026 AIG — Lines Intelligence</div>
