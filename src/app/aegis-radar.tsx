@@ -1123,7 +1123,6 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
   const[lastRefresh,setLastRefresh]=useState(null);
   const[newCount,setNewCount]=useState(0);
   const[autoRefresh,setAutoRefresh]=useState(()=>lsGet("autoRefresh",true));
-  const[fontScale,setFontScale]=useState(()=>lsGet("fontScale",1.1));
   const[ollamaUrl,setOllamaUrl]=useState(()=>lsGet("ollamaUrl","http://localhost:11434"));
   const[ollamaModel,setOllamaModel]=useState(()=>lsGet("ollamaModel","mistral"));
   const[ollamaEnabled,setOllamaEnabled]=useState(()=>lsGet("ollamaEnabled",true));
@@ -2342,19 +2341,6 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       <div style={{padding:"24px 20px"}}>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("profile")}</h3>
         <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"var(--gold)",color:"#fff"}}>{(authEmail||"AS").substring(0,2).toUpperCase()}</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{authEmail||"Anne-Sophie"}</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines France</p></div></div></div>
-        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"AFFICHAGE":"DISPLAY"}</h3>
-        <div className="card" style={{padding:"16px 18px",marginBottom:28}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Taille du texte":"Text size"}</span>
-            <span style={{fontSize:12,color:"var(--gold2)",fontWeight:600}}>{Math.round(fontScale*100)}%</span>
-          </div>
-          <input type="range" min="0.85" max="1.4" step="0.05" value={fontScale} onChange={e=>{const v=parseFloat(e.target.value);setFontScale(v);lsSet("fontScale",v)}} style={{width:"100%",accentColor:"#002B5C"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-            <span style={{fontSize:10,color:"var(--t5)"}}>A</span>
-            <span style={{fontSize:14,color:"var(--t5)",fontWeight:600}}>A</span>
-          </div>
-        </div>
-
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"AIDE":"HELP"}</h3>
         <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"var(--gold)",background:"rgba(0,43,92,.04)",border:"1px solid rgba(0,43,92,.12)",borderRadius:8,cursor:"pointer",marginBottom:28}} onClick={()=>{setShowGuide(true);setGuideSection(0)}}><I.search style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Guide d'utilisation":"User guide"}</button>
 
@@ -2513,7 +2499,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
     return null;
   };
 
-  return (<div style={{zoom:fontScale}}>
+  return (<>
     {isOffline&&<div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--mw)",zIndex:999,background:"rgba(245,158,11,.15)",borderBottom:"1px solid rgba(245,158,11,.3)",padding:"6px 20px",textAlign:"center"}}><span style={{fontSize:11,color:"#92400E",fontWeight:600}}>{lang==="fr"?"Mode hors-ligne — données en cache":"Offline mode — cached data"}</span></div>}
     {render()}
     <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:"Brief",Ic:I.calendar},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
@@ -3054,7 +3040,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       </div>
     </div>)})()}
     {toast&&<div className="toast">{toast}</div>}
-  </div>);
+  </>);
 }
 
 export default function AegisRadar(){return (<><style>{css}</style><div className="app"><LangProvider><App/></LangProvider></div></>)}
