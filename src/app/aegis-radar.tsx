@@ -1123,6 +1123,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
   const[lastRefresh,setLastRefresh]=useState(null);
   const[newCount,setNewCount]=useState(0);
   const[autoRefresh,setAutoRefresh]=useState(()=>lsGet("autoRefresh",true));
+  const[fontScale,setFontScale]=useState(()=>lsGet("fontScale",1.1));
   const[ollamaUrl,setOllamaUrl]=useState(()=>lsGet("ollamaUrl","http://localhost:11434"));
   const[ollamaModel,setOllamaModel]=useState(()=>lsGet("ollamaModel","mistral"));
   const[ollamaEnabled,setOllamaEnabled]=useState(()=>lsGet("ollamaEnabled",true));
@@ -1429,7 +1430,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
   useEffect(()=>{
     if(step!=="app"||pendingChecked.current||liveSigs.length===0)return;
     pendingChecked.current=true;
-    const rmKeywords=["risk manager","directeur des risques","directrice des risques","chief risk officer","cro","nomination","nommé","nommée","appointed","named as","rejoint","joins as"];
+    const rmKeywords=["risk manager","directeur des risques","directrice des risques","chief risk officer","responsable gestion des risques","responsable des risques"];
     const dismissed=lsGet("dismissedUpdates")||[];
     const suggestions=[];
     const recent=liveSigs.filter(s=>{const age=(Date.now()-new Date(s.at).getTime())/86400000;return age<7});
@@ -1442,7 +1443,15 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       if(!hasRmKeyword)return;
       const co=cos.find(c=>c.id===s.cid||((s.company||"").toLowerCase().includes(c.name.toLowerCase().split(" ")[0])));
       if(!co||!co.prio)return;
-      suggestions.push({id:s.id,company:co.name,cid:co.id,title:tx(s.title,lang),summary:tx(s.sum,lang),source:tx(s.src,lang),date:s.at,type:"rm_change"});
+      // Only alert if dossier has a RM and the current RM name is NOT in the article
+      const dos=getDossier(co.id);
+      const currentRm=(dos?.rm||"").trim().toLowerCase();
+      if(!currentRm)return; // No RM on file → nothing to compare
+      // If current RM name appears in the article → same person, no change
+      const rmParts=currentRm.split(" ").filter(p=>p.length>2);
+      const currentRmInArticle=rmParts.length>0&&rmParts.every(part=>full.includes(part));
+      if(currentRmInArticle)return; // Same RM mentioned → no change
+      suggestions.push({id:s.id,company:co.name,cid:co.id,currentRm:dos.rm,title:tx(s.title,lang),summary:tx(s.sum,lang),source:tx(s.src,lang),date:s.at,type:"rm_change"});
     });
     if(suggestions.length>0){setPendingUpdates(suggestions);setShowPending(true)}
   },[step,liveSigs,cos,lang]);
@@ -2341,6 +2350,19 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       <div style={{padding:"24px 20px"}}>
         <h3 className="lbl" style={{color:"var(--gold)",marginBottom:14}}>{t("profile")}</h3>
         <div className="card" style={{padding:"18px",marginBottom:28}}><div style={{display:"flex",alignItems:"center",gap:14}}><div className="mono" style={{width:44,height:44,fontSize:16,background:"var(--gold)",color:"#fff"}}>{(authEmail||"AS").substring(0,2).toUpperCase()}</div><div><p style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{authEmail||"Anne-Sophie"}</p><p style={{fontSize:12,color:"var(--t4)",marginTop:2}}>Senior Account Manager — Financial Lines France</p></div></div></div>
+        <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"AFFICHAGE":"DISPLAY"}</h3>
+        <div className="card" style={{padding:"16px 18px",marginBottom:28}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <span style={{fontSize:13,color:"var(--t2)"}}>{lang==="fr"?"Taille du texte":"Text size"}</span>
+            <span style={{fontSize:12,color:"var(--gold2)",fontWeight:600}}>{Math.round(fontScale*100)}%</span>
+          </div>
+          <input type="range" min="0.85" max="1.4" step="0.05" value={fontScale} onChange={e=>{const v=parseFloat(e.target.value);setFontScale(v);lsSet("fontScale",v)}} style={{width:"100%",accentColor:"#002B5C"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+            <span style={{fontSize:10,color:"var(--t5)"}}>A</span>
+            <span style={{fontSize:14,color:"var(--t5)",fontWeight:600}}>A</span>
+          </div>
+        </div>
+
         <h3 className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{lang==="fr"?"AIDE":"HELP"}</h3>
         <button className="btn" style={{width:"100%",padding:"12px",fontSize:13,color:"var(--gold)",background:"rgba(0,43,92,.04)",border:"1px solid rgba(0,43,92,.12)",borderRadius:8,cursor:"pointer",marginBottom:28}} onClick={()=>{setShowGuide(true);setGuideSection(0)}}><I.search style={{width:14,height:14,marginRight:6}}/>{lang==="fr"?"Guide d'utilisation":"User guide"}</button>
 
@@ -2499,7 +2521,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
     return null;
   };
 
-  return (<>
+  return (<div style={{zoom:fontScale}}>
     {isOffline&&<div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"var(--mw)",zIndex:999,background:"rgba(245,158,11,.15)",borderBottom:"1px solid rgba(245,158,11,.3)",padding:"6px 20px",textAlign:"center"}}><span style={{fontSize:11,color:"#92400E",fontWeight:600}}>{lang==="fr"?"Mode hors-ligne — données en cache":"Offline mode — cached data"}</span></div>}
     {render()}
     <nav className="tbar">{[{id:"dashboard",l:lang==="fr"?"Tableau":"Dashboard",Ic:I.home},{id:"watchlist",l:"Watchlist",Ic:I.list},{id:"notes",l:"Notes",Ic:I.note},{id:"brief",l:"Brief",Ic:I.calendar},{id:"settings",l:lang==="fr"?"Param.":"Settings",Ic:I.settings}].map(x=>(<button key={x.id} className={tab===x.id&&!selComp?"on":""} onClick={()=>goTab(x.id)}><x.Ic/><span>{x.l}</span></button>))}</nav>
@@ -2743,10 +2765,10 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
     {showPending&&pendingUpdates.length>0&&<div className="bsbg" onClick={()=>setShowPending(false)}><div className="bsm" onClick={e=>e.stopPropagation()} style={{maxWidth:440}}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,paddingTop:8}}>
-        <h3 style={{fontSize:16,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Mises à jour détectées":"Updates detected"}</h3>
+        <h3 style={{fontSize:16,fontWeight:600,color:"var(--t1)"}}>{lang==="fr"?"Changement de Risk Manager détecté":"Risk Manager change detected"}</h3>
         <button className="bi" style={{width:32,height:32}} onClick={()=>setShowPending(false)}><I.x/></button>
       </div>
-      <p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{lang==="fr"?"Des changements de management ou de Risk Manager ont été détectés dans l'actualité récente. Souhaitez-vous mettre à jour vos fiches ?":"Management or Risk Manager changes were detected in recent news. Would you like to update your files?"}</p>
+      <p style={{fontSize:12,color:"var(--t4)",marginBottom:16}}>{lang==="fr"?"Des changements de Risk Manager ont été détectés dans l'actualité récente. Souhaitez-vous mettre à jour vos fiches ?":"Risk Manager changes were detected in recent news. Would you like to update your files?"}</p>
       {pendingUpdates.map((u,i)=>(
         <div key={u.id} style={{border:"1px solid var(--b)",borderRadius:8,padding:14,marginBottom:10,background:"var(--bg3)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
@@ -2757,9 +2779,10 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                 <p style={{fontSize:9,color:"var(--t5)"}}>{u.source} — {u.date?new Date(u.date).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB"):""}</p>
               </div>
             </div>
-            <span className="ftag" style={{background:"rgba(91,33,182,.08)",color:"#5B21B6",flexShrink:0}}>{lang==="fr"?"Changement":"Change"}</span>
+            <span className="ftag" style={{background:"rgba(91,33,182,.08)",color:"#5B21B6",flexShrink:0}}>Risk Manager</span>
           </div>
           <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.45,marginBottom:6}}>{u.title}</p>
+          {u.currentRm&&<p style={{fontSize:11,color:"#991B1B",marginBottom:6}}>{lang==="fr"?"RM actuel sur la fiche":"Current RM on file"} : <strong>{u.currentRm}</strong></p>}
           {u.summary&&<p style={{fontSize:11,color:"var(--t3)",lineHeight:1.4,marginBottom:10}}>{(u.summary||"").substring(0,150)}</p>}
           <div style={{display:"flex",gap:8}}>
             <button className="btn bp" style={{flex:1,padding:"8px",fontSize:11}} onClick={()=>acceptUpdate(u)}>{lang==="fr"?"Mettre à jour la fiche":"Update file"}</button>
@@ -3040,7 +3063,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       </div>
     </div>)})()}
     {toast&&<div className="toast">{toast}</div>}
-  </>);
+  </div>);
 }
 
 export default function AegisRadar(){return (<><style>{css}</style><div className="app"><LangProvider><App/></LangProvider></div></>)}
