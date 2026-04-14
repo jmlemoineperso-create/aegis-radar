@@ -2020,7 +2020,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
           </div></>);
           // All amounts in M€
           const maxCap=Math.max(...pl.map(p=>(p.layers||[]).reduce((a,l)=>Math.max(a,l.to||0),0)),1);
-          const chartH=220;
+          const chartH=280;
           const INSURER_COLORS={"AIG":"#002B5C","Zurich":"#0072CE","Allianz":"#003781","AXA":"#00008F","Chubb":"#8B0000","MSIG":"#E4002B","Tokio Marine":"#DC143C","Generali":"#C8102E","Swiss Re":"#4A4A4A","Munich Re":"#0066B3","Hannover Re":"#009639","SCOR":"#003DA5","Berkshire":"#4B0082","Lloyd's":"#1A1A1A","HDI":"#0099CC","QBE":"#FF6600","Liberty":"#004B87","Markel":"#6B21A8","Beazley":"#065F46","Hiscox":"#92400E"};
           const getColor=(name,idx)=>{if(!name)return["#A8B1BD","#7D8A9A","#5C6B7D","#3D4E63"][idx%4];const upper=(name||"").toUpperCase();for(const[k,v] of Object.entries(INSURER_COLORS)){if(upper.includes(k.toUpperCase()))return v}return["#0072CE","#D97706","#16A34A","#7C3AED","#DC2626","#0891B2","#4338CA","#B45309"][idx%8]};
           // Y-axis ticks
@@ -2037,34 +2037,43 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
               </div>
               {/* Columns */}
               <div style={{flex:1,display:"flex",gap:8}}>
-                {pl.map((p,pi)=>{const layers=[...(p.layers||[])].sort((a,b)=>(a.from||0)-(b.from||0));const colMax=layers.reduce((a,l)=>Math.max(a,l.to||0),0);return(
+                {pl.map((p,pi)=>{const layers=[...(p.layers||[])].sort((a,b)=>(a.from||0)-(b.from||0));const colMax=layers.reduce((a,l)=>Math.max(a,l.to||0),0);
+                  // Group layers by tranche (same from-to = co-insurance)
+                  const tranches=[];
+                  layers.forEach(l=>{const existing=tranches.find(t=>t.from===l.from&&t.to===l.to);if(existing){existing.insurers.push(l)}else{tranches.push({from:l.from,to:l.to,insurers:[l]})}});
+                  tranches.sort((a,b)=>a.from-b.from);
+                  return(
                   <div key={pi} style={{flex:1,minWidth:50}}>
-                    {/* Tower */}
                     <div style={{height:chartH,display:"flex",flexDirection:"column-reverse",position:"relative",borderLeft:"1px solid var(--b)",borderBottom:"1px solid var(--b)"}}>
-                      {/* Grid lines */}
                       {ticks.map(v=>v>0&&<div key={v} style={{position:"absolute",bottom:(v/yMax)*100+"%",left:0,right:0,borderTop:"1px dashed rgba(0,43,92,.08)"}}/>)}
-                      {/* Layers */}
-                      {layers.map((l,li)=>{
-                        const hPct=Math.max(((l.to-l.from)/yMax)*100,2);
-                        const hPx=Math.max((l.to-l.from)/yMax*chartH,8);
-                        const isAig=(l.insurer||"").toUpperCase().includes("AIG");
-                        const bg=getColor(l.insurer,li);
+                      {tranches.map((tr,ti)=>{
+                        const hPct=Math.max(((tr.to-tr.from)/yMax)*100,2);
+                        const hPx=Math.max((tr.to-tr.from)/yMax*chartH,8);
+                        const isCoins=tr.insurers.length>1;
                         return(
-                        <div key={li} style={{height:hPct+"%",minHeight:8,background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"none",boxSizing:"border-box",borderRadius:li===layers.length-1?"4px 4px 0 0":"0",cursor:"default",position:"relative",transition:"all .2s"}} title={l.insurer+" : "+l.from+"M → "+l.to+"M"+(l.share?" ("+l.share+"%)":"")}>
-                          {hPx>28&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500,lineHeight:1}}>{l.insurer||"?"}</span>}
-                          {hPx>42&&<span style={{fontSize:7,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.from}→{l.to}M</span>}
-                          {hPx>56&&l.share&&l.share<100&&<span style={{fontSize:7,color:"rgba(255,255,255,.6)",lineHeight:1}}>{l.share}%</span>}
-                          {hPx<=28&&hPx>12&&<span style={{fontSize:6,color:"#fff",fontWeight:isAig?700:400}}>{l.insurer?.substring(0,5)||"?"}</span>}
+                        <div key={ti} style={{height:hPct+"%",minHeight:8,display:"flex",flexDirection:"row",borderRadius:ti===tranches.length-1?"4px 4px 0 0":"0",overflow:"hidden"}}>
+                          {tr.insurers.map((l,li)=>{
+                            const isAig=(l.insurer||"").toUpperCase().includes("AIG");
+                            const bg=getColor(l.insurer,li+ti*10);
+                            const w=isCoins?(l.share||Math.floor(100/tr.insurers.length)):100;
+                            return(
+                            <div key={li} style={{width:w+"%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"none",borderRight:isCoins&&li<tr.insurers.length-1?"1px solid rgba(255,255,255,.4)":"none",boxSizing:"border-box",cursor:"default",position:"relative"}} title={l.insurer+" : "+l.from+"M → "+l.to+"M"+(l.share?" ("+l.share+"%)":"")}>
+                              {hPx>24&&<span style={{fontSize:isCoins?10:12,color:"#fff",fontWeight:isAig?700:600,lineHeight:1.1,textAlign:"center"}}>{l.insurer||"?"}</span>}
+                              {hPx>38&&<span style={{fontSize:isCoins?8:9,color:"rgba(255,255,255,.8)",lineHeight:1,marginTop:2}}>{l.from}→{l.to}M</span>}
+                              {hPx>50&&l.share&&l.share<100&&<span style={{fontSize:isCoins?8:9,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.share}%</span>}
+                              {hPx<=24&&hPx>10&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500}}>{l.insurer?.substring(0,4)||"?"}</span>}
+                            </div>)
+                          })}
                         </div>)
                       })}
                     </div>
-                    {/* Line label */}
                     <div style={{textAlign:"center",marginTop:6}}>
                       <span style={{fontSize:9,fontWeight:600,color:"var(--t2)"}}>{lineLbl(p.line,lang)}</span>
                       <p style={{fontSize:7,color:"var(--t5)",marginTop:1}}>{colMax}M€</p>
                     </div>
                   </div>
                 )})}
+
               </div>
             </div>
             {/* Legend */}
