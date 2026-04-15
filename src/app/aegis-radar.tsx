@@ -419,8 +419,8 @@ const css=`:root{--bg:#F3F5F7;--bg2:#FFFFFF;--bg3:#F3F5F7;--bg4:#E2E6EB;--b:#E2E
 .hdr{position:sticky;top:0;z-index:50;background:#002B5C;border-bottom:1px solid #001E42;padding:14px 20px;color:#fff}.hdr h2,.hdr h3,.hdr span,.hdr p{color:rgba(255,255,255,.85)}.hdr .lbl{color:rgba(255,255,255,.5)}.hdr .bi{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.8)}.hdr .bi:hover{background:rgba(255,255,255,.18)}.hdr .inp{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff}.hdr .inp::placeholder{color:rgba(255,255,255,.4)}.hdr .inp:focus{border-color:rgba(255,255,255,.3);box-shadow:none}.hdr .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}.hdr .chip.on{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)}.hdr .bg{color:rgba(255,255,255,.8)}.hdr .bp{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2)}.hdr .bp:hover{background:rgba(255,255,255,.25)}
 .tbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:var(--mw);display:flex;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-top:1px solid #E2E6EB;z-index:100;padding:0 0 env(safe-area-inset-bottom,6px)}
 .tbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 0 6px;color:#A8B1BD;background:none;border:none;cursor:pointer;transition:color .2s;font-family:inherit}.tbar button.on{color:#002B5C}.tbar span{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
-.bsbg{position:fixed;inset:0;background:rgba(0,43,92,.25);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center;padding:10px 0}
-.bsm{width:100%;max-width:var(--mw);max-height:85vh;overflow-y:auto;background:#FFFFFF;border-top:1px solid #CDD3DA;border-radius:14px 14px 0 0;padding:8px 22px 28px;animation:su .3s cubic-bezier(.22,1,.36,1)}
+.bsbg{position:fixed;inset:0;background:rgba(0,43,92,.25);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.bsm{width:100%;max-width:var(--mw);max-height:92vh;overflow-y:auto;background:#FFFFFF;border-top:1px solid #CDD3DA;border-radius:14px 14px 0 0;padding:8px 22px 28px;animation:su .3s cubic-bezier(.22,1,.36,1)}
 .toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:#002B5C;color:#FFFFFF;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 4px 16px rgba(0,43,92,.18);border:none;z-index:300;animation:fi .2s ease}
 .mono{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:600;font-weight:600;font-size:14px;color:var(--t1);background:linear-gradient(135deg,var(--bg4),var(--bg3));border:1px solid var(--b2);flex-shrink:0}
 .sr{position:relative;display:flex;align-items:center;justify-content:center}.sr svg{position:absolute;top:0;left:0;transform:rotate(-90deg)}.sr-v{font-weight:700;z-index:1}
@@ -937,8 +937,8 @@ function App(){
   const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
   const[editingDossier,setEditingDossier]=useState(null);
   const[brokerOpen,setBrokerOpen]=useState(false);
-  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",rmLastName:"",rmFirstName:"",rmPhone:"",rmMobile:"",rmEmail:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]});
-  const defaultDossier={broker:"",rm:"",rmLastName:"",rmFirstName:"",rmPhone:"",rmMobile:"",rmEmail:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]};
+  const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]});
+  const defaultDossier={broker:"",rm:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]};
   const[dossierFiles,setDossierFiles]=useState(()=>lsGet("dossierFiles",{}));
   const fileInputRef=useRef(null);
   const openDossier=(cid)=>{const d=clientDossiers[cid]||defaultDossier;setDossierDraft({...defaultDossier,...d});setEditingDossier(cid)};
@@ -1018,43 +1018,26 @@ function App(){
     const cn=getNotes(cid);
     const lines=getLinesAll(sigs);
 
-    // ── Anonymization mapping ──
-    const anonMap={};const deAnonMap={};let idx=1;
-    const anon=(real,prefix)=>{if(!real||real==="N/A")return real;const key=real.trim();if(anonMap[key])return anonMap[key];const code=prefix+"-"+String.fromCharCode(64+idx);idx++;anonMap[key]=code;deAnonMap[code]=key;return code};
-    const anonCo=anon(co.name,"ENTREPRISE");
-    const anonBroker=dos?.broker?anon(dos.broker,"COURTIER"):null;
-    const anonRm=dos?.rm?anon(dos.rm,"CONTACT"):null;
-    const insurers=[...new Set((dos?.programLines||[]).flatMap(p=>(p.layers||[]).map(l=>l.insurer)).filter(Boolean))];
-    insurers.forEach((ins,i)=>anon(ins,"ASSUREUR"));
-    const contacts=(dos?.contacts||[]).filter(c=>c.name);
-    contacts.forEach(c=>anon(c.name,"PERSONNE"));
+    const prompt=`Tu es un expert senior en assurance grandes entreprises, spécialisé dans l'analyse de risques et le placement de programmes. Tu analyses l'entreprise ci-dessous pour un Account Manager AIG.
 
-    // ── Build anonymized prompt ──
-    const anonProgram=(dos?.programLines||[]).map(p=>p.line+": "+(p.layers||[]).map(l=>(anonMap[l.insurer]||l.insurer)+" "+l.from+"-"+l.to+"M\u20ac ("+(l.share||100)+"%)").join(", ")).join("\n");
-    const anonSigs=sigs.slice(0,15).map(s=>"- ["+(s.imp||50)+"] "+tx(s.title,lang)+" ("+tx(s.src,lang)+", "+(s.at?new Date(s.at).toLocaleDateString("fr-FR"):"")+")" ).join("\n");
-    const anonNotes=cn.slice(0,5).map(n=>"- ["+n.tag+"] "+(typeof n.text==="object"?tx(n.text,lang):n.text)).join("\n");
-
-    const prompt=`Tu es un expert senior en assurance grandes entreprises. Tu analyses une entreprise pour un Account Manager.
-IMPORTANT: Les noms sont anonymisés. Utilise les codes fournis dans ta réponse.
-
-ENTREPRISE: ${anonCo}
+ENTREPRISE: ${co.name}
 SECTEUR: ${tx(co.sector,lang)}
-SIÈGE: ${co.hq||"Europe"}
-CAPITALISATION: ${co.cap||"N/A"}
-EFFECTIFS: ${co.emp||"N/A"}
-SCORE DE RISQUE ACTUEL: ${co.risk||50}/100
+SIÈGE: ${co.hq || "France"}
+CAPITALISATION: ${co.cap || "N/A"}
+EFFECTIFS: ${co.emp || "N/A"}
+SCORE DE RISQUE ACTUEL: ${co.risk || 50}/100
 
 DOSSIER CLIENT:
-Courtier: ${anonBroker||"N/A"} | Risk Manager: ${anonRm||"N/A"} | Renouvellement: ${dos?.renewal||"N/A"} | Prime: ${dos?.premium||"N/A"} | Programme: ${dos?.program||"N/A"} | Sinistralité: ${dos?.sinistres||"N/A"} | Contexte: ${dos?.context||"N/A"}
-${anonProgram?"STRUCTURE PROGRAMME:\n"+anonProgram:""}
+${dos ? `Courtier: ${dos.broker || "N/A"} | Risk Manager: ${dos.rm || "N/A"} | Renouvellement: ${dos.renewal || "N/A"} | Prime: ${dos.premium || "N/A"} | Programme: ${dos.program || "N/A"} | Sinistralité: ${dos.sinistres || "N/A"} | Contexte: ${dos.context || "N/A"}` : "Aucun dossier renseigné"}
+${dos?.programLines?.length > 0 ? "STRUCTURE PROGRAMME:\n" + dos.programLines.map(p => p.line + ": " + (p.layers || []).map(l => l.insurer + " " + l.from + "-" + l.to + "M€ (" + (l.share || 100) + "%)").join(", ")).join("\n") : ""}
 
 SIGNAUX RÉCENTS (${sigs.length}):
-${anonSigs}
+${sigs.slice(0, 15).map(s => "- [" + (s.imp || 50) + "] " + tx(s.title, lang) + " (" + tx(s.src, lang) + ", " + (s.at ? new Date(s.at).toLocaleDateString("fr-FR") : "") + ")").join("\n")}
 
-LIGNES IMPACTÉES: ${lines.map(l=>lineLbl(l,lang)).join(", ")||"Aucune"}
+LIGNES IMPACTÉES: ${lines.map(l => lineLbl(l, lang)).join(", ") || "Aucune"}
 
 NOTES INTERNES (${cn.length}):
-${anonNotes}
+${cn.slice(0, 5).map(n => "- [" + n.tag + "] " + (typeof n.text === "object" ? tx(n.text, lang) : n.text)).join("\n")}
 
 Produis une ANALYSE STRATÉGIQUE STRUCTURÉE en JSON avec exactement cette structure:
 {
@@ -1072,23 +1055,20 @@ Produis une ANALYSE STRATÉGIQUE STRUCTURÉE en JSON avec exactement cette struc
 Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
 
     try {
-      const res = await fetch("/api/analyze", {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          messages: [{ role: "user", content: prompt }]
+        })
       });
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       const text = (data.content || []).map(c => c.text || "").join("");
       const clean = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
-
-      // ── De-anonymize: replace codes with real names ──
-      let result = clean;
-      for (const [code, real] of Object.entries(deAnonMap)) {
-        result = result.split(code).join(real);
-      }
-
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(clean);
       setAnalysisResult(parsed);
       logActivity("analysis", co.name + " — Analyse stratégique");
     } catch (e) {
@@ -1884,7 +1864,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       {dos&&(dos.broker||dos.rm||dos.renewal||dos.premium||dos.program||dos.sinistres||dos.context)&&<>
         <h4 className="lbl" style={{color:"#A78BFA",marginBottom:10}}>{lang==="fr"?"Dossier client":"Client file"}</h4>
         <div className="cs" style={{padding:"14px 16px",marginBottom:20}}>
-          {(dos.broker||dos.rm)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.broker&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Courtier":"Broker"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.broker}</p></div>}{dos.rm&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>Risk Manager</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.rm}</p>{(dos.rmPhone||dos.rmMobile)&&<p style={{fontSize:10,color:"var(--t4)",marginTop:2}}>{dos.rmPhone&&<a href={"tel:"+dos.rmPhone} style={{color:"var(--t4)",textDecoration:"none"}}>{dos.rmPhone}</a>}{dos.rmPhone&&dos.rmMobile?" · ":""}{dos.rmMobile&&<a href={"tel:"+dos.rmMobile} style={{color:"var(--t4)",textDecoration:"none"}}>{dos.rmMobile}</a>}</p>}{dos.rmEmail&&<p style={{fontSize:10,marginTop:1}}><a href={"mailto:"+dos.rmEmail} style={{color:"var(--gold2)",textDecoration:"none"}}>{dos.rmEmail}</a></p>}</div>}</div>}
+          {(dos.broker||dos.rm)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.broker&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Courtier":"Broker"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.broker}</p></div>}{dos.rm&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>Risk Manager</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.rm}</p></div>}</div>}
           {(dos.renewal||dos.premium)&&<div style={{display:"flex",gap:16,marginBottom:10}}>{dos.renewal&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Renouvellement":"Renewal"}</p><p style={{fontSize:12,color:"#D97706",fontWeight:600}}>{new Date(dos.renewal).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"numeric",month:"long",year:"numeric"})}</p></div>}{dos.premium&&<div><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Prime":"Premium"}</p><p style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{dos.premium}</p></div>}</div>}
           {dos.program&&<div style={{marginBottom:8}}><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Programme FL":"FL Programme"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.program}</p></div>}
           {dos.sinistres&&<div style={{marginBottom:8}}><p className="lbl" style={{color:"var(--t5)",fontSize:8,marginBottom:2}}>{lang==="fr"?"Sinistralité":"Claims"}</p><p style={{fontSize:11,color:"var(--t2)",lineHeight:1.5}}>{dos.sinistres}</p></div>}
@@ -2020,7 +2000,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
           </div></>);
           // All amounts in M€
           const maxCap=Math.max(...pl.map(p=>(p.layers||[]).reduce((a,l)=>Math.max(a,l.to||0),0)),1);
-          const chartH=280;
+          const chartH=220;
           const INSURER_COLORS={"AIG":"#002B5C","Zurich":"#0072CE","Allianz":"#003781","AXA":"#00008F","Chubb":"#8B0000","MSIG":"#E4002B","Tokio Marine":"#DC143C","Generali":"#C8102E","Swiss Re":"#4A4A4A","Munich Re":"#0066B3","Hannover Re":"#009639","SCOR":"#003DA5","Berkshire":"#4B0082","Lloyd's":"#1A1A1A","HDI":"#0099CC","QBE":"#FF6600","Liberty":"#004B87","Markel":"#6B21A8","Beazley":"#065F46","Hiscox":"#92400E"};
           const getColor=(name,idx)=>{if(!name)return["#A8B1BD","#7D8A9A","#5C6B7D","#3D4E63"][idx%4];const upper=(name||"").toUpperCase();for(const[k,v] of Object.entries(INSURER_COLORS)){if(upper.includes(k.toUpperCase()))return v}return["#0072CE","#D97706","#16A34A","#7C3AED","#DC2626","#0891B2","#4338CA","#B45309"][idx%8]};
           // Y-axis ticks
@@ -2037,43 +2017,34 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
               </div>
               {/* Columns */}
               <div style={{flex:1,display:"flex",gap:8}}>
-                {pl.map((p,pi)=>{const layers=[...(p.layers||[])].sort((a,b)=>(a.from||0)-(b.from||0));const colMax=layers.reduce((a,l)=>Math.max(a,l.to||0),0);
-                  // Group layers by tranche (same from-to = co-insurance)
-                  const tranches=[];
-                  layers.forEach(l=>{const existing=tranches.find(t=>t.from===l.from&&t.to===l.to);if(existing){existing.insurers.push(l)}else{tranches.push({from:l.from,to:l.to,insurers:[l]})}});
-                  tranches.sort((a,b)=>a.from-b.from);
-                  return(
+                {pl.map((p,pi)=>{const layers=[...(p.layers||[])].sort((a,b)=>(a.from||0)-(b.from||0));const colMax=layers.reduce((a,l)=>Math.max(a,l.to||0),0);return(
                   <div key={pi} style={{flex:1,minWidth:50}}>
+                    {/* Tower */}
                     <div style={{height:chartH,display:"flex",flexDirection:"column-reverse",position:"relative",borderLeft:"1px solid var(--b)",borderBottom:"1px solid var(--b)"}}>
+                      {/* Grid lines */}
                       {ticks.map(v=>v>0&&<div key={v} style={{position:"absolute",bottom:(v/yMax)*100+"%",left:0,right:0,borderTop:"1px dashed rgba(0,43,92,.08)"}}/>)}
-                      {tranches.map((tr,ti)=>{
-                        const hPct=Math.max(((tr.to-tr.from)/yMax)*100,2);
-                        const hPx=Math.max((tr.to-tr.from)/yMax*chartH,8);
-                        const isCoins=tr.insurers.length>1;
+                      {/* Layers */}
+                      {layers.map((l,li)=>{
+                        const hPct=Math.max(((l.to-l.from)/yMax)*100,2);
+                        const hPx=Math.max((l.to-l.from)/yMax*chartH,8);
+                        const isAig=(l.insurer||"").toUpperCase().includes("AIG");
+                        const bg=getColor(l.insurer,li);
                         return(
-                        <div key={ti} style={{height:hPct+"%",minHeight:8,display:"flex",flexDirection:"row",borderRadius:ti===tranches.length-1?"4px 4px 0 0":"0",overflow:"hidden"}}>
-                          {tr.insurers.map((l,li)=>{
-                            const isAig=(l.insurer||"").toUpperCase().includes("AIG");
-                            const bg=getColor(l.insurer,li+ti*10);
-                            const w=isCoins?(l.share||Math.floor(100/tr.insurers.length)):100;
-                            return(
-                            <div key={li} style={{width:w+"%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"none",borderRight:isCoins&&li<tr.insurers.length-1?"1px solid rgba(255,255,255,.4)":"none",boxSizing:"border-box",cursor:"default",position:"relative"}} title={l.insurer+" : "+l.from+"M → "+l.to+"M"+(l.share?" ("+l.share+"%)":"")}>
-                              {hPx>24&&<span style={{fontSize:isCoins?10:12,color:"#fff",fontWeight:isAig?700:600,lineHeight:1.1,textAlign:"center"}}>{l.insurer||"?"}</span>}
-                              {hPx>38&&<span style={{fontSize:isCoins?8:9,color:"rgba(255,255,255,.8)",lineHeight:1,marginTop:2}}>{l.from}→{l.to}M</span>}
-                              {hPx>50&&l.share&&l.share<100&&<span style={{fontSize:isCoins?8:9,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.share}%</span>}
-                              {hPx<=24&&hPx>10&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500}}>{l.insurer?.substring(0,4)||"?"}</span>}
-                            </div>)
-                          })}
+                        <div key={li} style={{height:hPct+"%",minHeight:8,background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"none",boxSizing:"border-box",borderRadius:li===layers.length-1?"4px 4px 0 0":"0",cursor:"default",position:"relative",transition:"all .2s"}} title={l.insurer+" : "+l.from+"M → "+l.to+"M"+(l.share?" ("+l.share+"%)":"")}>
+                          {hPx>28&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500,lineHeight:1}}>{l.insurer||"?"}</span>}
+                          {hPx>42&&<span style={{fontSize:7,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.from}→{l.to}M</span>}
+                          {hPx>56&&l.share&&l.share<100&&<span style={{fontSize:7,color:"rgba(255,255,255,.6)",lineHeight:1}}>{l.share}%</span>}
+                          {hPx<=28&&hPx>12&&<span style={{fontSize:6,color:"#fff",fontWeight:isAig?700:400}}>{l.insurer?.substring(0,5)||"?"}</span>}
                         </div>)
                       })}
                     </div>
+                    {/* Line label */}
                     <div style={{textAlign:"center",marginTop:6}}>
                       <span style={{fontSize:9,fontWeight:600,color:"var(--t2)"}}>{lineLbl(p.line,lang)}</span>
                       <p style={{fontSize:7,color:"var(--t5)",marginTop:1}}>{colMax}M€</p>
                     </div>
                   </div>
                 )})}
-
               </div>
             </div>
             {/* Legend */}
@@ -2603,20 +2574,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
             {brokerFiltered.length===0&&<p style={{fontSize:11,color:"var(--t4)",padding:"8px 12px"}}>{lang==="fr"?"Courtier non listé — tapez le nom":"Broker not listed — type the name"}</p>}
           </div>}
         </>)})()}</div>
-        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>Risk Manager</label>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmLastName||""} onChange={e=>setDossierDraft(p=>({...p,rmLastName:e.target.value,rm:(e.target.value+" "+(p.rmFirstName||"")).trim()}))} placeholder={lang==="fr"?"Nom":"Last name"}/>
-            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmFirstName||""} onChange={e=>setDossierDraft(p=>({...p,rmFirstName:e.target.value,rm:((p.rmLastName||"")+" "+e.target.value).trim()}))} placeholder={lang==="fr"?"Prénom":"First name"}/>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
-            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmPhone||""} onChange={e=>setDossierDraft(p=>({...p,rmPhone:e.target.value}))} placeholder={lang==="fr"?"Tél. direct":"Direct phone"}/>
-            <input className="inp" style={{fontSize:11}} value={dossierDraft.rmMobile||""} onChange={e=>setDossierDraft(p=>({...p,rmMobile:e.target.value}))} placeholder={lang==="fr"?"Portable":"Mobile"}/>
-          </div>
-          <div style={{display:"flex",gap:6}}>
-            <input className="inp" style={{flex:1,fontSize:11}} value={dossierDraft.rmEmail||""} onChange={e=>setDossierDraft(p=>({...p,rmEmail:e.target.value}))} placeholder="Email"/>
-            <button style={{padding:"4px 8px",fontSize:9,color:"var(--gold2)",background:"rgba(0,114,206,.06)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>{const co=cos.find(c=>c.id===editingDossier);const q=encodeURIComponent('"Risk Manager" "'+((co?.name)||"")+'" site:linkedin.com OR site:amrae.fr');window.open("https://www.google.com/search?q="+q,"_blank")}}><I.search style={{width:10,height:10,marginRight:3}}/>{lang==="fr"?"Rechercher":"Search"}</button>
-          </div>
-        </div>
+        <div><label className="lbl" style={{color:"var(--t4)",display:"block",marginBottom:6,fontSize:9}}>{lang==="fr"?"Risk Manager":"Risk Manager"}</label><div style={{display:"flex",gap:6}}><input className="inp" style={{flex:1}} value={dossierDraft.rm} onChange={e=>setDossierDraft(p=>({...p,rm:e.target.value}))} placeholder={lang==="fr"?"Nom du RM...":"RM name..."}/><button style={{padding:"4px 8px",fontSize:9,color:"var(--gold2)",background:"rgba(0,114,206,.06)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}} onClick={()=>{const co=cos.find(c=>c.id===editingDossier);const q=encodeURIComponent('"Risk Manager" "'+((co?.name)||"")+'" site:linkedin.com OR site:amrae.fr');window.open("https://www.google.com/search?q="+q,"_blank")}}><I.search style={{width:10,height:10,marginRight:3}}/>{lang==="fr"?"Rechercher":"Search"}</button></div></div>
       </div>
 
       <div className="dv" style={{marginBottom:12}}/>
@@ -2673,7 +2631,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                 <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="0" value={l.from||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],from:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
                 <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="5" value={l.to||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],to:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
                 <input className="inp" type="number" style={{fontSize:12,padding:"6px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],share:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-                <button style={{width:20,height:20,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>×</button>
+                <button style={{width:20,height:20,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>\u00d7</button>
               </div>
             </div>)})})()}
           <button style={{fontSize:10,color:"var(--gold2)",background:"rgba(0,114,206,.04)",border:"1px solid rgba(0,114,206,.1)",borderRadius:4,padding:"4px 12px",cursor:"pointer",marginTop:6}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];const lastTo=layers.length>0?layers[layers.length-1].to||0:0;layers.push({insurer:"",from:lastTo,to:lastTo,share:100});n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>+ {lang==="fr"?"Ajouter une tranche":"Add layer"}</button>
@@ -2721,48 +2679,6 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
       </div>}
       <div style={{marginBottom:20}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><label className="lbl" style={{color:"var(--t4)"}}>{t("meeting_notes")}</label><button className="btn" style={{padding:"4px 12px",fontSize:11,borderRadius:16,background:mtgDictating?"rgba(220,38,38,.12)":"rgba(0,114,206,.1)",color:mtgDictating?"#991B1B":"var(--gold)",border:`1px solid ${mtgDictating?"rgba(239,68,68,.3)":"rgba(0,114,206,.2)"}`}} onClick={mtgDictating?stopMtgDict:startMtgDict}>{mtgDictating?<><div style={{width:6,height:6,borderRadius:"50%",background:"#DC2626",animation:"pd 1s ease-in-out infinite",marginRight:4}}/>{lang==="fr"?"Arrêter":"Stop"}</>:<><I.mic style={{width:14,height:14}}/>{lang==="fr"?"Dicter":"Dictate"}</>}</button></div>{mtgDictating&&<p style={{fontSize:10,color:"#991B1B",marginBottom:6}}>{lang==="fr"?"Parlez, la note se rédige...":"Speak, the note is being written..."}</p>}<textarea className="inp" placeholder={lang==="fr"?"Points à aborder, contexte...":"Topics to discuss, context..."} value={mtgNotes} onChange={e=>setMtgNotes(e.target.value)} rows={3} style={{borderColor:mtgDictating?"rgba(239,68,68,.3)":"var(--b)"}}/></div>
       <button className="btn bp" style={{width:"100%",height:46}} onClick={addMeeting} disabled={!mtgCo||!mtgDate}>{t("save_note")}</button>
-
-      {mtgCo&&mtgDate&&(()=>{
-        const co=cos.find(c=>c.id===mtgCo);
-        const dos=getDossier(mtgCo);
-        const sigs=getSigs(mtgCo).slice(0,3);
-        // Collect all known emails
-        const emails=[];
-        if(dos?.rmEmail)emails.push({name:dos.rm||"RM",email:dos.rmEmail,role:"Risk Manager"});
-        if(dos?.contacts)(dos.contacts||[]).forEach(c=>{if(c.email)emails.push({name:c.name,email:c.email,role:c.title||""})});
-        // Build meeting description
-        const desc=`Réunion ${co?.name||""}\n\nContexte :\n${sigs.map(s=>"• "+tx(s.title,lang)).join("\n")||"Pas de signaux récents"}\n\n${mtgNotes?"Notes :\n"+mtgNotes+"\n\n":""}— AIG Lines Intelligence`;
-        const title=`${mtgType==="broker"?"Comité courtier":"Réunion"} — ${co?.name||""} — AIG Lines Intelligence`;
-        const startDate=new Date(mtgDate);
-        const endDate=new Date(startDate.getTime()+3600000);
-        const fmtOWA=(d)=>d.toISOString().replace(/[-:]/g,"").split(".")[0];
-        const outlookUrl=`https://outlook.office.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(desc)}&startdt=${fmtOWA(startDate)}&enddt=${fmtOWA(endDate)}${emails.length>0?"&to="+encodeURIComponent(emails.map(e=>e.email).join(";")):""}`;
-
-        return(<div style={{marginTop:12}}>
-          {emails.length>0&&<div style={{marginBottom:10}}>
-            <p className="lbl" style={{color:"var(--t4)",marginBottom:6,fontSize:9}}>{lang==="fr"?"PARTICIPANTS SUGGÉRÉS":"SUGGESTED ATTENDEES"}</p>
-            {emails.map((e,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0"}}>
-              <div style={{width:6,height:6,borderRadius:3,background:"var(--gold)",flexShrink:0}}/>
-              <span style={{fontSize:11,color:"var(--t2)",fontWeight:500}}>{e.name}</span>
-              <span style={{fontSize:10,color:"var(--t4)"}}>{e.role}</span>
-              <span style={{fontSize:10,color:"var(--gold2)",marginLeft:"auto"}}>{e.email}</span>
-            </div>)}
-          </div>}
-          <div style={{display:"flex",gap:8}}>
-            <button className="btn" style={{flex:1,padding:"10px",fontSize:12,background:"#0072CE",color:"#fff",border:"none",borderRadius:6,fontWeight:600}} onClick={()=>{addMeeting();window.open(outlookUrl,"_blank")}}>
-              <span style={{marginRight:6}}>📅</span>{lang==="fr"?"Ouvrir dans Outlook":"Open in Outlook"}
-            </button>
-            <button className="btn" style={{padding:"10px 14px",fontSize:12,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6}} onClick={()=>{
-              const icsContent=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//AIG Lines Intelligence//FR","BEGIN:VEVENT","DTSTART:"+fmtOWA(startDate)+"Z","DTEND:"+fmtOWA(endDate)+"Z","SUMMARY:"+title,"DESCRIPTION:"+desc.replace(/\n/g,"\\n"),...emails.map(e=>"ATTENDEE;CN="+e.name+":mailto:"+e.email),"END:VEVENT","END:VCALENDAR"].join("\r\n");
-              const blob=new Blob([icsContent],{type:"text/calendar"});
-              const url=URL.createObjectURL(blob);
-              const a=document.createElement("a");a.href=url;a.download=`${co?.name||"meeting"}.ics`;a.click();
-              URL.revokeObjectURL(url);
-              addMeeting();
-            }}>.ics</button>
-          </div>
-        </div>)
-      })()}
     </div></div>}
     {showNewNote&&<div className="bsbg" onClick={()=>{if(noteDictating)stopNoteDict();setSNN(false)}}><div className="bsm" onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"center",marginBottom:6}}><div style={{width:40,height:4,borderRadius:2,background:"var(--b2)"}}/></div>
@@ -3019,10 +2935,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
           <p style={{fontSize:12,color:"var(--t1)",lineHeight:1.5}}>{analysisResult.commercial_angle}</p>
         </div>}
 
-        <div style={{display:"flex",gap:8,marginTop:16}}>
-        <button className="btn" style={{flex:1,padding:"8px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>{const text="ANALYSE STRATÉGIQUE — "+(cos.find(c=>c.id===selComp)?.name||"")+"\n\n"+JSON.stringify(analysisResult,null,2);navigator.clipboard?.writeText(text);showT(lang==="fr"?"Analyse copiée":"Analysis copied")}}>{lang==="fr"?"Copier":"Copy"}</button>
-        <button className="btn" style={{flex:1,padding:"8px",fontSize:11,background:"var(--gold)",color:"#fff",border:"none"}} onClick={()=>{const co=cos.find(c=>c.id===selComp);const r=analysisResult;if(!r)return;const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Analyse stratégique — ${co?.name||""}</title><style>body{font-family:Segoe UI,sans-serif;padding:40px;color:#263348;max-width:800px;margin:0 auto}h1{color:#002B5C;font-size:20px;border-bottom:2px solid #002B5C;padding-bottom:8px}h2{color:#0072CE;font-size:15px;margin-top:20px}h3{color:#002B5C;font-size:13px;margin-top:14px}.meta{font-size:11px;color:#7D8A9A}.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:600}.green{background:#D1FAE5;color:#065F46}.orange{background:#FFFBEB;color:#92400E}.red{background:#FEF2F2;color:#991B1B}.blue{background:#EFF6FF;color:#1E40AF}.section{margin-bottom:18px;padding:16px;border:1px solid #E2E6EB;border-radius:8px}.scenario{padding:12px;border-radius:6px;margin-bottom:8px}.s-opt{background:#F0FDF4;border-left:3px solid #16A34A}.s-mid{background:#EFF6FF;border-left:3px solid #2563EB}.s-pes{background:#FEF2F2;border-left:3px solid #DC2626}ul{padding-left:18px}li{margin-bottom:4px;font-size:13px}.footer{margin-top:30px;text-align:center;font-size:10px;color:#A8B1BD;border-top:1px solid #E2E6EB;padding-top:10px}@media print{body{padding:20px}}</style></head><body><h1>AIG — Analyse stratégique</h1><p class="meta">${co?.name||""} · ${new Date().toLocaleDateString("fr-FR")} · Confidentiel</p>${r.past?`<div class="section"><h2>← Rétrospective <span class="badge ${r.past.risk_trajectory==="hausse"?"red":r.past.risk_trajectory==="baisse"?"green":"blue"}">${r.past.risk_trajectory==="hausse"?"Risque en hausse":r.past.risk_trajectory==="baisse"?"Risque en baisse":"Risque stable"}</span></h2><p>${r.past.summary||""}</p><ul>${(r.past.key_events||[]).map(e=>"<li>"+e+"</li>").join("")}</ul></div>`:""} ${r.present?`<div class="section"><h2>! Situation actuelle <span class="badge ${r.present.risk_level==="critique"?"red":r.present.risk_level==="élevé"?"orange":r.present.risk_level==="faible"?"green":"blue"}">${r.present.risk_level||""}</span></h2><p>${r.present.summary||""}</p><h3>Forces</h3><ul>${(r.present.strengths||[]).map(s=>"<li>"+s+"</li>").join("")}</ul><h3>Préoccupations</h3><ul>${(r.present.concerns||[]).map(c=>"<li>"+c+"</li>").join("")}</ul>${r.present.policy_adequacy?"<h3>Adéquation du programme</h3><p>"+r.present.policy_adequacy+"</p>":""}</div>`:""} ${r.scenarios?`<div class="section"><h2>→ Projections</h2>${r.scenarios.map((s,i)=>'<div class="scenario '+(i===0?"s-opt":i===1?"s-mid":"s-pes")+'"><strong>'+s.name+' ('+s.probability+'%)</strong>'+(s.impact_risk?` <span class="badge ${s.impact_risk>0?"red":"green"}">${s.impact_risk>0?"+":""}${s.impact_risk} pts</span>`:"")+`<p>${s.description||""}</p><p><em>${s.recommendation||""}</em></p></div>`).join("")}</div>`:""} ${r.actions?`<div class="section"><h2>Actions prioritaires</h2><ol>${r.actions.map(a=>"<li>"+a+"</li>").join("")}</ol></div>`:""} ${r.commercial_angle?`<div class="section" style="border-left:3px solid #002B5C"><h2>Angle commercial</h2><p>${r.commercial_angle}</p></div>`:""}<p class="footer">© 2026 AIG — Lines Intelligence · Document confidentiel</p></body></html>`;const w=window.open("","_blank");if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),500)}}}>{lang==="fr"?"Exporter PDF":"Export PDF"}</button>
-        </div>
+        <button className="btn" style={{width:"100%",marginTop:16,padding:"8px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>{const text="ANALYSE STRATÉGIQUE — "+(cos.find(c=>c.id===selComp)?.name||"")+"\n\n"+JSON.stringify(analysisResult,null,2);navigator.clipboard?.writeText(text);showT(lang==="fr"?"Analyse copiée":"Analysis copied")}}>{lang==="fr"?"Copier l'analyse":"Copy analysis"}</button>
       </div>}
     </div></div>}
 
