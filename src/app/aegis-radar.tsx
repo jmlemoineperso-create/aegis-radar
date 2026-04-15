@@ -2038,47 +2038,47 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
               {/* Columns */}
               <div style={{flex:1,display:"flex",gap:8}}>
                 {pl.map((p,pi)=>{const layers=[...(p.layers||[])].sort((a,b)=>(a.from||0)-(b.from||0));const colMax=layers.reduce((a,l)=>Math.max(a,l.to||0),0);
-                  // Build breakpoints from all from/to values
-                  const bpSet=new Set();
-                  layers.forEach(l=>{bpSet.add(l.from||0);bpSet.add(l.to||0)});
+                  // Build breakpoints
+                  const bpSet=new Set();layers.forEach(l=>{bpSet.add(l.from||0);bpSet.add(l.to||0)});
                   const breakpoints=[...bpSet].sort((a,b)=>a-b);
-                  // Build bands between consecutive breakpoints
-                  const bands=[];
+                  // Calculate horizontal position for each layer from the lowest band it appears in
+                  const layerPos=new Map();
                   for(let i=0;i<breakpoints.length-1;i++){
                     const bFrom=breakpoints[i],bTo=breakpoints[i+1];
-                    // Find all layers that cover this band
                     const active=layers.filter(l=>(l.from||0)<=bFrom&&(l.to||0)>=bTo);
-                    if(active.length>0)bands.push({from:bFrom,to:bTo,insurers:active});
+                    const totalShare=active.reduce((a,l)=>a+(l.share||100),0);
+                    let cumLeft=0;
+                    active.forEach(l=>{
+                      const idx=layers.indexOf(l);
+                      const w=(l.share||100)/totalShare*100;
+                      if(!layerPos.has(idx))layerPos.set(idx,{left:cumLeft,width:w});
+                      cumLeft+=w;
+                    });
                   }
                   return(
                   <div key={pi} style={{flex:1,minWidth:50}}>
-                    <div style={{height:chartH,display:"flex",flexDirection:"column-reverse",position:"relative",borderLeft:"1px solid var(--b)",borderBottom:"1px solid var(--b)"}}>
-                      {ticks.map(v=>v>0&&<div key={v} style={{position:"absolute",bottom:(v/yMax)*100+"%",left:0,right:0,borderTop:"1px dashed rgba(0,43,92,.08)"}}/>)}
-                      {bands.map((band,bi)=>{
-                        const hPct=Math.max(((band.to-band.from)/yMax)*100,1.5);
-                        const hPx=Math.max((band.to-band.from)/yMax*chartH,6);
-                        const isCoins=band.insurers.length>1;
-                        const totalShare=band.insurers.reduce((a,l)=>a+(l.share||100),0);
+                    <div style={{height:chartH,position:"relative",borderLeft:"1px solid var(--b)",borderBottom:"1px solid var(--b)"}}>
+                      {ticks.map(v=>v>0&&<div key={v} style={{position:"absolute",bottom:(v/yMax)*100+"%",left:0,right:0,borderTop:"1px dashed rgba(0,43,92,.08)",zIndex:1}}/>)}
+                      {layers.map((l,li)=>{
+                        const pos=layerPos.get(li)||{left:0,width:100};
+                        const bottom=((l.from||0)/yMax)*100;
+                        const height=Math.max(((l.to-l.from)/yMax)*100,1.5);
+                        const hPx=Math.max((l.to-l.from)/yMax*chartH,6);
+                        const isAig=(l.insurer||"").toUpperCase().includes("AIG");
+                        const bg=getColor(l.insurer,li);
+                        const isTop=l.to===colMax;
                         return(
-                        <div key={bi} style={{height:hPct+"%",minHeight:6,display:"flex",flexDirection:"row",borderRadius:bi===bands.length-1?"4px 4px 0 0":"0",overflow:"hidden"}}>
-                          {band.insurers.map((l,li)=>{
-                            const isAig=(l.insurer||"").toUpperCase().includes("AIG");
-                            const bg=getColor(l.insurer,li+bi*10);
-                            const w=isCoins?((l.share||100)/totalShare*100):100;
-                            return(
-                            <div key={li} style={{width:w+"%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"none",borderRight:isCoins&&li<band.insurers.length-1?"1px solid rgba(255,255,255,.4)":"none",boxSizing:"border-box",cursor:"default",position:"relative"}} title={l.insurer+" : "+band.from+"M → "+band.to+"M ("+(l.share||100)+"%)  [ligne "+l.from+"→"+l.to+"M]"}>
-                              {hPx>24&&<span style={{fontSize:isCoins?10:12,color:"#fff",fontWeight:isAig?700:600,lineHeight:1.1,textAlign:"center"}}>{l.insurer||"?"}</span>}
-                              {hPx>40&&<span style={{fontSize:isCoins?8:9,color:"rgba(255,255,255,.8)",lineHeight:1,marginTop:2}}>{band.from}→{band.to}M</span>}
-                              {hPx>55&&l.share&&l.share<100&&<span style={{fontSize:isCoins?8:9,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.share}%</span>}
-                              {hPx<=24&&hPx>10&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500}}>{l.insurer?.substring(0,4)||"?"}</span>}
-                            </div>)
-                          })}
+                        <div key={li} style={{position:"absolute",bottom:bottom+"%",height:height+"%",left:pos.left+"%",width:pos.width+"%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"1px solid rgba(255,255,255,.3)",boxSizing:"border-box",borderRadius:isTop?"4px 4px 0 0":"0",cursor:"default",zIndex:2}} title={l.insurer+" : "+l.from+"M \u2192 "+l.to+"M ("+(l.share||100)+"%)"}>
+                          {hPx>24&&<span style={{fontSize:pos.width<40?10:12,color:"#fff",fontWeight:isAig?700:600,lineHeight:1.1,textAlign:"center"}}>{l.insurer||"?"}</span>}
+                          {hPx>40&&<span style={{fontSize:pos.width<40?8:9,color:"rgba(255,255,255,.8)",lineHeight:1,marginTop:2}}>{l.from} \u2192 {l.to}M</span>}
+                          {hPx>55&&l.share&&l.share<100&&<span style={{fontSize:8,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.share}%</span>}
+                          {hPx<=24&&hPx>10&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500}}>{l.insurer?.substring(0,4)||"?"}</span>}
                         </div>)
                       })}
                     </div>
                     <div style={{textAlign:"center",marginTop:6}}>
                       <span style={{fontSize:9,fontWeight:600,color:"var(--t2)"}}>{lineLbl(p.line,lang)}</span>
-                      <p style={{fontSize:7,color:"var(--t5)",marginTop:1}}>{colMax}M€</p>
+                      <p style={{fontSize:7,color:"var(--t5)",marginTop:1}}>{colMax}M\u20ac</p>
                     </div>
                   </div>
                 )})}
