@@ -839,6 +839,18 @@ function App(){
         const mapped=dbNotes.map(n=>({id:n.id,cid:n.company_id,text:n.content,tag:n.tag,at:n.created_at}));
         setNotes(prev=>[...mapped,...prev.filter(p=>!mapped.find(m=>m.id===p.id))]);
       }
+      // Charge les dossiers clients depuis Supabase (sync multi-appareils)
+      const dbDossiers=await sbFetch("client_dossiers","GET",null,`?user_email=eq.${encodeURIComponent(USER_EMAIL)}`);
+      if(dbDossiers&&dbDossiers.length>0){
+        const mappedDos={};
+        dbDossiers.forEach(d=>{if(d.company_id&&d.data)mappedDos[d.company_id]=d.data});
+        setClientDossiers(prev=>{
+          // Merge : Supabase a priorité sur localStorage (source de vérité)
+          const merged={...prev,...mappedDos};
+          try{lsSet("clientDossiers",merged)}catch(e){}
+          return merged;
+        });
+      }
       const liveDb=await sbFetch("live_signals","GET",null,`?order=fetched_at.desc&limit=500`);
       if(liveDb&&liveDb.length>0){
         const mapped=liveDb.map(s=>({id:s.id,cid:s.company_id,company:s.company_name||"",title:{en:s.title_en||"",fr:s.title_fr||""},sum:{en:s.summary_en||"",fr:s.summary_fr||""},src:s.source_name||"Web",url:s.source_url||null,img:s.image_url||null,at:s.fetched_at,cat:s.category||"governance",fact:s.factuality||"needs_review",imp:s.importance||50,conf:s.confidence||50,live:true,_impacts:s.impacts||[]}));
@@ -1325,7 +1337,15 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
         setLastRefresh(new Date().toISOString());
         showT(lang==="fr"?"Aucun signal en base":"No signals in database");
       }
-    }catch(e){console.error("Refresh error:",e);showT(lang==="fr"?"Erreur de connexion":"Connection error")}
+    }catch(e){console.error("Refresh error:",e);
+      // Silencieux sur erreur intermittente (mobile, changement réseau).
+      // N'affiche le toast qu'après 2 échecs consécutifs.
+      const fails=(window.__aigRefreshFails||0)+1;
+      window.__aigRefreshFails=fails;
+      if(fails>=2){showT(lang==="fr"?"Connexion instable — retry en cours":"Unstable connection — retrying");}
+    }
+    // Reset compteur si succès
+    if(refreshing===false)window.__aigRefreshFails=0;
     setRefreshing(false);
   },[cos,lang,refreshing,liveSigs.length,scoreThresholds]);
 
