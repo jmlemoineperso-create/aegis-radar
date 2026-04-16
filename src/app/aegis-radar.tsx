@@ -962,6 +962,17 @@ function App(){
   const[memorySyntheses,setMemorySyntheses]=useState({}); // {cid: [syntheses]}
   const[memoryLoading,setMemoryLoading]=useState({}); // {cid: bool}
   const[memoryCatFilter,setMemoryCatFilter]=useState(null);
+  // UI states mémoire longue (remontés ici pour éviter le remount)
+  const[memMode,setMemMode]=useState("all"); // "all" | "period" | "compare"
+  const todayISOStr=new Date().toISOString().slice(0,10);
+  const sixMonthsAgoISOStr=new Date(Date.now()-180*86400000).toISOString().slice(0,10);
+  const[memPeriodStart,setMemPeriodStart]=useState(sixMonthsAgoISOStr);
+  const[memPeriodEnd,setMemPeriodEnd]=useState(todayISOStr);
+  const[memCompareEnd,setMemCompareEnd]=useState(todayISOStr);
+  // Reset mode quand on change d'entreprise
+  useEffect(()=>{setMemMode("all");setMemoryCatFilter(null)},[selComp]);
+  // Charger la mémoire quand selComp change
+  useEffect(()=>{if(selComp)loadCompanyMemory(selComp)},[selComp]);
 
   const loadCompanyMemory=useCallback(async(cid)=>{
     if(!sbOk||!cid)return;
@@ -2295,264 +2306,217 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
 
         {/* ═══ HISTORIQUE (Mémoire longue) ═══ */}
         <div className="dv"/>
-        <MemorySection cid={cid} coName={co.name}/>
+        {(()=>{
+          const allEntries=memoryEntries[cid]||[];
+          const syntheses=memorySyntheses[cid]||[];
+          const loading=memoryLoading[cid];
+
+          const computeStats=(entries)=>({
+            total:entries.length,
+            critical:entries.filter(e=>(e.importance||0)>=80).length,
+            avgImp:entries.length>0?Math.round(entries.reduce((s,e)=>s+(e.importance||50),0)/entries.length):0
+          });
+
+          let displayEntries=allEntries;
+          let periodLabel="";
+          let compareStats=null;
+
+          if(memMode==="period"){
+            const start=new Date(memPeriodStart+"T00:00:00").getTime();
+            const end=new Date(memPeriodEnd+"T23:59:59").getTime();
+            displayEntries=allEntries.filter(e=>{const t=new Date(e.event_date).getTime();return t>=start&&t<=end});
+            const fmtD=(d)=>new Date(d).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"2-digit",month:"short",year:"numeric"});
+            periodLabel=`${fmtD(memPeriodStart)} → ${fmtD(memPeriodEnd)}`;
+          }
+          else if(memMode==="compare"){
+            const endDate=new Date(memCompareEnd+"T23:59:59");
+            const startCurrent=new Date(endDate.getFullYear(),0,1).getTime();
+            const endCurrent=endDate.getTime();
+            const startPrev=new Date(endDate.getFullYear()-1,0,1).getTime();
+            const endPrev=new Date(endDate.getFullYear()-1,endDate.getMonth(),endDate.getDate(),23,59,59).getTime();
+            const currentEntries=allEntries.filter(e=>{const t=new Date(e.event_date).getTime();return t>=startCurrent&&t<=endCurrent});
+            const previousEntries=allEntries.filter(e=>{const t=new Date(e.event_date).getTime();return t>=startPrev&&t<=endPrev});
+            compareStats={
+              current:computeStats(currentEntries),
+              previous:computeStats(previousEntries),
+              currentLabel:`${endDate.getFullYear()} (01/01 → ${endDate.getDate().toString().padStart(2,"0")}/${(endDate.getMonth()+1).toString().padStart(2,"0")})`,
+              previousLabel:`${endDate.getFullYear()-1} (01/01 → ${endDate.getDate().toString().padStart(2,"0")}/${(endDate.getMonth()+1).toString().padStart(2,"0")})`
+            };
+            displayEntries=currentEntries;
+          }
+
+          const filtered=memoryCatFilter?displayEntries.filter(e=>e.category===memoryCatFilter):displayEntries;
+          const cats=[...new Set(displayEntries.map(e=>e.category).filter(Boolean))];
+          const displayStats=computeStats(displayEntries);
+          const oldestDate=displayEntries.length>0?new Date(displayEntries[displayEntries.length-1].event_date):null;
+          const latestSynth=syntheses[0];
+          const fmtPeriod=(p)=>{if(!p)return"";const [y,m]=p.split("-");return`${["Janv","Févr","Mars","Avril","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"][parseInt(m)-1]} ${y}`};
+          const riskIcon=(e)=>e==="rising"?"↗":e==="declining"?"↘":"→";
+          const riskColor=(e)=>e==="rising"?"#991B1B":e==="declining"?"#166534":"#1E40AF";
+          const delta=(curr,prev)=>{if(prev===0)return curr>0?"+∞":"=";const pct=Math.round(((curr-prev)/prev)*100);if(pct===0)return "=";return (pct>0?"+":"")+pct+"%"};
+          const deltaColor=(curr,prev)=>{if(curr===prev)return "#7D8A9A";return curr>prev?"#991B1B":"#166534"};
+
+          return(
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+                <h3 className="lbl" style={{color:"var(--gold)"}}>{lang==="fr"?"HISTORIQUE":"HISTORY"}</h3>
+                <button className="btn" style={{padding:"6px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:loading?"wait":"pointer",opacity:loading?.5:1}} disabled={loading} onClick={()=>runMemoryForCompany(cid)}>
+                  {loading?(lang==="fr"?"...":"..."):(lang==="fr"?"Générer maintenant":"Generate now")}
+                </button>
+              </div>
+
+              {allEntries.length>0&&(
+                <div style={{display:"flex",gap:0,marginBottom:14,border:"1px solid var(--b)",borderRadius:8,overflow:"hidden",background:"var(--bg3)"}}>
+                  {[{k:"all",l:lang==="fr"?"Tout":"All"},{k:"period",l:lang==="fr"?"Période":"Period"},{k:"compare",l:lang==="fr"?"Comparaison N vs N-1":"Year-over-Year"}].map((m,i)=>(
+                    <button key={m.k} className="btn" style={{flex:1,padding:"8px 10px",fontSize:11,background:memMode===m.k?"var(--navy)":"transparent",color:memMode===m.k?"#fff":"var(--t5)",border:"none",borderLeft:i>0?"1px solid var(--b)":"none",fontWeight:memMode===m.k?600:400,cursor:"pointer"}} onClick={()=>{setMemMode(m.k);setMemoryCatFilter(null)}}>{m.l}</button>
+                  ))}
+                </div>
+              )}
+
+              {memMode==="period"&&allEntries.length>0&&(
+                <div className="card" style={{padding:"12px 14px",marginBottom:14,background:"rgba(0,114,206,.03)"}}>
+                  <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:130}}>
+                      <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{lang==="fr"?"DU":"FROM"}</p>
+                      <input type="date" className="inp" style={{fontSize:12,padding:"6px 8px"}} value={memPeriodStart} onChange={e=>setMemPeriodStart(e.target.value)} max={memPeriodEnd}/>
+                    </div>
+                    <div style={{flex:1,minWidth:130}}>
+                      <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{lang==="fr"?"AU":"TO"}</p>
+                      <input type="date" className="inp" style={{fontSize:12,padding:"6px 8px"}} value={memPeriodEnd} onChange={e=>setMemPeriodEnd(e.target.value)} min={memPeriodStart} max={todayISOStr}/>
+                    </div>
+                  </div>
+                  <p style={{fontSize:10,color:"var(--t5)",marginTop:8}}>{periodLabel} · {displayStats.total} {lang==="fr"?"événement(s)":"event(s)"}</p>
+                </div>
+              )}
+
+              {memMode==="compare"&&allEntries.length>0&&(
+                <div className="card" style={{padding:"12px 14px",marginBottom:14,background:"rgba(0,114,206,.03)"}}>
+                  <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{lang==="fr"?"DATE DE RÉFÉRENCE":"REFERENCE DATE"}</p>
+                  <input type="date" className="inp" style={{fontSize:12,padding:"6px 8px",maxWidth:200}} value={memCompareEnd} onChange={e=>setMemCompareEnd(e.target.value)} max={todayISOStr}/>
+                  <p style={{fontSize:10,color:"var(--t5)",marginTop:8}}>{lang==="fr"?"Compare l'année en cours jusqu'à cette date vs. la même période de l'année précédente.":"Compares year-to-date vs. same period last year."}</p>
+                </div>
+              )}
+
+              {memMode!=="compare"&&displayEntries.length>0&&(
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                  <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
+                    <p style={{fontSize:18,fontWeight:700,color:"var(--gold)",lineHeight:1}}>{displayStats.total}</p>
+                    <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"ÉVÉNEMENTS":"EVENTS"}</p>
+                  </div>
+                  <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
+                    <p style={{fontSize:18,fontWeight:700,color:"#991B1B",lineHeight:1}}>{displayStats.critical}</p>
+                    <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"CRITIQUES":"CRITICAL"}</p>
+                  </div>
+                  <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
+                    <p style={{fontSize:18,fontWeight:700,color:"#0072CE",lineHeight:1}}>{displayStats.avgImp}</p>
+                    <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"IMP. MOY.":"AVG IMP."}</p>
+                  </div>
+                  <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
+                    <p style={{fontSize:11,fontWeight:600,color:"var(--t2)",lineHeight:1.3}}>{oldestDate?oldestDate.toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{month:"short",year:"2-digit"}):"—"}</p>
+                    <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"DEPUIS":"SINCE"}</p>
+                  </div>
+                </div>
+              )}
+
+              {memMode==="compare"&&compareStats&&(
+                <div style={{marginBottom:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                    <div className="card" style={{padding:"12px 14px",background:"rgba(125,138,154,.04)"}}>
+                      <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:8,textAlign:"center"}}>{compareStats.previousLabel}</p>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                        <div style={{textAlign:"center"}}><p style={{fontSize:17,fontWeight:700,color:"var(--t3)"}}>{compareStats.previous.total}</p><p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"ÉVÉN.":"EVENTS"}</p></div>
+                        <div style={{textAlign:"center"}}><p style={{fontSize:17,fontWeight:700,color:"var(--t3)"}}>{compareStats.previous.critical}</p><p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"CRIT.":"CRIT."}</p></div>
+                        <div style={{textAlign:"center"}}><p style={{fontSize:17,fontWeight:700,color:"var(--t3)"}}>{compareStats.previous.avgImp}</p><p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"IMP.":"IMP."}</p></div>
+                      </div>
+                    </div>
+                    <div className="card" style={{padding:"12px 14px",background:"rgba(0,114,206,.04)",borderColor:"rgba(0,114,206,.2)"}}>
+                      <p className="lbl" style={{color:"var(--gold2)",fontSize:9,marginBottom:8,textAlign:"center",fontWeight:600}}>{compareStats.currentLabel}</p>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+                        <div style={{textAlign:"center"}}>
+                          <p style={{fontSize:17,fontWeight:700,color:"var(--gold)"}}>{compareStats.current.total}</p>
+                          <p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"ÉVÉN.":"EVENTS"}</p>
+                          <p style={{fontSize:9,fontWeight:700,color:deltaColor(compareStats.current.total,compareStats.previous.total),marginTop:2}}>{delta(compareStats.current.total,compareStats.previous.total)}</p>
+                        </div>
+                        <div style={{textAlign:"center"}}>
+                          <p style={{fontSize:17,fontWeight:700,color:"#991B1B"}}>{compareStats.current.critical}</p>
+                          <p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"CRIT.":"CRIT."}</p>
+                          <p style={{fontSize:9,fontWeight:700,color:deltaColor(compareStats.current.critical,compareStats.previous.critical),marginTop:2}}>{delta(compareStats.current.critical,compareStats.previous.critical)}</p>
+                        </div>
+                        <div style={{textAlign:"center"}}>
+                          <p style={{fontSize:17,fontWeight:700,color:"#0072CE"}}>{compareStats.current.avgImp}</p>
+                          <p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"IMP.":"IMP."}</p>
+                          <p style={{fontSize:9,fontWeight:700,color:deltaColor(compareStats.current.avgImp,compareStats.previous.avgImp),marginTop:2}}>{delta(compareStats.current.avgImp,compareStats.previous.avgImp)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p style={{fontSize:10,color:"var(--t5)",textAlign:"center"}}>{lang==="fr"?"Timeline ci-dessous : période courante uniquement":"Timeline below: current period only"}</p>
+                </div>
+              )}
+
+              {memMode==="all"&&latestSynth&&(
+                <div className="card" style={{padding:"16px 18px",marginBottom:16,borderLeft:"3px solid var(--gold)",background:"rgba(0,114,206,.03)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
+                    <p className="lbl" style={{color:"var(--gold)"}}>{lang==="fr"?"SYNTHÈSE IA":"AI SYNTHESIS"} — {fmtPeriod(latestSynth.period)}</p>
+                    <span style={{fontSize:11,fontWeight:600,color:riskColor(latestSynth.risk_evolution)}}>{riskIcon(latestSynth.risk_evolution)} {latestSynth.risk_evolution==="rising"?(lang==="fr"?"Risque en hausse":"Rising risk"):latestSynth.risk_evolution==="declining"?(lang==="fr"?"Risque en baisse":"Declining risk"):(lang==="fr"?"Risque stable":"Stable risk")}</span>
+                  </div>
+                  <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.55,marginBottom:10}}>{latestSynth.synthesis_text}</p>
+                  {latestSynth.key_themes&&latestSynth.key_themes.length>0&&(
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {latestSynth.key_themes.map((th,i)=>(<span key={i} className="ftag" style={{background:"rgba(0,114,206,.08)",color:"var(--gold2)",fontSize:9}}>{th}</span>))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {cats.length>0&&(
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,overflowX:"auto"}}>
+                  <button className={`chip ${!memoryCatFilter?"on":""}`} onClick={()=>setMemoryCatFilter(null)}>{lang==="fr"?"Tous":"All"} ({displayEntries.length})</button>
+                  {cats.map(c=>{const cc=getCat(c,lang);const count=displayEntries.filter(e=>e.category===c).length;return(<button key={c} className={`chip ${memoryCatFilter===c?"on":""}`} onClick={()=>setMemoryCatFilter(memoryCatFilter===c?null:c)}>{cc?.s||c} ({count})</button>)})}
+                </div>
+              )}
+
+              {allEntries.length===0&&!loading&&(
+                <div className="card" style={{padding:"24px 20px",textAlign:"center",background:"rgba(0,43,92,.02)",border:"1px dashed var(--b)"}}>
+                  <p style={{fontSize:13,color:"var(--t4)",marginBottom:4}}>{lang==="fr"?"Aucun événement archivé pour le moment":"No archived events yet"}</p>
+                  <p style={{fontSize:11,color:"var(--t5)"}}>{lang==="fr"?"La consolidation automatique a lieu chaque dimanche à 3h. Vous pouvez aussi cliquer sur \"Générer maintenant\" pour archiver les signaux de plus de 7 jours.":"Automatic consolidation runs every Sunday at 3 AM. You can also click \"Generate now\" to archive signals older than 7 days."}</p>
+                </div>
+              )}
+              {loading&&allEntries.length===0&&(
+                <p style={{fontSize:12,color:"var(--t4)",textAlign:"center",padding:"20px"}}>{lang==="fr"?"Chargement...":"Loading..."}</p>
+              )}
+              {allEntries.length>0&&displayEntries.length===0&&memMode!=="all"&&(
+                <div className="card" style={{padding:"16px 20px",textAlign:"center",background:"rgba(0,43,92,.02)",border:"1px dashed var(--b)"}}>
+                  <p style={{fontSize:12,color:"var(--t4)"}}>{lang==="fr"?"Aucun événement sur la période sélectionnée":"No events in selected period"}</p>
+                </div>
+              )}
+              {filtered.length>0&&(
+                <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:600,overflowY:"auto",paddingRight:4}}>
+                  {filtered.map((e,i)=>{const cat=getCat(e.category,lang);const impColor=(e.importance||0)>=80?"#991B1B":(e.importance||0)>=60?"#92400E":(e.importance||0)>=40?"#1E40AF":"#166534";return(
+                    <div key={e.id||i} className="card" style={{padding:"12px 14px",position:"relative",display:"flex",gap:10,alignItems:"flex-start"}}>
+                      <div style={{width:4,background:impColor,alignSelf:"stretch",borderRadius:2,flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:4}}>
+                          <span style={{fontSize:10,color:"var(--t5)",fontWeight:500}}>{new Date(e.event_date).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"2-digit",month:"short",year:"numeric"})}</span>
+                          {cat&&<span className="ftag" style={{background:cat.bg||"rgba(0,114,206,.08)",color:cat.c||"var(--gold2)",fontSize:8}}>{cat.s||e.category}</span>}
+                        </div>
+                        <p style={{fontSize:12,color:"var(--t1)",fontWeight:500,lineHeight:1.4,marginBottom:4}}>{lang==="fr"?(e.title_fr||e.title_en):(e.title_en||e.title_fr)}</p>
+                        {(lang==="fr"?e.summary_fr:e.summary_en)&&<p style={{fontSize:11,color:"var(--t4)",lineHeight:1.4,marginBottom:4}}>{(lang==="fr"?e.summary_fr:e.summary_en).slice(0,200)}{(lang==="fr"?e.summary_fr:e.summary_en).length>200?"...":""}</p>}
+                        <div style={{display:"flex",alignItems:"center",gap:8,fontSize:10,color:"var(--t5)"}}>
+                          {e.source_name&&<span>{e.source_name}</span>}
+                          {e.source_url&&<a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{color:"var(--gold2)",textDecoration:"none"}} onClick={ev=>ev.stopPropagation()}>{lang==="fr"?"↗ Article":"↗ Article"}</a>}
+                          <span style={{marginLeft:"auto",fontWeight:600,color:impColor}}>{e.importance||50}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )})}
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>)};
-
-  // ══ Composant Historique / Mémoire longue ══
-  const MemorySection=({cid,coName})=>{
-    useEffect(()=>{if(cid)loadCompanyMemory(cid)},[cid]);
-    // Reset du mode à "all" quand la fiche change (on ouvre une nouvelle entreprise)
-    const [mode,setMode]=useState("all"); // "all" | "period" | "compare"
-    useEffect(()=>{setMode("all");setMemoryCatFilter(null)},[cid]);
-
-    // Dates pour le mode "period"
-    const todayISO=new Date().toISOString().slice(0,10);
-    const sixMonthsAgoISO=new Date(Date.now()-180*86400000).toISOString().slice(0,10);
-    const [periodStart,setPeriodStart]=useState(sixMonthsAgoISO);
-    const [periodEnd,setPeriodEnd]=useState(todayISO);
-
-    // Date de fin pour le mode "compare" (par défaut = aujourd'hui)
-    const [compareEnd,setCompareEnd]=useState(todayISO);
-
-    const allEntries=memoryEntries[cid]||[];
-    const syntheses=memorySyntheses[cid]||[];
-    const loading=memoryLoading[cid];
-
-    // Helper : stats pour un set d'événements
-    const computeStats=(entries)=>({
-      total:entries.length,
-      critical:entries.filter(e=>(e.importance||0)>=80).length,
-      avgImp:entries.length>0?Math.round(entries.reduce((s,e)=>s+(e.importance||50),0)/entries.length):0
-    });
-
-    // Filtrage selon le mode
-    let displayEntries=allEntries;
-    let periodLabel="";
-    let compareStats=null; // {current, previous, currentLabel, previousLabel}
-
-    if(mode==="period"){
-      const start=new Date(periodStart+"T00:00:00").getTime();
-      const end=new Date(periodEnd+"T23:59:59").getTime();
-      displayEntries=allEntries.filter(e=>{const t=new Date(e.event_date).getTime();return t>=start&&t<=end});
-      const fmtD=(d)=>new Date(d).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"2-digit",month:"short",year:"numeric"});
-      periodLabel=`${fmtD(periodStart)} → ${fmtD(periodEnd)}`;
-    }
-    else if(mode==="compare"){
-      const endDate=new Date(compareEnd+"T23:59:59");
-      const startCurrent=new Date(endDate.getFullYear(),0,1).getTime(); // 1er janvier année courante
-      const endCurrent=endDate.getTime();
-      // Même fenêtre l'année précédente
-      const startPrev=new Date(endDate.getFullYear()-1,0,1).getTime();
-      const endPrev=new Date(endDate.getFullYear()-1,endDate.getMonth(),endDate.getDate(),23,59,59).getTime();
-
-      const currentEntries=allEntries.filter(e=>{const t=new Date(e.event_date).getTime();return t>=startCurrent&&t<=endCurrent});
-      const previousEntries=allEntries.filter(e=>{const t=new Date(e.event_date).getTime();return t>=startPrev&&t<=endPrev});
-
-      compareStats={
-        current:computeStats(currentEntries),
-        previous:computeStats(previousEntries),
-        currentLabel:`${endDate.getFullYear()} (01/01 → ${endDate.getDate().toString().padStart(2,"0")}/${(endDate.getMonth()+1).toString().padStart(2,"0")})`,
-        previousLabel:`${endDate.getFullYear()-1} (01/01 → ${endDate.getDate().toString().padStart(2,"0")}/${(endDate.getMonth()+1).toString().padStart(2,"0")})`
-      };
-      // Timeline = période courante uniquement
-      displayEntries=currentEntries;
-    }
-
-    // Application du filtre catégorie
-    const filtered=memoryCatFilter?displayEntries.filter(e=>e.category===memoryCatFilter):displayEntries;
-    const cats=[...new Set(displayEntries.map(e=>e.category).filter(Boolean))];
-
-    // Stats pour l'affichage
-    const displayStats=computeStats(displayEntries);
-    const oldestDate=displayEntries.length>0?new Date(displayEntries[displayEntries.length-1].event_date):null;
-
-    const latestSynth=syntheses[0];
-    const fmtPeriod=(p)=>{if(!p)return"";const [y,m]=p.split("-");return`${["Janv","Févr","Mars","Avril","Mai","Juin","Juil","Août","Sept","Oct","Nov","Déc"][parseInt(m)-1]} ${y}`};
-    const riskIcon=(e)=>e==="rising"?"↗":e==="declining"?"↘":"→";
-    const riskColor=(e)=>e==="rising"?"#991B1B":e==="declining"?"#166534":"#1E40AF";
-
-    // Helper : indicateur d'évolution N vs N-1
-    const delta=(curr,prev)=>{
-      if(prev===0)return curr>0?"+∞":"=";
-      const pct=Math.round(((curr-prev)/prev)*100);
-      if(pct===0)return "=";
-      return (pct>0?"+":"")+pct+"%";
-    };
-    const deltaColor=(curr,prev)=>{
-      if(curr===prev)return "#7D8A9A";
-      return curr>prev?"#991B1B":"#166534";
-    };
-
-    return(
-      <div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
-          <h3 className="lbl" style={{color:"var(--gold)"}}>{lang==="fr"?"HISTORIQUE":"HISTORY"}</h3>
-          <button className="btn" style={{padding:"6px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",borderRadius:6,cursor:loading?"wait":"pointer",opacity:loading?.5:1}} disabled={loading} onClick={()=>runMemoryForCompany(cid)}>
-            {loading?(lang==="fr"?"...":"..."):(lang==="fr"?"Générer maintenant":"Generate now")}
-          </button>
-        </div>
-
-        {/* Toggle des 3 modes */}
-        {allEntries.length>0&&(
-          <div style={{display:"flex",gap:0,marginBottom:14,border:"1px solid var(--b)",borderRadius:8,overflow:"hidden",background:"var(--bg3)"}}>
-            {[{k:"all",l:lang==="fr"?"Tout":"All"},{k:"period",l:lang==="fr"?"Période":"Period"},{k:"compare",l:lang==="fr"?"Comparaison N vs N-1":"Year-over-Year"}].map((m,i)=>(
-              <button key={m.k} className="btn" style={{flex:1,padding:"8px 10px",fontSize:11,background:mode===m.k?"var(--navy)":"transparent",color:mode===m.k?"#fff":"var(--t5)",border:"none",borderLeft:i>0?"1px solid var(--b)":"none",fontWeight:mode===m.k?600:400,cursor:"pointer"}} onClick={()=>{setMode(m.k);setMemoryCatFilter(null)}}>{m.l}</button>
-            ))}
-          </div>
-        )}
-
-        {/* Contrôles mode "période" */}
-        {mode==="period"&&allEntries.length>0&&(
-          <div className="card" style={{padding:"12px 14px",marginBottom:14,background:"rgba(0,114,206,.03)"}}>
-            <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-              <div style={{flex:1,minWidth:130}}>
-                <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{lang==="fr"?"DU":"FROM"}</p>
-                <input type="date" className="inp" style={{fontSize:12,padding:"6px 8px"}} value={periodStart} onChange={e=>setPeriodStart(e.target.value)} max={periodEnd}/>
-              </div>
-              <div style={{flex:1,minWidth:130}}>
-                <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{lang==="fr"?"AU":"TO"}</p>
-                <input type="date" className="inp" style={{fontSize:12,padding:"6px 8px"}} value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)} min={periodStart} max={todayISO}/>
-              </div>
-            </div>
-            <p style={{fontSize:10,color:"var(--t5)",marginTop:8}}>{periodLabel} · {displayStats.total} {lang==="fr"?"événement(s)":"event(s)"}</p>
-          </div>
-        )}
-
-        {/* Contrôles mode "comparaison" */}
-        {mode==="compare"&&allEntries.length>0&&(
-          <div className="card" style={{padding:"12px 14px",marginBottom:14,background:"rgba(0,114,206,.03)"}}>
-            <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:4}}>{lang==="fr"?"DATE DE RÉFÉRENCE":"REFERENCE DATE"}</p>
-            <input type="date" className="inp" style={{fontSize:12,padding:"6px 8px",maxWidth:200}} value={compareEnd} onChange={e=>setCompareEnd(e.target.value)} max={todayISO}/>
-            <p style={{fontSize:10,color:"var(--t5)",marginTop:8}}>{lang==="fr"?"Compare l'année en cours jusqu'à cette date vs. la même période de l'année précédente.":"Compares year-to-date vs. same period last year."}</p>
-          </div>
-        )}
-
-        {/* Stats selon le mode */}
-        {mode!=="compare"&&displayEntries.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
-            <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
-              <p style={{fontSize:18,fontWeight:700,color:"var(--gold)",lineHeight:1}}>{displayStats.total}</p>
-              <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"ÉVÉNEMENTS":"EVENTS"}</p>
-            </div>
-            <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
-              <p style={{fontSize:18,fontWeight:700,color:"#991B1B",lineHeight:1}}>{displayStats.critical}</p>
-              <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"CRITIQUES":"CRITICAL"}</p>
-            </div>
-            <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
-              <p style={{fontSize:18,fontWeight:700,color:"#0072CE",lineHeight:1}}>{displayStats.avgImp}</p>
-              <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"IMP. MOY.":"AVG IMP."}</p>
-            </div>
-            <div className="card" style={{padding:"10px 12px",textAlign:"center"}}>
-              <p style={{fontSize:11,fontWeight:600,color:"var(--t2)",lineHeight:1.3}}>{oldestDate?oldestDate.toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{month:"short",year:"2-digit"}):"—"}</p>
-              <p className="lbl" style={{color:"var(--t5)",fontSize:8,marginTop:4}}>{lang==="fr"?"DEPUIS":"SINCE"}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Stats comparaison N vs N-1 côte à côte */}
-        {mode==="compare"&&compareStats&&(
-          <div style={{marginBottom:14}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-              {/* Colonne N-1 */}
-              <div className="card" style={{padding:"12px 14px",background:"rgba(125,138,154,.04)"}}>
-                <p className="lbl" style={{color:"var(--t5)",fontSize:9,marginBottom:8,textAlign:"center"}}>{compareStats.previousLabel}</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                  <div style={{textAlign:"center"}}><p style={{fontSize:17,fontWeight:700,color:"var(--t3)"}}>{compareStats.previous.total}</p><p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"ÉVÉN.":"EVENTS"}</p></div>
-                  <div style={{textAlign:"center"}}><p style={{fontSize:17,fontWeight:700,color:"var(--t3)"}}>{compareStats.previous.critical}</p><p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"CRIT.":"CRIT."}</p></div>
-                  <div style={{textAlign:"center"}}><p style={{fontSize:17,fontWeight:700,color:"var(--t3)"}}>{compareStats.previous.avgImp}</p><p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"IMP.":"IMP."}</p></div>
-                </div>
-              </div>
-              {/* Colonne N */}
-              <div className="card" style={{padding:"12px 14px",background:"rgba(0,114,206,.04)",borderColor:"rgba(0,114,206,.2)"}}>
-                <p className="lbl" style={{color:"var(--gold2)",fontSize:9,marginBottom:8,textAlign:"center",fontWeight:600}}>{compareStats.currentLabel}</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontSize:17,fontWeight:700,color:"var(--gold)"}}>{compareStats.current.total}</p>
-                    <p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"ÉVÉN.":"EVENTS"}</p>
-                    <p style={{fontSize:9,fontWeight:700,color:deltaColor(compareStats.current.total,compareStats.previous.total),marginTop:2}}>{delta(compareStats.current.total,compareStats.previous.total)}</p>
-                  </div>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontSize:17,fontWeight:700,color:"#991B1B"}}>{compareStats.current.critical}</p>
-                    <p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"CRIT.":"CRIT."}</p>
-                    <p style={{fontSize:9,fontWeight:700,color:deltaColor(compareStats.current.critical,compareStats.previous.critical),marginTop:2}}>{delta(compareStats.current.critical,compareStats.previous.critical)}</p>
-                  </div>
-                  <div style={{textAlign:"center"}}>
-                    <p style={{fontSize:17,fontWeight:700,color:"#0072CE"}}>{compareStats.current.avgImp}</p>
-                    <p className="lbl" style={{color:"var(--t5)",fontSize:7,marginTop:2}}>{lang==="fr"?"IMP.":"IMP."}</p>
-                    <p style={{fontSize:9,fontWeight:700,color:deltaColor(compareStats.current.avgImp,compareStats.previous.avgImp),marginTop:2}}>{delta(compareStats.current.avgImp,compareStats.previous.avgImp)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p style={{fontSize:10,color:"var(--t5)",textAlign:"center"}}>{lang==="fr"?"Timeline ci-dessous : période courante uniquement":"Timeline below: current period only"}</p>
-          </div>
-        )}
-
-        {/* Dernière synthèse IA (uniquement mode "all") */}
-        {mode==="all"&&latestSynth&&(
-          <div className="card" style={{padding:"16px 18px",marginBottom:16,borderLeft:"3px solid var(--gold)",background:"rgba(0,114,206,.03)"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:6}}>
-              <p className="lbl" style={{color:"var(--gold)"}}>{lang==="fr"?"SYNTHÈSE IA":"AI SYNTHESIS"} — {fmtPeriod(latestSynth.period)}</p>
-              <span style={{fontSize:11,fontWeight:600,color:riskColor(latestSynth.risk_evolution)}}>{riskIcon(latestSynth.risk_evolution)} {latestSynth.risk_evolution==="rising"?(lang==="fr"?"Risque en hausse":"Rising risk"):latestSynth.risk_evolution==="declining"?(lang==="fr"?"Risque en baisse":"Declining risk"):(lang==="fr"?"Risque stable":"Stable risk")}</span>
-            </div>
-            <p style={{fontSize:13,color:"var(--t2)",lineHeight:1.55,marginBottom:10}}>{latestSynth.synthesis_text}</p>
-            {latestSynth.key_themes&&latestSynth.key_themes.length>0&&(
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {latestSynth.key_themes.map((th,i)=>(<span key={i} className="ftag" style={{background:"rgba(0,114,206,.08)",color:"var(--gold2)",fontSize:9}}>{th}</span>))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Filtres catégorie */}
-        {cats.length>0&&(
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,overflowX:"auto"}}>
-            <button className={`chip ${!memoryCatFilter?"on":""}`} onClick={()=>setMemoryCatFilter(null)}>{lang==="fr"?"Tous":"All"} ({displayEntries.length})</button>
-            {cats.map(c=>{const cc=getCat(c,lang);const count=displayEntries.filter(e=>e.category===c).length;return(<button key={c} className={`chip ${memoryCatFilter===c?"on":""}`} onClick={()=>setMemoryCatFilter(memoryCatFilter===c?null:c)}>{cc?.s||c} ({count})</button>)})}
-          </div>
-        )}
-
-        {/* Timeline */}
-        {allEntries.length===0&&!loading&&(
-          <div className="card" style={{padding:"24px 20px",textAlign:"center",background:"rgba(0,43,92,.02)",border:"1px dashed var(--b)"}}>
-            <p style={{fontSize:13,color:"var(--t4)",marginBottom:4}}>{lang==="fr"?"Aucun événement archivé pour le moment":"No archived events yet"}</p>
-            <p style={{fontSize:11,color:"var(--t5)"}}>{lang==="fr"?"La consolidation automatique a lieu chaque dimanche à 3h. Vous pouvez aussi cliquer sur \"Générer maintenant\" pour archiver les signaux de plus de 7 jours.":"Automatic consolidation runs every Sunday at 3 AM. You can also click \"Generate now\" to archive signals older than 7 days."}</p>
-          </div>
-        )}
-        {loading&&allEntries.length===0&&(
-          <p style={{fontSize:12,color:"var(--t4)",textAlign:"center",padding:"20px"}}>{lang==="fr"?"Chargement...":"Loading..."}</p>
-        )}
-        {allEntries.length>0&&displayEntries.length===0&&mode!=="all"&&(
-          <div className="card" style={{padding:"16px 20px",textAlign:"center",background:"rgba(0,43,92,.02)",border:"1px dashed var(--b)"}}>
-            <p style={{fontSize:12,color:"var(--t4)"}}>{lang==="fr"?"Aucun événement sur la période sélectionnée":"No events in selected period"}</p>
-          </div>
-        )}
-        {filtered.length>0&&(
-          <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:600,overflowY:"auto",paddingRight:4}}>
-            {filtered.map((e,i)=>{const cat=getCat(e.category,lang);const impColor=(e.importance||0)>=80?"#991B1B":(e.importance||0)>=60?"#92400E":(e.importance||0)>=40?"#1E40AF":"#166534";return(
-              <div key={e.id||i} className="card" style={{padding:"12px 14px",position:"relative",display:"flex",gap:10,alignItems:"flex-start"}}>
-                <div style={{width:4,background:impColor,alignSelf:"stretch",borderRadius:2,flexShrink:0}}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:4}}>
-                    <span style={{fontSize:10,color:"var(--t5)",fontWeight:500}}>{new Date(e.event_date).toLocaleDateString(lang==="fr"?"fr-FR":"en-GB",{day:"2-digit",month:"short",year:"numeric"})}</span>
-                    {cat&&<span className="ftag" style={{background:cat.bg||"rgba(0,114,206,.08)",color:cat.c||"var(--gold2)",fontSize:8}}>{cat.s||e.category}</span>}
-                  </div>
-                  <p style={{fontSize:12,color:"var(--t1)",fontWeight:500,lineHeight:1.4,marginBottom:4}}>{lang==="fr"?(e.title_fr||e.title_en):(e.title_en||e.title_fr)}</p>
-                  {(lang==="fr"?e.summary_fr:e.summary_en)&&<p style={{fontSize:11,color:"var(--t4)",lineHeight:1.4,marginBottom:4}}>{(lang==="fr"?e.summary_fr:e.summary_en).slice(0,200)}{(lang==="fr"?e.summary_fr:e.summary_en).length>200?"...":""}</p>}
-                  <div style={{display:"flex",alignItems:"center",gap:8,fontSize:10,color:"var(--t5)"}}>
-                    {e.source_name&&<span>{e.source_name}</span>}
-                    {e.source_url&&<a href={e.source_url} target="_blank" rel="noopener noreferrer" style={{color:"var(--gold2)",textDecoration:"none"}} onClick={ev=>ev.stopPropagation()}>{lang==="fr"?"↗ Article":"↗ Article"}</a>}
-                    <span style={{marginLeft:"auto",fontWeight:600,color:impColor}}>{e.importance||50}</span>
-                  </div>
-                </div>
-              </div>
-            )})}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // ── PAGES ──
   const render=()=>{
