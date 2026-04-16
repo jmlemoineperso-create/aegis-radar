@@ -2062,15 +2062,15 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                   const bpSet=new Set();layers.forEach(l=>{bpSet.add(l.from||0);bpSet.add(l.to||0)});
                   const breakpoints=[...bpSet].sort((a,b)=>a-b);
                   // Calculate horizontal position for each layer from the lowest band it appears in
+                  // Width = absolute share (50% share = 50% width), not relative to total
                   const layerPos=new Map();
                   for(let i=0;i<breakpoints.length-1;i++){
                     const bFrom=breakpoints[i],bTo=breakpoints[i+1];
                     const active=layers.filter(l=>(l.from||0)<=bFrom&&(l.to||0)>=bTo);
-                    const totalShare=active.reduce((a,l)=>a+(l.share||100),0);
                     let cumLeft=0;
                     active.forEach(l=>{
                       const idx=layers.indexOf(l);
-                      const w=(l.share||100)/totalShare*100;
+                      const w=(l.share||100); // absolute %, 50 share = 50% width
                       if(!layerPos.has(idx))layerPos.set(idx,{left:cumLeft,width:w});
                       cumLeft+=w;
                     });
