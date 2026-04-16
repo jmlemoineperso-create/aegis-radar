@@ -2088,10 +2088,9 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                         const bg=getColor(l.insurer,li);
                         const isTop=l.to===colMax;
                         return(
-                        <div key={li} style={{position:"absolute",bottom:bottom+"%",height:height+"%",left:pos.left+"%",width:pos.width+"%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"1px solid rgba(255,255,255,.3)",boxSizing:"border-box",borderRadius:isTop?"4px 4px 0 0":"0",cursor:"default",zIndex:2}} title={l.insurer+" : "+l.from+"M \u2192 "+l.to+"M ("+(l.share||100)+"%)"}>
-                          {hPx>24&&<span style={{fontSize:pos.width<40?10:12,color:"#fff",fontWeight:isAig?700:600,lineHeight:1.1,textAlign:"center"}}>{l.insurer||"?"}</span>}
-                          {hPx>40&&<span style={{fontSize:pos.width<40?8:9,color:"rgba(255,255,255,.8)",lineHeight:1,marginTop:2}}>{l.from} \u2192 {l.to}M</span>}
-                          {hPx>55&&l.share&&l.share<100&&<span style={{fontSize:8,color:"rgba(255,255,255,.7)",lineHeight:1,marginTop:1}}>{l.share}%</span>}
+                        <div key={li} style={{position:"absolute",bottom:bottom+"%",height:height+"%",left:pos.left+"%",width:pos.width+"%",background:bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",border:isAig?"2px solid rgba(255,255,255,.8)":"1px solid rgba(255,255,255,.3)",boxSizing:"border-box",borderRadius:isTop?"4px 4px 0 0":"0",cursor:"default",zIndex:2,padding:"2px 4px"}} title={l.insurer+" \u2014 "+(l.share||100)+"% \u2014 "+l.from+"\u2192"+l.to+"M\u20ac"}>
+                          {hPx>24&&<span style={{fontSize:pos.width<40?10:12,color:"#fff",fontWeight:isAig?700:600,lineHeight:1.15,textAlign:"center"}}>{l.insurer||"?"}{l.share&&l.share<100?" "+l.share+"%":l.share===100||!l.share?" 100%":""}</span>}
+                          {hPx>40&&<span style={{fontSize:pos.width<40?8:10,color:"rgba(255,255,255,.85)",lineHeight:1.1,marginTop:2,textAlign:"center"}}>{l.from}\u2192{l.to}M\u20ac</span>}
                           {hPx<=24&&hPx>10&&<span style={{fontSize:8,color:"#fff",fontWeight:isAig?700:500}}>{l.insurer?.substring(0,4)||"?"}</span>}
                         </div>)
                       })}
