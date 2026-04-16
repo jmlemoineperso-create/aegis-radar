@@ -957,7 +957,7 @@ function App(){
   const[dossierFiles,setDossierFiles]=useState(()=>lsGet("dossierFiles",{}));
   const fileInputRef=useRef(null);
   const openDossier=(cid)=>{const d=clientDossiers[cid]||defaultDossier;setDossierDraft({...defaultDossier,...d});setEditingDossier(cid)};
-  const saveDossier=()=>{if(!editingDossier)return;setClientDossiers(prev=>{const n={...prev,[editingDossier]:{...dossierDraft,updatedAt:new Date().toISOString()}};lsSet("clientDossiers",n);if(sbOk)sbFetch("client_dossiers","POST",{id:editingDossier,user_email:USER_EMAIL,company_id:editingDossier,data:n[editingDossier]}).catch(()=>{});return n});setEditingDossier(null);showT(lang==="fr"?"Dossier sauvegardé":"Dossier saved");logActivity("dossier_save","Dossier mis à jour")};
+  const saveDossier=()=>{if(!editingDossier)return;setClientDossiers(prev=>{const n={...prev,[editingDossier]:{...dossierDraft,updatedAt:new Date().toISOString()}};lsSet("clientDossiers",n);if(sbOk)sbFetch("client_dossiers","POST",{id:editingDossier,user_email:USER_EMAIL,company_id:editingDossier,data:n[editingDossier]},"?on_conflict=user_email,company_id").catch(()=>{});return n});setEditingDossier(null);showT(lang==="fr"?"Dossier sauvegardé":"Dossier saved");logActivity("dossier_save","Dossier mis à jour")};
   const handleFileUpload=(e)=>{
     const files=Array.from(e.target.files||[]);if(!files.length||!editingDossier)return;
     const maxSize=5*1024*1024;
