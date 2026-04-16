@@ -948,6 +948,9 @@ function App(){
   const[briefHistory,setBriefHistory]=useState(()=>lsGet("briefHistory",[]));
   const[clientDossiers,setClientDossiers]=useState(()=>lsGet("clientDossiers",{}));
   const[editingDossier,setEditingDossier]=useState(null);
+  // Ref miroir pour accès synchrone depuis le handler WebSocket (qui a [] comme deps)
+  const editingDossierRef=useRef(null);
+  useEffect(()=>{editingDossierRef.current=editingDossier},[editingDossier]);
   const[brokerOpen,setBrokerOpen]=useState(false);
   const[dossierDraft,setDossierDraft]=useState({broker:"",rm:"",rmLastName:"",rmFirstName:"",rmPhone:"",rmMobile:"",rmEmail:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]});
   const defaultDossier={broker:"",rm:"",rmLastName:"",rmFirstName:"",rmPhone:"",rmMobile:"",rmEmail:"",renewal:"",premium:"",program:"",sinistres:"",context:"",programLines:[],contacts:[]};
@@ -1369,6 +1372,27 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
           payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"INSERT",schema:"public",table:"live_signals"}]}},
           ref:"1"
         }));
+        // Join channel for client_dossiers (INSERT + UPDATE + DELETE)
+        ws.send(JSON.stringify({
+          topic:"realtime:public:client_dossiers",
+          event:"phx_join",
+          payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"*",schema:"public",table:"client_dossiers"}]}},
+          ref:"2"
+        }));
+        // Join channel for notes (INSERT + UPDATE + DELETE)
+        ws.send(JSON.stringify({
+          topic:"realtime:public:notes",
+          event:"phx_join",
+          payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"*",schema:"public",table:"notes"}]}},
+          ref:"3"
+        }));
+        // Join channel for watchlist (INSERT + UPDATE + DELETE)
+        ws.send(JSON.stringify({
+          topic:"realtime:public:watchlist",
+          event:"phx_join",
+          payload:{config:{broadcast:{self:false},presence:{key:""},postgres_changes:[{event:"*",schema:"public",table:"watchlist"}]}},
+          ref:"4"
+        }));
         // Heartbeat every 30s
         heartbeatRef.current=setInterval(()=>{
           if(ws.readyState===WebSocket.OPEN){
@@ -1381,8 +1405,14 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
         try{
           const msg=JSON.parse(ev.data);
           if(msg.event==="postgres_changes"&&msg.payload?.data){
-            const rec=msg.payload.data.record;
-            if(rec){
+            const data=msg.payload.data;
+            const rec=data.record;
+            const oldRec=data.old_record;
+            const table=data.table;
+            const type=data.type; // INSERT | UPDATE | DELETE
+
+            // ── LIVE_SIGNALS : INSERT only ──
+            if(table==="live_signals"&&rec){
               const newSig={id:rec.id,cid:rec.company_id,company:rec.company_name||"",title:{en:rec.title_en||"",fr:rec.title_fr||""},sum:{en:rec.summary_en||"",fr:rec.summary_fr||""},src:rec.source_name||"Web",url:rec.source_url||null,img:rec.image_url||null,at:rec.fetched_at,cat:rec.category||"governance",fact:rec.factuality||"needs_review",imp:rec.importance||50,conf:rec.confidence||50,live:true,_impacts:rec.impacts||[]};
               setLiveSigs(prev=>{
                 const t=(newSig.title?.en||"").toLowerCase().trim();
@@ -1390,9 +1420,55 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                 return[newSig,...prev];
               });
               setNewCount(p=>{const n=p+1;try{navigator.setAppBadge&&navigator.setAppBadge(n)}catch(e){}return n});
-              // Notification for critical
               if(rec.importance>=75&&typeof Notification!=="undefined"&&Notification.permission==="granted"){
                 new Notification("AIG Lines Intelligence",{body:`${rec.company_name}: ${rec.title_fr||rec.title_en}`,icon:"/icon-192.png",tag:"sig-"+rec.id});
+              }
+            }
+
+            // ── CLIENT_DOSSIERS : INSERT / UPDATE / DELETE ──
+            if(table==="client_dossiers"){
+              const cid=(rec?.company_id)||(oldRec?.company_id);
+              if(cid){
+                // Ne pas écraser si on édite actuellement ce dossier
+                if(editingDossierRef.current===cid)return;
+                setClientDossiers(prev=>{
+                  const n={...prev};
+                  if(type==="DELETE"){delete n[cid]}
+                  else if(rec?.data){n[cid]=rec.data}
+                  try{lsSet("clientDossiers",n)}catch(e){}
+                  return n;
+                });
+              }
+            }
+
+            // ── NOTES : INSERT / UPDATE / DELETE ──
+            if(table==="notes"){
+              if(type==="DELETE"&&oldRec?.id){
+                setNotes(prev=>prev.filter(n=>n.id!==oldRec.id));
+              }else if(rec){
+                const mapped={id:rec.id,cid:rec.company_id,text:rec.content,tag:rec.tag,at:rec.created_at};
+                setNotes(prev=>{
+                  const idx=prev.findIndex(n=>n.id===mapped.id);
+                  if(idx>=0){const copy=[...prev];copy[idx]=mapped;return copy}
+                  return[mapped,...prev];
+                });
+              }
+            }
+
+            // ── WATCHLIST : INSERT / UPDATE / DELETE ──
+            if(table==="watchlist"){
+              const cid=(rec?.company_id)||(oldRec?.company_id);
+              if(cid){
+                if(type==="DELETE"){
+                  setCos(prev=>prev.map(c=>c.id===cid?{...c,prio:null}:c));
+                }else if(rec){
+                  setCos(prev=>{
+                    const exists=prev.some(c=>c.id===cid);
+                    if(exists)return prev.map(c=>c.id===cid?{...c,prio:rec.priority||"watch"}:c);
+                    // Company not in state yet (added from another device) : add it
+                    return[...prev,{id:rec.company_id,name:rec.company_name,sector:rec.company_sector||"—",hq:rec.company_hq||"—",ticker:rec.company_ticker,cap:rec.company_cap||"—",emp:rec.company_emp||"—",logo:rec.company_logo||(rec.company_name?rec.company_name[0]:"?"),risk:rec.company_risk||50,trend:rec.company_trend||"stable",prio:rec.priority||"watch"}];
+                  });
+                }
               }
             }
           }
