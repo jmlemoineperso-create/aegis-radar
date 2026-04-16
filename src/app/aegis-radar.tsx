@@ -2702,7 +2702,34 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
                 <div style={{position:"relative"}}>{selIns&&<img src={"https://www.google.com/s2/favicons?domain="+selIns.d+"&sz=32"} alt="" style={{width:18,height:18,borderRadius:3,position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",zIndex:1,pointerEvents:"none"}} onError={e=>{e.target.style.display="none"}}/>}<input className="inp" style={{fontSize:12,padding:"6px 8px",paddingLeft:selIns?32:8}} placeholder="AIG, Zurich..." value={l.insurer||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],insurer:e.target.value,_insOpen:true};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}} onFocus={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],_insOpen:true};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}} onBlur={()=>setTimeout(()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];if(layers[li]){layers[li]={...layers[li],_insOpen:false};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}},200)}/>{l._insOpen&&<div style={{position:"absolute",zIndex:20,left:0,right:0,top:"100%",maxHeight:150,overflow:"auto",background:"#fff",border:"1px solid var(--b)",borderRadius:6,boxShadow:"0 4px 12px rgba(0,43,92,.1)",marginTop:2}}>{insFiltered.map(ins=>(<button key={ins.n} style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"none",border:"none",borderBottom:"1px solid var(--b)",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}} onMouseDown={e=>{e.preventDefault();const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],insurer:ins.n,_insOpen:false};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}><img src={"https://www.google.com/s2/favicons?domain="+ins.d+"&sz=32"} alt="" style={{width:16,height:16,borderRadius:3,flexShrink:0}} onError={e=>{e.target.style.display="none"}}/><span style={{fontSize:11,color:"var(--t1)"}}>{ins.n}</span></button>))}</div>}</div>
                 <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="0" value={l.from||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],from:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
                 <input className="inp" type="number" step="0.5" style={{fontSize:12,padding:"6px 6px",textAlign:"center"}} placeholder="5" value={l.to||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],to:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
-                <input className="inp" type="number" style={{fontSize:12,padding:"6px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers[li]={...layers[li],share:Number(e.target.value)};n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}/>
+                <input className="inp" type="number" min="0" max="100" style={{fontSize:12,padding:"6px 4px",textAlign:"center"}} placeholder="100" value={l.share||""} onChange={e=>{
+                  const raw=Number(e.target.value);
+                  // Clamp 0-100
+                  let v=Math.max(0,Math.min(100,raw));
+                  // Calcul du max disponible sur la tranche (100 - somme des autres layers qui se chevauchent)
+                  const currentLayers=pl.layers||[];
+                  const thisFrom=l.from||0,thisTo=l.to||0;
+                  const othersShareOnOverlap=currentLayers.reduce((sum,other,otherIdx)=>{
+                    if(otherIdx===li)return sum;
+                    const oFrom=other.from||0,oTo=other.to||0;
+                    // Overlap si les plages se croisent
+                    const overlap=Math.max(0,Math.min(thisTo,oTo)-Math.max(thisFrom,oFrom));
+                    return overlap>0?sum+(other.share||0):sum;
+                  },0);
+                  const maxAvail=Math.max(0,100-othersShareOnOverlap);
+                  let clamped=false;
+                  if(v>maxAvail){v=maxAvail;clamped=true}
+                  if(raw!==v&&raw>0){
+                    if(clamped)showT(lang==="fr"?`Ajusté à ${v}% (max disponible sur la tranche)`:`Adjusted to ${v}% (max available on tranche)`);
+                    else if(raw>100)showT(lang==="fr"?"Ajusté à 100% (maximum)":"Adjusted to 100% (maximum)");
+                    else if(raw<0)showT(lang==="fr"?"Ajusté à 0% (minimum)":"Adjusted to 0% (minimum)");
+                  }
+                  const n=[...(dossierDraft.programLines||[])];
+                  const layers=[...(n[pi].layers||[])];
+                  layers[li]={...layers[li],share:v};
+                  n[pi]={...n[pi],layers};
+                  setDossierDraft(p=>({...p,programLines:n}));
+                }}/>
                 <button style={{width:20,height:20,borderRadius:4,background:"rgba(220,38,38,.06)",border:"1px solid rgba(220,38,38,.12)",fontSize:12,color:"#991B1B",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}} onClick={()=>{const n=[...(dossierDraft.programLines||[])];const layers=[...(n[pi].layers||[])];layers.splice(li,1);n[pi]={...n[pi],layers};setDossierDraft(p=>({...p,programLines:n}))}}>×</button>
               </div>
             </div>)})})()}
