@@ -1138,7 +1138,8 @@ function App(){
 
     // ── Build anonymized prompt ──
     const anonProgram=(dos?.programLines||[]).map(p=>p.line+": "+(p.layers||[]).map(l=>(anonMap[l.insurer]||l.insurer)+" "+l.from+"-"+l.to+"M\u20ac ("+(l.share||100)+"%)").join(", ")).join("\n");
-    const anonSigs=sigs.slice(0,15).map(s=>"- ["+(s.imp||50)+"] "+tx(s.title,lang)+" ("+tx(s.src,lang)+", "+(s.at?new Date(s.at).toLocaleDateString("fr-FR"):"")+")" ).join("\n");
+    const impLbl=(score)=>score>=80?"Critique":score>=60?"Élevé":score>=40?"Moyen":"Faible";
+    const anonSigs=sigs.slice(0,15).map(s=>"- ["+impLbl(s.imp||50)+"] "+tx(s.title,lang)+" ("+tx(s.src,lang)+", "+(s.at?new Date(s.at).toLocaleDateString("fr-FR"):"")+")" ).join("\n");
     const anonNotes=cn.slice(0,5).map(n=>"- ["+n.tag+"] "+(typeof n.text==="object"?tx(n.text,lang):n.text)).join("\n");
 
     const prompt=`Tu es un expert senior en assurance grandes entreprises. Tu analyses une entreprise pour un Account Manager.
@@ -1165,7 +1166,7 @@ ${anonNotes}
 
 Produis une ANALYSE STRATÉGIQUE STRUCTURÉE en JSON avec exactement cette structure:
 {
-  "past": {"title":"Rétrospective","period":"12 derniers mois","summary":"...(3-4 phrases)","key_events":["événement 1","événement 2","événement 3"],"risk_trajectory":"hausse|stable|baisse"},
+  "past": {"title":"Rétrospective","period":"12 derniers mois","summary":"...(3-4 phrases)","key_events":[{"text":"événement 1","level":"critique"},{"text":"événement 2","level":"élevé"},{"text":"événement 3","level":"moyen"}],"risk_trajectory":"hausse|stable|baisse"},
   "present": {"title":"Situation actuelle","summary":"...(3-4 phrases)","risk_level":"critique|élevé|moyen|faible","strengths":["point fort 1","point fort 2"],"concerns":["préoccupation 1","préoccupation 2"],"policy_adequacy":"...(évaluation du programme en place)"},
   "scenarios":[
     {"name":"Scénario optimiste","probability":25,"description":"...(2-3 phrases)","impact_risk":-15,"impact_lines":{"do":"stable","cyber":"baisse"},"recommendation":"..."},
@@ -2139,7 +2140,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
   // ── COMPANY PAGE ──
   const CompPage=({cid})=>{const co=cos.find(c=>c.id===cid);const sigs=getSigs(cid);const cn=getNotes(cid);const lines=getLinesAll(sigs);if(!co)return null;return (
     <div style={{paddingBottom:100}}>
-      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4,color:"rgba(255,255,255,.8)"}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><div style={{display:"flex",gap:8}}><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button><button className="btn bp" style={{padding:"6px 14px",fontSize:12}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:14,height:14}}/>{t("generate_brief")}</button><button className="btn" style={{padding:"6px 14px",fontSize:12,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)"}} onClick={()=>setShowPresentation(co.id)}><I.ext style={{width:14,height:14}}/>{lang==="fr"?"Présenter":"Present"}</button><button className="btn" style={{padding:"6px 14px",fontSize:12,background:"rgba(22,163,74,.06)",color:"#166534",border:"1px solid rgba(22,163,74,.2)"}} onClick={()=>runAnalysis(co.id)}>{lang==="fr"?"Analyse IA":"AI Analysis"}</button></div></div></div>
+      <div className="hdr"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button className="btn bg" style={{gap:4,color:"rgba(255,255,255,.8)"}} onClick={()=>setSC(null)}><I.chL/>{t("back")}</button><button className="bi" style={{width:34,height:34}} onClick={()=>togW(co.id)}>{co.prio?<I.star style={{color:"var(--gold)"}}/>:<I.starO/>}</button></div><div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}><button className="btn bp" style={{padding:"6px 12px",fontSize:11,flex:1,minWidth:0,whiteSpace:"nowrap"}} onClick={()=>{setBC(co.id);setSB(true);setCopied(false)}}><I.brief style={{width:12,height:12}}/>{t("generate_brief")}</button><button className="btn" style={{padding:"6px 12px",fontSize:11,background:"rgba(0,114,206,.06)",color:"var(--gold2)",border:"1px solid rgba(0,114,206,.15)",flex:1,minWidth:0,whiteSpace:"nowrap"}} onClick={()=>setShowPresentation(co.id)}><I.ext style={{width:12,height:12}}/>{lang==="fr"?"Présenter":"Present"}</button><button className="btn" style={{padding:"6px 12px",fontSize:11,background:"rgba(22,163,74,.06)",color:"#166534",border:"1px solid rgba(22,163,74,.2)",flex:1,minWidth:0,whiteSpace:"nowrap"}} onClick={()=>runAnalysis(co.id)}>{lang==="fr"?"Analyse IA":"AI Analysis"}</button></div></div>
       <div style={{padding:"24px 20px"}}>
         <p className="lbl" style={{color:"var(--t4)",marginBottom:12}}>{t("company_overview")}</p>
         <div className="fi" style={{marginBottom:28}}>
@@ -3403,7 +3404,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown ni backticks.`;
             <span style={{marginLeft:"auto",fontSize:10,padding:"2px 8px",borderRadius:8,background:analysisResult.past.risk_trajectory==="hausse"?"rgba(220,38,38,.08)":analysisResult.past.risk_trajectory==="baisse"?"rgba(22,163,74,.08)":"rgba(0,114,206,.08)",color:analysisResult.past.risk_trajectory==="hausse"?"#991B1B":analysisResult.past.risk_trajectory==="baisse"?"#166534":"#1E40AF"}}>{analysisResult.past.risk_trajectory==="hausse"?"Risque en hausse":analysisResult.past.risk_trajectory==="baisse"?"Risque en baisse":"Risque stable"}</span>
           </div>
           <p style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,marginBottom:8}}>{analysisResult.past.summary}</p>
-          {analysisResult.past.key_events?.map((e,i)=><div key={i} style={{display:"flex",gap:6,marginBottom:3}}><span style={{color:"var(--gold)",fontSize:11,flexShrink:0}}>•</span><span style={{fontSize:11,color:"var(--t3)"}}>{e}</span></div>)}
+          {analysisResult.past.key_events?.map((e,i)=>{const ev=typeof e==="string"?{text:e,level:"moyen"}:e;const lc={critique:{bg:"#DC2626",c:"#991B1B"},élevé:{bg:"#D97706",c:"#92400E"},moyen:{bg:"#2563EB",c:"#1E40AF"},faible:{bg:"#16A34A",c:"#166534"}}[ev.level]||{bg:"#2563EB",c:"#1E40AF"};return(<div key={i} style={{display:"flex",gap:8,marginBottom:4,alignItems:"flex-start"}}><span style={{width:8,height:8,borderRadius:"50%",background:lc.bg,flexShrink:0,marginTop:3}}/><span style={{fontSize:11,color:"var(--t3)",lineHeight:1.4}}>{ev.text}</span></div>)})}
         </div>}
 
         {/* PRÉSENT */}
