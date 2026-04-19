@@ -1125,35 +1125,107 @@ function App(){
     const cn=getNotes(cid);
     const lines=getLinesAll(sigs);
 
-    // ── Anonymization mapping ──
+    // ── Anonymization mapping (RGPD — full encryption before Gemini) ──
     const anonMap={};const deAnonMap={};let idx=1;
     const anon=(real,prefix)=>{if(!real||real==="N/A")return real;const key=real.trim();if(anonMap[key])return anonMap[key];const code=prefix+"-"+String.fromCharCode(64+idx);idx++;anonMap[key]=code;deAnonMap[code]=key;return code};
+
+    // Anonymize all identities
     const anonCo=anon(co.name,"ENTREPRISE");
     const anonBroker=dos?.broker?anon(dos.broker,"COURTIER"):null;
     const anonRm=dos?.rm?anon(dos.rm,"CONTACT"):null;
     const insurers=[...new Set((dos?.programLines||[]).flatMap(p=>(p.layers||[]).map(l=>l.insurer)).filter(Boolean))];
-    insurers.forEach((ins,i)=>anon(ins,"ASSUREUR"));
+    insurers.forEach(ins=>anon(ins,"ASSUREUR"));
     const contacts=(dos?.contacts||[]).filter(c=>c.name);
     contacts.forEach(c=>anon(c.name,"PERSONNE"));
 
-    // ── Build anonymized prompt ──
-    const anonProgram=(dos?.programLines||[]).map(p=>p.line+": "+(p.layers||[]).map(l=>(anonMap[l.insurer]||l.insurer)+" "+l.from+"-"+l.to+"M\u20ac ("+(l.share||100)+"%)").join(", ")).join("\n");
+    // scrubName: replace ALL known entity names in free text
+    const scrubName=(text)=>{
+      if(!text)return"";
+      let t=typeof text==="object"?tx(text,lang):String(text);
+      // Replace company name + common variants (without suffix)
+      const name=co.name||"";
+      if(name.length>2){
+        const short=name.replace(/\s*(SA|SAS|SE|NV|PLC|Inc|Ltd|Group|Groupe)\.?\s*$/i,"").trim();
+        [name,short].forEach(v=>{if(v.length>2){t=t.split(v).join(anonCo);t=t.split(v.toUpperCase()).join(anonCo);t=t.split(v.toLowerCase()).join(anonCo)}});
+      }
+      // Replace all other known names (broker, RM, insurers, contacts)
+      for(const [real,code] of Object.entries(anonMap)){if(real.length>2)t=t.split(real).join(code)}
+      return t;
+    };
+
+    // Anonymize premium → coded range (never send real amounts)
+    const anonPremium=(p)=>{
+      if(!p||p==="N/A")return"N/A";
+      const s=p.toLowerCase().replace(/\s/g,"");
+      let v=0;if(s.includes("m"))v=parseFloat(s)*1e6;else if(s.includes("k"))v=parseFloat(s)*1e3;else v=parseFloat(s)||0;
+      if(v>=5e6)return"PRIME-CAT-5";if(v>=1e6)return"PRIME-CAT-4";if(v>=500e3)return"PRIME-CAT-3";if(v>=100e3)return"PRIME-CAT-2";return"PRIME-CAT-1";
+    };
+
+    // Anonymize renewal → quarter only
+    const anonRenewal=(r)=>{if(!r||r==="N/A")return"N/A";const m=new Date(r).getMonth();return m<3?"T1":m<6?"T2":m<9?"T3":"T4"};
+
+    // Anonymize sector → generic code
+    const sectorMap={"Banque":"SEC-FIN","Banking":"SEC-FIN","Assurance":"SEC-INS","Insurance":"SEC-INS","Énergie":"SEC-ENR","Energy":"SEC-ENR","Automobile":"SEC-AUT","Automotive":"SEC-AUT","Aéronautique":"SEC-AER","Aerospace":"SEC-AER","Pharmacie":"SEC-PHA","Pharma":"SEC-PHA","Télécommunications":"SEC-TEL","Telecom":"SEC-TEL","Technologie":"SEC-TEC","Technology":"SEC-TEC","Luxe":"SEC-LUX","Luxury":"SEC-LUX","Distribution":"SEC-DIS","Retail":"SEC-DIS","Construction":"SEC-CON","BTP":"SEC-CON","Chimie":"SEC-CHI","Chemicals":"SEC-CHI","Agroalimentaire":"SEC-AGR","Food":"SEC-AGR","Industrie":"SEC-IND","Industrial":"SEC-IND","Transport":"SEC-TRA","Logistics":"SEC-TRA","Immobilier":"SEC-IMM","Real Estate":"SEC-IMM","Médias":"SEC-MED","Media":"SEC-MED"};
+    const rawSector=tx(co.sector,lang)||"";
+    const anonSector=sectorMap[rawSector]||"SEC-"+rawSector.substring(0,3).toUpperCase();
+    deAnonMap[anonSector]=rawSector;
+
+    // Anonymize HQ → region only
+    const hqMap={"Paris, France":"REG-EU-W","France":"REG-EU-W","London, UK":"REG-EU-W","Germany":"REG-EU-W","USA":"REG-NA","New York":"REG-NA","Japan":"REG-APAC","China":"REG-APAC","Singapore":"REG-APAC","Brazil":"REG-LATAM"};
+    const rawHq=co.hq||"";
+    const anonHq=hqMap[rawHq]||"REG-INTL";
+    deAnonMap[anonHq]=rawHq;
+
+    // Anonymize cap → range code
+    const anonCap=(c)=>{
+      if(!c||c==="N/A")return"CAP-NA";
+      const s=c.toLowerCase().replace(/[€$£\s]/g,"");
+      let v=0;if(s.includes("b"))v=parseFloat(s)*1e9;else if(s.includes("m"))v=parseFloat(s)*1e6;else v=parseFloat(s)||0;
+      const code=v>=50e9?"CAP-MEGA":v>=10e9?"CAP-LARGE":v>=1e9?"CAP-MID":"CAP-SMALL";
+      deAnonMap[code]=c;return code;
+    };
+
+    // Anonymize effectifs → range code
+    const anonEmp=(e)=>{
+      if(!e||e==="N/A")return"EFF-NA";
+      const v=parseInt(String(e).replace(/\s/g,"").replace(/,/g,""))||0;
+      const code=v>=100000?"EFF-XXL":v>=50000?"EFF-XL":v>=10000?"EFF-L":v>=1000?"EFF-M":"EFF-S";
+      deAnonMap[code]=e;return code;
+    };
+
+    // Anonymize program structure: line types + shares only, amounts coded
+    const anonProgram=(dos?.programLines||[]).map(p=>{
+      return p.line+": "+(p.layers||[]).map((l,li)=>(anonMap[l.insurer]||"ASSUREUR-X")+" TRANCHE-"+(li+1)+" ("+(l.share||100)+"%)").join(", ");
+    }).join("\n");
+
+    // Anonymize sources → MEDIA-N
+    const srcMap={};let srcIdx=1;
+    const anonSrc=(src)=>{if(!src)return"MEDIA-X";const k=src.trim();if(srcMap[k])return srcMap[k];const code="MEDIA-"+srcIdx;srcIdx++;srcMap[k]=code;deAnonMap[code]=k;return code};
+
+    // Anonymize signal titles (scrub company + entity names) + sources
     const impLbl=(score)=>score>=80?"Critique":score>=60?"Élevé":score>=40?"Moyen":"Faible";
-    const anonSigs=sigs.slice(0,15).map(s=>"- ["+impLbl(s.imp||50)+"] "+tx(s.title,lang)+" ("+tx(s.src,lang)+", "+(s.at?new Date(s.at).toLocaleDateString("fr-FR"):"")+")" ).join("\n");
-    const anonNotes=cn.slice(0,5).map(n=>"- ["+n.tag+"] "+(typeof n.text==="object"?tx(n.text,lang):n.text)).join("\n");
+    const anonSigs=sigs.slice(0,15).map(s=>"- ["+impLbl(s.imp||50)+"] "+scrubName(tx(s.title,lang))+" ("+anonSrc(tx(s.src,lang))+", "+(s.at?new Date(s.at).toLocaleDateString("fr-FR"):"")+")" ).join("\n");
+
+    // Anonymize notes (scrub names)
+    const anonNotes=cn.slice(0,5).map(n=>"- ["+n.tag+"] "+scrubName(typeof n.text==="object"?tx(n.text,lang):n.text)).join("\n");
+
+    // Anonymize free text fields from dossier
+    const anonSinistres=scrubName(dos?.sinistres)||"N/A";
+    const anonContext=scrubName(dos?.context)||"N/A";
+    const anonProgramDesc=scrubName(dos?.program)||"N/A";
 
     const prompt=`Tu es un expert senior en assurance grandes entreprises. Tu analyses une entreprise pour un Account Manager.
-IMPORTANT: Les noms sont anonymisés. Utilise les codes fournis dans ta réponse.
+IMPORTANT: Toutes les données sont cryptées/anonymisées (conformité RGPD). Utilise UNIQUEMENT les codes fournis dans ta réponse. Ne tente JAMAIS de deviner les vrais noms.
 
 ENTREPRISE: ${anonCo}
-SECTEUR: ${tx(co.sector,lang)}
-SIÈGE: ${co.hq||"Europe"}
-CAPITALISATION: ${co.cap||"N/A"}
-EFFECTIFS: ${co.emp||"N/A"}
+SECTEUR: ${anonSector}
+SIÈGE: ${anonHq}
+CAPITALISATION: ${anonCap(co.cap)}
+EFFECTIFS: ${anonEmp(co.emp)}
 SCORE DE RISQUE ACTUEL: ${co.risk||50}/100
 
 DOSSIER CLIENT:
-Courtier: ${anonBroker||"N/A"} | Risk Manager: ${anonRm||"N/A"} | Renouvellement: ${dos?.renewal||"N/A"} | Prime: ${dos?.premium||"N/A"} | Programme: ${dos?.program||"N/A"} | Sinistralité: ${dos?.sinistres||"N/A"} | Contexte: ${dos?.context||"N/A"}
+Courtier: ${anonBroker||"N/A"} | Risk Manager: ${anonRm||"N/A"} | Renouvellement: ${anonRenewal(dos?.renewal)} | Prime: ${anonPremium(dos?.premium)} | Programme: ${anonProgramDesc} | Sinistralité: ${anonSinistres} | Contexte: ${anonContext}
 ${anonProgram?"STRUCTURE PROGRAMME:\n"+anonProgram:""}
 
 SIGNAUX RÉCENTS (${sigs.length}):
